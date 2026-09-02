@@ -290,8 +290,9 @@ python scripts/fetch_deepfake_detector.py --model dima806     # 그 외: wvolf, 
 ```
 
 각 모델 옆의 메타데이터 JSON(`models/deepfake_<name>.json`)만 커밋되어 있습니다. 이
-파일에는 해당 모델이 측정된 AUC가 기록되어 있으며, 그래서 이 저장소는 모델 자체를
-동봉하지 않고도 어느 것도 사용할 수 없다고 말할 수 있습니다.
+파일에는 전처리 규약이 기록되어 있고, 측정된 AUC는
+`data/results/deepfake_detector_survey.json`에 남아 있습니다. 그래서 이 저장소는 모델
+자체를 동봉하지 않고도 어느 것도 사용할 수 없다고 말할 수 있습니다.
 
 ### 또는: 릴리즈에서 고정된 가중치 내려받기
 
