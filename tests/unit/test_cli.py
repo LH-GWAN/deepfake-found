@@ -83,6 +83,11 @@ def test_implemented_commands_fail_cleanly_on_missing_input(
             "DefaultAnalysisPipeline",
             ["analyze-image", "nowhere.jpg"],
         ),
+        (
+            "deepshield.experiments",
+            "FaceRobustnessExperiment",
+            ["robustness-test", "nowhere.jpg"],
+        ),
     ],
 )
 def test_missing_input_is_reported_before_any_model_is_built(
