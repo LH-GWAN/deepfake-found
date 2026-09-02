@@ -1,0 +1,12 @@
+{
+  "repo": "dima806/deepfake_vs_real_image_detection",
+  "alias": "dima806",
+  "input_size": 224,
+  "native_size": 224,
+  "positive_index": 1,
+  "labels": {
+    "0": "Real",
+    "1": "Fake"
+  },
+  "preprocessing": "resize and normalise are baked into the graph; feed [0,1] RGB"
+}

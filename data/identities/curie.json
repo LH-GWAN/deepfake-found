@@ -1,0 +1,18 @@
+{
+  "user_id": "curie",
+  "image_count": 2,
+  "embedding_dimension": 512,
+  "model": {
+    "name": "arcface-buffalo_l+flip_tta",
+    "version": "insightface",
+    "backend": "insightface",
+    "training_dataset": "glint360k or webface600k depending on pack",
+    "input_size": 112
+  },
+  "created_at": "2026-09-02T07:56:44.630758+00:00",
+  "source_image_ids": [
+    "/private/tmp/claude-501/-Users-hyogwan-Desktop-----/435d1094-88be-4e60-a50a-82043b6f2016/scratchpad/e2e/curie/curie_1.jpg",
+    "/private/tmp/claude-501/-Users-hyogwan-Desktop-----/435d1094-88be-4e60-a50a-82043b6f2016/scratchpad/e2e/curie/curie_2.jpg"
+  ],
+  "embedding_file": "curie.npz"
+}

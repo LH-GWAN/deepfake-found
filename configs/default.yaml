@@ -1,0 +1,120 @@
+project:
+  name: deepshield
+  version: "0.1.0"
+  phase: 0
+
+runtime:
+  random_seed: 42
+  device: cpu
+  num_workers: 2
+  data_dir: data
+  model_dir: models
+  results_dir: data/results
+
+logging:
+  level: INFO
+  format: "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+  file: null
+  redact_embeddings: true
+  embedding_preview_dims: 4
+
+face:
+  detector:
+    backend: opencv_yunet
+    min_face_size: 40
+    detection_confidence_threshold: 0.6
+    max_faces: 20
+    nms_threshold: 0.3
+    max_detection_side: 1280
+    allow_download: true
+  aligner:
+    backend: landmark
+    output_size: 112
+    margin: 0.1
+  embedder:
+    backend: insightface
+    model_name: arcface
+    model_version: buffalo_l
+    embedding_dimension: 512
+    normalize: true
+    allow_download: true
+    insightface_pack: buffalo_l
+    flip_tta: true
+    ensemble: []
+  matcher:
+    metric: cosine
+    aggregation: max
+    top_k: 3
+    log_euclidean: true
+
+enrollment:
+  min_images: 3
+  max_images: 10
+  quality:
+    min_detection_confidence: 0.7
+    min_face_pixels: 80
+    min_sharpness: 100.0
+    min_sharpness_ratio: 0.15
+  keep_reference_embeddings: true
+  store_centroid: true
+
+detection:
+  deepfake:
+    backend: spectral
+    model_name: mock-deepfake-detector
+    model_version: "0.1.0"
+    input_size: 224
+    batch_size: 8
+  watermark:
+    backend: mock
+  manipulation:
+    backend: mock
+
+protection:
+  watermark:
+    backend: dct
+    strength: 0.16
+    payload_bits: 64
+    soft_decode_bits: 12
+    resync_enabled: true
+    resync_scales: [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4]
+    resync_min_confidence: 0.15
+    resync_candidates: 4
+    resync_soft_decode_bits: 0
+    resync_max_blocks: 2048
+  fingerprint:
+    hash_size: 8
+    semantic_embedding: false
+  adversarial:
+    enabled: false
+    epsilon: 0.03
+    steps: 50
+    step_size: 0.005
+
+video:
+  sampling:
+    strategy: uniform_fps
+    fps: 1.0
+    max_frames: 600
+  tracking:
+    backend: mock
+    iou_threshold: 0.4
+    max_gap_frames: 5
+    appearance_threshold: 0.75
+  representative_frame:
+    criterion: detection_confidence
+
+storage:
+  database_url: "sqlite:///deepshield.db"
+  separate_embedding_store: true
+  embedding_store_dir: data/embeddings
+
+api:
+  host: 127.0.0.1
+  port: 8000
+  max_upload_mb: 50
+
+experiments:
+  output_dir: data/results
+  format: csv
+  record_environment: true

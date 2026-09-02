@@ -1,0 +1,40 @@
+transformations:
+  jpeg_q90: { type: jpeg_compression, quality: 90 }
+  jpeg_q70: { type: jpeg_compression, quality: 70 }
+  jpeg_q50: { type: jpeg_compression, quality: 50 }
+  resize_75: { type: resize, scale: 0.75 }
+  resize_50: { type: resize, scale: 0.50 }
+  resize_25: { type: resize, scale: 0.25 }
+  crop_10: { type: crop, ratio: 0.10 }
+  crop_30: { type: crop, ratio: 0.30 }
+  rotate_5: { type: rotation, degrees: 5 }
+  blur_1: { type: blur, sigma: 1.0 }
+  noise_5: { type: noise, sigma: 5.0 }
+  brightness_up: { type: brightness, factor: 1.2 }
+  contrast_down: { type: contrast, factor: 0.8 }
+  webp_q80: { type: webp, quality: 80 }
+  screenshot: { type: screenshot_simulation, scale: 0.9, quality: 85 }
+
+experiments:
+  face_recognition_robustness:
+    enabled: false
+    transformations: [jpeg_q90, jpeg_q70, jpeg_q50, resize_50, crop_10, crop_30, blur_1, screenshot]
+    metrics: [face_similarity, recognition_success, psnr, ssim]
+  watermark_robustness:
+    enabled: false
+    transformations: [jpeg_q90, jpeg_q70, jpeg_q50, resize_50, crop_10, webp_q80, screenshot]
+    metrics: [watermark_detected, watermark_confidence, bit_accuracy, psnr, ssim]
+  adversarial_robustness:
+    enabled: false
+    transformations: [jpeg_q70, resize_50, crop_10, blur_1, screenshot]
+    metrics: [embedding_distance, recognition_failure_rate, psnr, ssim]
+  combined_protection:
+    enabled: false
+    conditions: [original, watermark_only, adversarial_only, watermark_and_adversarial]
+    metrics: [face_similarity, watermark_detected, psnr, ssim]
+
+reproducibility:
+  random_seed: 42
+  record_git_commit: true
+  record_python_version: true
+  record_model_versions: true

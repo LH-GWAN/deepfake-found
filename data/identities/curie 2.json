@@ -1,0 +1,18 @@
+{
+  "user_id": "curie",
+  "image_count": 2,
+  "embedding_dimension": 128,
+  "model": {
+    "name": "sface",
+    "version": "2021dec",
+    "backend": "opencv_sface",
+    "training_dataset": "unknown",
+    "input_size": 112
+  },
+  "created_at": "2026-09-02T02:24:22.275969+00:00",
+  "source_image_ids": [
+    "/private/tmp/claude-501/-Users-hyogwan-Desktop-----/435d1094-88be-4e60-a50a-82043b6f2016/scratchpad/e2e/curie/curie_1.jpg",
+    "/private/tmp/claude-501/-Users-hyogwan-Desktop-----/435d1094-88be-4e60-a50a-82043b6f2016/scratchpad/e2e/curie/curie_2.jpg"
+  ],
+  "embedding_file": "curie.npz"
+}

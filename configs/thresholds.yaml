@@ -1,0 +1,36 @@
+face_similarity:
+  candidate_threshold: 0.3591
+  high_confidence_threshold: 0.4128
+  min_margin: 0.0500
+  low_quality_penalty: 0.0000
+  min_probe_face_pixels: 0
+  calibrated: true
+  calibration_source: data/results/calibration_face_similarity.json
+
+deepfake:
+  suspicious_threshold: 0.5
+  high_confidence_threshold: 0.8
+  calibrated: false
+
+watermark:
+  detection_confidence_threshold: 0.7
+  bit_accuracy_threshold: 0.85
+
+fingerprint:
+  phash_hamming_threshold: 12
+  dhash_hamming_threshold: 12
+  semantic_similarity_threshold: 0.8
+  evidence_similarity_threshold: 0.8125
+
+risk:
+  weights:
+    face_similarity: 0.40
+    deepfake_score: 0.30
+    watermark_confidence: 0.15
+    fingerprint_similarity: 0.10
+    provenance_confidence: 0.05
+  levels:
+    low: 0
+    medium: 40
+    high: 70
+    critical: 85

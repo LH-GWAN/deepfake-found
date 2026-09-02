@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHON="${DEEPSHIELD_PYTHON:-$ROOT/.venv/bin/python}"
+[ -x "$PYTHON" ] || PYTHON="$(command -v python3)"
+export PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
+cd "$ROOT"
+exec "$PYTHON" -m deepshield "$@"

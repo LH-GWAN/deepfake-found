@@ -1,0 +1,12 @@
+{
+  "repo": "prithivMLmods/Deep-Fake-Detector-Model",
+  "alias": "prithiv",
+  "input_size": 224,
+  "native_size": 224,
+  "positive_index": 0,
+  "labels": {
+    "0": "Fake",
+    "1": "Real"
+  },
+  "preprocessing": "resize and normalise are baked into the graph; feed [0,1] RGB"
+}

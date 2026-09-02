@@ -1,0 +1,133 @@
+{
+  "analysis_id": "455639ecf04a42ff",
+  "source_id": "curie_1_30d8afd5ac5b41be.png",
+  "media": {
+    "type": "image",
+    "sha256": "e717cdfc7540f5f491b2781b2d0fd5d3584f77e613dc9865d87a6b58467f4d74"
+  },
+  "timestamp": "2026-09-02T07:56:46.403871+00:00",
+  "summary": "Content containing a face with high similarity (0.987) to the enrolled identity 'curie' was found. The synthetic-media detector scored it 0.763; this is a likelihood, not a determination. A DeepShield watermark (4b01bc82) was recovered, indicating the file descends from a registered protected asset.",
+  "identity": {
+    "matched": true,
+    "matched_user_id": "curie",
+    "similarity": 0.9869849915280455,
+    "decision": "high_confidence",
+    "margin": null,
+    "probe_quality": 1.0,
+    "face_detection_confidence": 0.913652777671814
+  },
+  "deepfake": {
+    "score": 0.7630176826843391
+  },
+  "watermark": {
+    "detected": true,
+    "confidence": 1.0,
+    "code": "4b01bc82",
+    "payload": null
+  },
+  "fingerprint": {
+    "perceptual_similarity": 1.0,
+    "matched_asset_id": "30d8afd5ac5b41be"
+  },
+  "faces": [
+    {
+      "index": 0,
+      "bbox": [
+        421.2899811267853,
+        496.8706660270691,
+        987.7423161268234,
+        1194.9744325876236
+      ],
+      "detection_confidence": 0.913652777671814,
+      "similarity": 0.986985,
+      "matched_user_id": "curie",
+      "candidate": true,
+      "decision": "high_confidence",
+      "probe_quality": 1.0,
+      "high_confidence": true,
+      "margin": null,
+      "runner_up_similarity": null,
+      "euclidean_distance": 0.16133820715922587
+    }
+  ],
+  "provenance": {
+    "confidence": 1.0
+  },
+  "risk": {
+    "risk_score": 99,
+    "risk_level": "CRITICAL",
+    "signals": {
+      "scored": [
+        {
+          "name": "face_similarity",
+          "value": 0.987,
+          "effective_weight": 0.5714,
+          "contribution": 0.564
+        },
+        {
+          "name": "watermark_confidence",
+          "value": 1.0,
+          "effective_weight": 0.2143,
+          "contribution": 0.2143
+        },
+        {
+          "name": "fingerprint_similarity",
+          "value": 1.0,
+          "effective_weight": 0.1429,
+          "contribution": 0.1429
+        },
+        {
+          "name": "provenance_confidence",
+          "value": 1.0,
+          "effective_weight": 0.0714,
+          "contribution": 0.0714
+        }
+      ],
+      "excluded": [
+        "deepfake_score"
+      ],
+      "coverage": 0.7
+    },
+    "explanation": [
+      "face_similarity: 0.987 (weight 57%, contributes 56.4 points)",
+      "watermark_confidence: 1.000 (weight 21%, contributes 21.4 points)",
+      "fingerprint_similarity: 1.000 (weight 14%, contributes 14.3 points)",
+      "provenance_confidence: 1.000 (weight 7%, contributes 7.1 points)",
+      "deepfake_score: 0.763 reported but excluded: threshold not calibrated"
+    ],
+    "limitations": [
+      "Face similarity does not prove that an image was used as training data.",
+      "Deepfake detectors may fail on generator families absent from their training data.",
+      "A watermark can be removed by cropping or regeneration, so its absence proves nothing.",
+      "High face similarity alone is expected for genuine photographs of the user.",
+      "Excluded from the score because their thresholds are not calibrated: deepfake_score",
+      "Only 70% of the intended signal weight was available; the score is computed over the signals that were present."
+    ]
+  },
+  "detector_versions": {
+    "face_embedder": {
+      "name": "arcface-buffalo_l+flip_tta",
+      "version": "insightface",
+      "backend": "insightface",
+      "training_dataset": "glint360k or webface600k depending on pack",
+      "input_size": 112
+    },
+    "deepfake_detector": {
+      "name": "spectral-artifact-heuristic",
+      "version": "0.1.0",
+      "backend": "spectral",
+      "training_dataset": null,
+      "input_size": 256
+    }
+  },
+  "limitations": [
+    "Face similarity does not prove that an image was used as training data.",
+    "Deepfake detectors may fail on generator families absent from their training data.",
+    "A watermark can be removed by cropping or regeneration, so its absence proves nothing.",
+    "High face similarity alone is expected for genuine photographs of the user.",
+    "Excluded from the score because their thresholds are not calibrated: deepfake_score",
+    "Only 70% of the intended signal weight was available; the score is computed over the signals that were present.",
+    "spectral heuristic: uncalibrated, no training data, responds to resizing and denoising as well as to synthesis"
+  ],
+  "processing_seconds": 0.2006
+}

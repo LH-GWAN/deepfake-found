@@ -1,0 +1,18 @@
+{
+  "asset_id": "30d8afd5ac5b41be",
+  "user_id": "curie",
+  "fingerprint": {
+    "asset_id": "30d8afd5ac5b41be",
+    "sha256": "e717cdfc7540f5f491b2781b2d0fd5d3584f77e613dc9865d87a6b58467f4d74",
+    "phash": "cfc731383c313932",
+    "dhash": "2361616023b33703",
+    "has_semantic_embedding": false,
+    "created_at": "2026-09-02T07:56:45.349481+00:00"
+  },
+  "watermark_code": "4b01bc82",
+  "distribution_id": "instagram",
+  "protected_path": "data/protected/curie_1_30d8afd5ac5b41be.png",
+  "source_path": "data/test/faces/curie_1.jpg",
+  "protection_version": "0.1.0",
+  "created_at": "2026-09-02T07:56:45.768050+00:00"
+}

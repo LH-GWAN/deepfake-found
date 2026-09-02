@@ -1,0 +1,2381 @@
+{
+  "method": "graphics-based face swap: 106-landmark affine warp, colour matching, feathered convex-hull blend, JPEG re-encode",
+  "covers": [
+    "blending-based face swap"
+  ],
+  "does_not_cover": [
+    "GAN synthesis",
+    "diffusion synthesis",
+    "reenactment"
+  ],
+  "jpeg_quality": 90,
+  "seed": 42,
+  "records": [
+    {
+      "path": "data/test/manipulated/real/angela_bassett_0.jpg",
+      "label": "real",
+      "identity": "angela_bassett",
+      "source": "angela_bassett_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/angela_bassett_0_swap.jpg",
+      "label": "fake",
+      "identity": "angela_bassett",
+      "source": "angela_bassett_0.png",
+      "donor": "john_manley_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/angela_bassett_1.jpg",
+      "label": "real",
+      "identity": "angela_bassett",
+      "source": "angela_bassett_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/angela_bassett_1_swap.jpg",
+      "label": "fake",
+      "identity": "angela_bassett",
+      "source": "angela_bassett_1.png",
+      "donor": "hugo_chavez_3.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/angela_bassett_2.jpg",
+      "label": "real",
+      "identity": "angela_bassett",
+      "source": "angela_bassett_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/angela_bassett_2_swap.jpg",
+      "label": "fake",
+      "identity": "angela_bassett",
+      "source": "angela_bassett_2.png",
+      "donor": "john_manley_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/angela_bassett_3.jpg",
+      "label": "real",
+      "identity": "angela_bassett",
+      "source": "angela_bassett_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/angela_bassett_3_swap.jpg",
+      "label": "fake",
+      "identity": "angela_bassett",
+      "source": "angela_bassett_3.png",
+      "donor": "larry_thompson_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/angela_bassett_4.jpg",
+      "label": "real",
+      "identity": "angela_bassett",
+      "source": "angela_bassett_4.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/angela_bassett_4_swap.jpg",
+      "label": "fake",
+      "identity": "angela_bassett",
+      "source": "angela_bassett_4.png",
+      "donor": "ben_howland_3.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/ben_howland_0.jpg",
+      "label": "real",
+      "identity": "ben_howland",
+      "source": "ben_howland_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/ben_howland_0_swap.jpg",
+      "label": "fake",
+      "identity": "ben_howland",
+      "source": "ben_howland_0.png",
+      "donor": "paul_burrell_3.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/ben_howland_1.jpg",
+      "label": "real",
+      "identity": "ben_howland",
+      "source": "ben_howland_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/ben_howland_1_swap.jpg",
+      "label": "fake",
+      "identity": "ben_howland",
+      "source": "ben_howland_1.png",
+      "donor": "paul_burrell_5.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/ben_howland_2.jpg",
+      "label": "real",
+      "identity": "ben_howland",
+      "source": "ben_howland_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/ben_howland_2_swap.jpg",
+      "label": "fake",
+      "identity": "ben_howland",
+      "source": "ben_howland_2.png",
+      "donor": "vincent_brooks_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/ben_howland_3.jpg",
+      "label": "real",
+      "identity": "ben_howland",
+      "source": "ben_howland_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/ben_howland_3_swap.jpg",
+      "label": "fake",
+      "identity": "ben_howland",
+      "source": "ben_howland_3.png",
+      "donor": "paul_burrell_7.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/bernard_law_0.jpg",
+      "label": "real",
+      "identity": "bernard_law",
+      "source": "bernard_law_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/bernard_law_0_swap.jpg",
+      "label": "fake",
+      "identity": "bernard_law",
+      "source": "bernard_law_0.png",
+      "donor": "jim_furyk_3.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/bernard_law_1.jpg",
+      "label": "real",
+      "identity": "bernard_law",
+      "source": "bernard_law_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/bernard_law_1_swap.jpg",
+      "label": "fake",
+      "identity": "bernard_law",
+      "source": "bernard_law_1.png",
+      "donor": "larry_thompson_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/bernard_law_2.jpg",
+      "label": "real",
+      "identity": "bernard_law",
+      "source": "bernard_law_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/bernard_law_2_swap.jpg",
+      "label": "fake",
+      "identity": "bernard_law",
+      "source": "bernard_law_2.png",
+      "donor": "paul_burrell_4.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/bernard_law_3.jpg",
+      "label": "real",
+      "identity": "bernard_law",
+      "source": "bernard_law_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/bernard_law_3_swap.jpg",
+      "label": "fake",
+      "identity": "bernard_law",
+      "source": "bernard_law_3.png",
+      "donor": "larry_thompson_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/bernard_law_4.jpg",
+      "label": "real",
+      "identity": "bernard_law",
+      "source": "bernard_law_4.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/bernard_law_4_swap.jpg",
+      "label": "fake",
+      "identity": "bernard_law",
+      "source": "bernard_law_4.png",
+      "donor": "tommy_haas_4.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/binyamin_ben-eliezer_0.jpg",
+      "label": "real",
+      "identity": "binyamin_ben-eliezer",
+      "source": "binyamin_ben-eliezer_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/binyamin_ben-eliezer_0_swap.jpg",
+      "label": "fake",
+      "identity": "binyamin_ben-eliezer",
+      "source": "binyamin_ben-eliezer_0.png",
+      "donor": "paul_burrell_5.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/binyamin_ben-eliezer_1.jpg",
+      "label": "real",
+      "identity": "binyamin_ben-eliezer",
+      "source": "binyamin_ben-eliezer_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/binyamin_ben-eliezer_1_swap.jpg",
+      "label": "fake",
+      "identity": "binyamin_ben-eliezer",
+      "source": "binyamin_ben-eliezer_1.png",
+      "donor": "tim_duncan_3.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/binyamin_ben-eliezer_2.jpg",
+      "label": "real",
+      "identity": "binyamin_ben-eliezer",
+      "source": "binyamin_ben-eliezer_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/binyamin_ben-eliezer_2_swap.jpg",
+      "label": "fake",
+      "identity": "binyamin_ben-eliezer",
+      "source": "binyamin_ben-eliezer_2.png",
+      "donor": "jack_straw_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/binyamin_ben-eliezer_3.jpg",
+      "label": "real",
+      "identity": "binyamin_ben-eliezer",
+      "source": "binyamin_ben-eliezer_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/binyamin_ben-eliezer_3_swap.jpg",
+      "label": "fake",
+      "identity": "binyamin_ben-eliezer",
+      "source": "binyamin_ben-eliezer_3.png",
+      "donor": "larry_thompson_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/binyamin_ben-eliezer_4.jpg",
+      "label": "real",
+      "identity": "binyamin_ben-eliezer",
+      "source": "binyamin_ben-eliezer_4.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/binyamin_ben-eliezer_4_swap.jpg",
+      "label": "fake",
+      "identity": "binyamin_ben-eliezer",
+      "source": "binyamin_ben-eliezer_4.png",
+      "donor": "john_manley_4.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/binyamin_ben-eliezer_5.jpg",
+      "label": "real",
+      "identity": "binyamin_ben-eliezer",
+      "source": "binyamin_ben-eliezer_5.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/binyamin_ben-eliezer_5_swap.jpg",
+      "label": "fake",
+      "identity": "binyamin_ben-eliezer",
+      "source": "binyamin_ben-eliezer_5.png",
+      "donor": "roger_moore_4.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/daisy_fuentes_0.jpg",
+      "label": "real",
+      "identity": "daisy_fuentes",
+      "source": "daisy_fuentes_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/daisy_fuentes_0_swap.jpg",
+      "label": "fake",
+      "identity": "daisy_fuentes",
+      "source": "daisy_fuentes_0.png",
+      "donor": "jennifer_lopez_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/daisy_fuentes_1.jpg",
+      "label": "real",
+      "identity": "daisy_fuentes",
+      "source": "daisy_fuentes_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/daisy_fuentes_1_swap.jpg",
+      "label": "fake",
+      "identity": "daisy_fuentes",
+      "source": "daisy_fuentes_1.png",
+      "donor": "monica_bellucci_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/daisy_fuentes_2.jpg",
+      "label": "real",
+      "identity": "daisy_fuentes",
+      "source": "daisy_fuentes_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/daisy_fuentes_2_swap.jpg",
+      "label": "fake",
+      "identity": "daisy_fuentes",
+      "source": "daisy_fuentes_2.png",
+      "donor": "angela_bassett_4.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/daisy_fuentes_3.jpg",
+      "label": "real",
+      "identity": "daisy_fuentes",
+      "source": "daisy_fuentes_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/daisy_fuentes_3_swap.jpg",
+      "label": "fake",
+      "identity": "daisy_fuentes",
+      "source": "daisy_fuentes_3.png",
+      "donor": "jennifer_lopez_7.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/edward_lu_0.jpg",
+      "label": "real",
+      "identity": "edward_lu",
+      "source": "edward_lu_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/edward_lu_0_swap.jpg",
+      "label": "fake",
+      "identity": "edward_lu",
+      "source": "edward_lu_0.png",
+      "donor": "igor_ivanov_3.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/edward_lu_1.jpg",
+      "label": "real",
+      "identity": "edward_lu",
+      "source": "edward_lu_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/edward_lu_1_swap.jpg",
+      "label": "fake",
+      "identity": "edward_lu",
+      "source": "edward_lu_1.png",
+      "donor": "igor_ivanov_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/edward_lu_2.jpg",
+      "label": "real",
+      "identity": "edward_lu",
+      "source": "edward_lu_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/edward_lu_2_swap.jpg",
+      "label": "fake",
+      "identity": "edward_lu",
+      "source": "edward_lu_2.png",
+      "donor": "jim_furyk_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/edward_lu_3.jpg",
+      "label": "real",
+      "identity": "edward_lu",
+      "source": "edward_lu_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/edward_lu_3_swap.jpg",
+      "label": "fake",
+      "identity": "edward_lu",
+      "source": "edward_lu_3.png",
+      "donor": "hugo_chavez_4.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/edward_lu_4.jpg",
+      "label": "real",
+      "identity": "edward_lu",
+      "source": "edward_lu_4.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/edward_lu_4_swap.jpg",
+      "label": "fake",
+      "identity": "edward_lu",
+      "source": "edward_lu_4.png",
+      "donor": "tom_hanks_5.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/felipe_perez_roque_0.jpg",
+      "label": "real",
+      "identity": "felipe_perez_roque",
+      "source": "felipe_perez_roque_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/felipe_perez_roque_0_swap.jpg",
+      "label": "fake",
+      "identity": "felipe_perez_roque",
+      "source": "felipe_perez_roque_0.png",
+      "donor": "vincent_brooks_4.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/felipe_perez_roque_1.jpg",
+      "label": "real",
+      "identity": "felipe_perez_roque",
+      "source": "felipe_perez_roque_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/felipe_perez_roque_1_swap.jpg",
+      "label": "fake",
+      "identity": "felipe_perez_roque",
+      "source": "felipe_perez_roque_1.png",
+      "donor": "ben_howland_3.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/felipe_perez_roque_2.jpg",
+      "label": "real",
+      "identity": "felipe_perez_roque",
+      "source": "felipe_perez_roque_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/felipe_perez_roque_2_swap.jpg",
+      "label": "fake",
+      "identity": "felipe_perez_roque",
+      "source": "felipe_perez_roque_2.png",
+      "donor": "daisy_fuentes_3.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/felipe_perez_roque_3.jpg",
+      "label": "real",
+      "identity": "felipe_perez_roque",
+      "source": "felipe_perez_roque_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/felipe_perez_roque_3_swap.jpg",
+      "label": "fake",
+      "identity": "felipe_perez_roque",
+      "source": "felipe_perez_roque_3.png",
+      "donor": "tom_hanks_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/hugo_chavez_0.jpg",
+      "label": "real",
+      "identity": "hugo_chavez",
+      "source": "hugo_chavez_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/hugo_chavez_0_swap.jpg",
+      "label": "fake",
+      "identity": "hugo_chavez",
+      "source": "hugo_chavez_0.png",
+      "donor": "tom_hanks_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/hugo_chavez_1.jpg",
+      "label": "real",
+      "identity": "hugo_chavez",
+      "source": "hugo_chavez_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/hugo_chavez_1_swap.jpg",
+      "label": "fake",
+      "identity": "hugo_chavez",
+      "source": "hugo_chavez_1.png",
+      "donor": "binyamin_ben-eliezer_5.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/hugo_chavez_2.jpg",
+      "label": "real",
+      "identity": "hugo_chavez",
+      "source": "hugo_chavez_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/hugo_chavez_2_swap.jpg",
+      "label": "fake",
+      "identity": "hugo_chavez",
+      "source": "hugo_chavez_2.png",
+      "donor": "jennifer_lopez_7.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/hugo_chavez_3.jpg",
+      "label": "real",
+      "identity": "hugo_chavez",
+      "source": "hugo_chavez_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/hugo_chavez_3_swap.jpg",
+      "label": "fake",
+      "identity": "hugo_chavez",
+      "source": "hugo_chavez_3.png",
+      "donor": "roger_moore_4.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/hugo_chavez_4.jpg",
+      "label": "real",
+      "identity": "hugo_chavez",
+      "source": "hugo_chavez_4.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/hugo_chavez_4_swap.jpg",
+      "label": "fake",
+      "identity": "hugo_chavez",
+      "source": "hugo_chavez_4.png",
+      "donor": "tony_shalhoub_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/hugo_chavez_5.jpg",
+      "label": "real",
+      "identity": "hugo_chavez",
+      "source": "hugo_chavez_5.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/hugo_chavez_5_swap.jpg",
+      "label": "fake",
+      "identity": "hugo_chavez",
+      "source": "hugo_chavez_5.png",
+      "donor": "roger_moore_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/hugo_chavez_6.jpg",
+      "label": "real",
+      "identity": "hugo_chavez",
+      "source": "hugo_chavez_6.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/hugo_chavez_6_swap.jpg",
+      "label": "fake",
+      "identity": "hugo_chavez",
+      "source": "hugo_chavez_6.png",
+      "donor": "jose_serra_4.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/hugo_chavez_7.jpg",
+      "label": "real",
+      "identity": "hugo_chavez",
+      "source": "hugo_chavez_7.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/hugo_chavez_7_swap.jpg",
+      "label": "fake",
+      "identity": "hugo_chavez",
+      "source": "hugo_chavez_7.png",
+      "donor": "paul_burrell_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/igor_ivanov_0.jpg",
+      "label": "real",
+      "identity": "igor_ivanov",
+      "source": "igor_ivanov_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/igor_ivanov_0_swap.jpg",
+      "label": "fake",
+      "identity": "igor_ivanov",
+      "source": "igor_ivanov_0.png",
+      "donor": "tom_hanks_6.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/igor_ivanov_1.jpg",
+      "label": "real",
+      "identity": "igor_ivanov",
+      "source": "igor_ivanov_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/igor_ivanov_1_swap.jpg",
+      "label": "fake",
+      "identity": "igor_ivanov",
+      "source": "igor_ivanov_1.png",
+      "donor": "tony_shalhoub_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/igor_ivanov_2.jpg",
+      "label": "real",
+      "identity": "igor_ivanov",
+      "source": "igor_ivanov_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/igor_ivanov_2_swap.jpg",
+      "label": "fake",
+      "identity": "igor_ivanov",
+      "source": "igor_ivanov_2.png",
+      "donor": "paul_burrell_5.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/igor_ivanov_3.jpg",
+      "label": "real",
+      "identity": "igor_ivanov",
+      "source": "igor_ivanov_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/igor_ivanov_3_swap.jpg",
+      "label": "fake",
+      "identity": "igor_ivanov",
+      "source": "igor_ivanov_3.png",
+      "donor": "thomas_fargo_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/igor_ivanov_4.jpg",
+      "label": "real",
+      "identity": "igor_ivanov",
+      "source": "igor_ivanov_4.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/igor_ivanov_4_swap.jpg",
+      "label": "fake",
+      "identity": "igor_ivanov",
+      "source": "igor_ivanov_4.png",
+      "donor": "tom_hanks_7.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/igor_ivanov_5.jpg",
+      "label": "real",
+      "identity": "igor_ivanov",
+      "source": "igor_ivanov_5.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/igor_ivanov_5_swap.jpg",
+      "label": "fake",
+      "identity": "igor_ivanov",
+      "source": "igor_ivanov_5.png",
+      "donor": "jennifer_lopez_3.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/igor_ivanov_6.jpg",
+      "label": "real",
+      "identity": "igor_ivanov",
+      "source": "igor_ivanov_6.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/igor_ivanov_6_swap.jpg",
+      "label": "fake",
+      "identity": "igor_ivanov",
+      "source": "igor_ivanov_6.png",
+      "donor": "tom_hanks_5.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/igor_ivanov_7.jpg",
+      "label": "real",
+      "identity": "igor_ivanov",
+      "source": "igor_ivanov_7.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/igor_ivanov_7_swap.jpg",
+      "label": "fake",
+      "identity": "igor_ivanov",
+      "source": "igor_ivanov_7.png",
+      "donor": "tommy_haas_4.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jack_straw_0.jpg",
+      "label": "real",
+      "identity": "jack_straw",
+      "source": "jack_straw_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jack_straw_0_swap.jpg",
+      "label": "fake",
+      "identity": "jack_straw",
+      "source": "jack_straw_0.png",
+      "donor": "angela_bassett_3.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jack_straw_1.jpg",
+      "label": "real",
+      "identity": "jack_straw",
+      "source": "jack_straw_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jack_straw_1_swap.jpg",
+      "label": "fake",
+      "identity": "jack_straw",
+      "source": "jack_straw_1.png",
+      "donor": "paul_burrell_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jack_straw_2.jpg",
+      "label": "real",
+      "identity": "jack_straw",
+      "source": "jack_straw_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jack_straw_2_swap.jpg",
+      "label": "fake",
+      "identity": "jack_straw",
+      "source": "jack_straw_2.png",
+      "donor": "paul_burrell_3.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jack_straw_3.jpg",
+      "label": "real",
+      "identity": "jack_straw",
+      "source": "jack_straw_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jack_straw_3_swap.jpg",
+      "label": "fake",
+      "identity": "jack_straw",
+      "source": "jack_straw_3.png",
+      "donor": "tim_duncan_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jack_straw_4.jpg",
+      "label": "real",
+      "identity": "jack_straw",
+      "source": "jack_straw_4.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jack_straw_4_swap.jpg",
+      "label": "fake",
+      "identity": "jack_straw",
+      "source": "jack_straw_4.png",
+      "donor": "jose_serra_6.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jack_straw_5.jpg",
+      "label": "real",
+      "identity": "jack_straw",
+      "source": "jack_straw_5.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jack_straw_5_swap.jpg",
+      "label": "fake",
+      "identity": "jack_straw",
+      "source": "jack_straw_5.png",
+      "donor": "tommy_haas_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jack_straw_6.jpg",
+      "label": "real",
+      "identity": "jack_straw",
+      "source": "jack_straw_6.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jack_straw_6_swap.jpg",
+      "label": "fake",
+      "identity": "jack_straw",
+      "source": "jack_straw_6.png",
+      "donor": "tim_duncan_3.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jack_straw_7.jpg",
+      "label": "real",
+      "identity": "jack_straw",
+      "source": "jack_straw_7.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jack_straw_7_swap.jpg",
+      "label": "fake",
+      "identity": "jack_straw",
+      "source": "jack_straw_7.png",
+      "donor": "daisy_fuentes_3.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jennifer_lopez_0.jpg",
+      "label": "real",
+      "identity": "jennifer_lopez",
+      "source": "jennifer_lopez_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jennifer_lopez_0_swap.jpg",
+      "label": "fake",
+      "identity": "jennifer_lopez",
+      "source": "jennifer_lopez_0.png",
+      "donor": "jim_furyk_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jennifer_lopez_1.jpg",
+      "label": "real",
+      "identity": "jennifer_lopez",
+      "source": "jennifer_lopez_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jennifer_lopez_1_swap.jpg",
+      "label": "fake",
+      "identity": "jennifer_lopez",
+      "source": "jennifer_lopez_1.png",
+      "donor": "justin_timberlake_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jennifer_lopez_2.jpg",
+      "label": "real",
+      "identity": "jennifer_lopez",
+      "source": "jennifer_lopez_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jennifer_lopez_2_swap.jpg",
+      "label": "fake",
+      "identity": "jennifer_lopez",
+      "source": "jennifer_lopez_2.png",
+      "donor": "daisy_fuentes_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jennifer_lopez_3.jpg",
+      "label": "real",
+      "identity": "jennifer_lopez",
+      "source": "jennifer_lopez_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jennifer_lopez_3_swap.jpg",
+      "label": "fake",
+      "identity": "jennifer_lopez",
+      "source": "jennifer_lopez_3.png",
+      "donor": "daisy_fuentes_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jennifer_lopez_4.jpg",
+      "label": "real",
+      "identity": "jennifer_lopez",
+      "source": "jennifer_lopez_4.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jennifer_lopez_4_swap.jpg",
+      "label": "fake",
+      "identity": "jennifer_lopez",
+      "source": "jennifer_lopez_4.png",
+      "donor": "jose_serra_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jennifer_lopez_5.jpg",
+      "label": "real",
+      "identity": "jennifer_lopez",
+      "source": "jennifer_lopez_5.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jennifer_lopez_5_swap.jpg",
+      "label": "fake",
+      "identity": "jennifer_lopez",
+      "source": "jennifer_lopez_5.png",
+      "donor": "hugo_chavez_4.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jennifer_lopez_6.jpg",
+      "label": "real",
+      "identity": "jennifer_lopez",
+      "source": "jennifer_lopez_6.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jennifer_lopez_6_swap.jpg",
+      "label": "fake",
+      "identity": "jennifer_lopez",
+      "source": "jennifer_lopez_6.png",
+      "donor": "daisy_fuentes_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jennifer_lopez_7.jpg",
+      "label": "real",
+      "identity": "jennifer_lopez",
+      "source": "jennifer_lopez_7.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jennifer_lopez_7_swap.jpg",
+      "label": "fake",
+      "identity": "jennifer_lopez",
+      "source": "jennifer_lopez_7.png",
+      "donor": "hugo_chavez_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jerry_springer_0.jpg",
+      "label": "real",
+      "identity": "jerry_springer",
+      "source": "jerry_springer_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jerry_springer_0_swap.jpg",
+      "label": "fake",
+      "identity": "jerry_springer",
+      "source": "jerry_springer_0.png",
+      "donor": "john_manley_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jerry_springer_1.jpg",
+      "label": "real",
+      "identity": "jerry_springer",
+      "source": "jerry_springer_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jerry_springer_1_swap.jpg",
+      "label": "fake",
+      "identity": "jerry_springer",
+      "source": "jerry_springer_1.png",
+      "donor": "rick_carlisle_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jerry_springer_2.jpg",
+      "label": "real",
+      "identity": "jerry_springer",
+      "source": "jerry_springer_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jerry_springer_2_swap.jpg",
+      "label": "fake",
+      "identity": "jerry_springer",
+      "source": "jerry_springer_2.png",
+      "donor": "john_manley_5.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jerry_springer_3.jpg",
+      "label": "real",
+      "identity": "jerry_springer",
+      "source": "jerry_springer_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jerry_springer_3_swap.jpg",
+      "label": "fake",
+      "identity": "jerry_springer",
+      "source": "jerry_springer_3.png",
+      "donor": "bernard_law_4.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jim_furyk_0.jpg",
+      "label": "real",
+      "identity": "jim_furyk",
+      "source": "jim_furyk_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jim_furyk_0_swap.jpg",
+      "label": "fake",
+      "identity": "jim_furyk",
+      "source": "jim_furyk_0.png",
+      "donor": "paul_burrell_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jim_furyk_1.jpg",
+      "label": "real",
+      "identity": "jim_furyk",
+      "source": "jim_furyk_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jim_furyk_1_swap.jpg",
+      "label": "fake",
+      "identity": "jim_furyk",
+      "source": "jim_furyk_1.png",
+      "donor": "rick_carlisle_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jim_furyk_2.jpg",
+      "label": "real",
+      "identity": "jim_furyk",
+      "source": "jim_furyk_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jim_furyk_2_swap.jpg",
+      "label": "fake",
+      "identity": "jim_furyk",
+      "source": "jim_furyk_2.png",
+      "donor": "paul_burrell_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jim_furyk_3.jpg",
+      "label": "real",
+      "identity": "jim_furyk",
+      "source": "jim_furyk_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jim_furyk_3_swap.jpg",
+      "label": "fake",
+      "identity": "jim_furyk",
+      "source": "jim_furyk_3.png",
+      "donor": "bernard_law_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jim_furyk_4.jpg",
+      "label": "real",
+      "identity": "jim_furyk",
+      "source": "jim_furyk_4.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jim_furyk_4_swap.jpg",
+      "label": "fake",
+      "identity": "jim_furyk",
+      "source": "jim_furyk_4.png",
+      "donor": "justin_timberlake_6.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jim_furyk_5.jpg",
+      "label": "real",
+      "identity": "jim_furyk",
+      "source": "jim_furyk_5.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jim_furyk_5_swap.jpg",
+      "label": "fake",
+      "identity": "jim_furyk",
+      "source": "jim_furyk_5.png",
+      "donor": "bernard_law_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/john_allen_muhammad_0.jpg",
+      "label": "real",
+      "identity": "john_allen_muhammad",
+      "source": "john_allen_muhammad_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/john_allen_muhammad_0_swap.jpg",
+      "label": "fake",
+      "identity": "john_allen_muhammad",
+      "source": "john_allen_muhammad_0.png",
+      "donor": "vincent_brooks_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/john_allen_muhammad_1.jpg",
+      "label": "real",
+      "identity": "john_allen_muhammad",
+      "source": "john_allen_muhammad_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/john_allen_muhammad_1_swap.jpg",
+      "label": "fake",
+      "identity": "john_allen_muhammad",
+      "source": "john_allen_muhammad_1.png",
+      "donor": "tom_hanks_6.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/john_allen_muhammad_2.jpg",
+      "label": "real",
+      "identity": "john_allen_muhammad",
+      "source": "john_allen_muhammad_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/john_allen_muhammad_2_swap.jpg",
+      "label": "fake",
+      "identity": "john_allen_muhammad",
+      "source": "john_allen_muhammad_2.png",
+      "donor": "thomas_fargo_3.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/john_allen_muhammad_3.jpg",
+      "label": "real",
+      "identity": "john_allen_muhammad",
+      "source": "john_allen_muhammad_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/john_allen_muhammad_3_swap.jpg",
+      "label": "fake",
+      "identity": "john_allen_muhammad",
+      "source": "john_allen_muhammad_3.png",
+      "donor": "larry_thompson_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/john_allen_muhammad_4.jpg",
+      "label": "real",
+      "identity": "john_allen_muhammad",
+      "source": "john_allen_muhammad_4.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/john_allen_muhammad_4_swap.jpg",
+      "label": "fake",
+      "identity": "john_allen_muhammad",
+      "source": "john_allen_muhammad_4.png",
+      "donor": "vincent_brooks_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/john_allen_muhammad_5.jpg",
+      "label": "real",
+      "identity": "john_allen_muhammad",
+      "source": "john_allen_muhammad_5.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/john_allen_muhammad_5_swap.jpg",
+      "label": "fake",
+      "identity": "john_allen_muhammad",
+      "source": "john_allen_muhammad_5.png",
+      "donor": "justin_timberlake_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/john_manley_0.jpg",
+      "label": "real",
+      "identity": "john_manley",
+      "source": "john_manley_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/john_manley_0_swap.jpg",
+      "label": "fake",
+      "identity": "john_manley",
+      "source": "john_manley_0.png",
+      "donor": "angela_bassett_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/john_manley_1.jpg",
+      "label": "real",
+      "identity": "john_manley",
+      "source": "john_manley_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/john_manley_1_swap.jpg",
+      "label": "fake",
+      "identity": "john_manley",
+      "source": "john_manley_1.png",
+      "donor": "angela_bassett_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/john_manley_2.jpg",
+      "label": "real",
+      "identity": "john_manley",
+      "source": "john_manley_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/john_manley_2_swap.jpg",
+      "label": "fake",
+      "identity": "john_manley",
+      "source": "john_manley_2.png",
+      "donor": "jerry_springer_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/john_manley_3.jpg",
+      "label": "real",
+      "identity": "john_manley",
+      "source": "john_manley_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/john_manley_3_swap.jpg",
+      "label": "fake",
+      "identity": "john_manley",
+      "source": "john_manley_3.png",
+      "donor": "tim_duncan_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/john_manley_4.jpg",
+      "label": "real",
+      "identity": "john_manley",
+      "source": "john_manley_4.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/john_manley_4_swap.jpg",
+      "label": "fake",
+      "identity": "john_manley",
+      "source": "john_manley_4.png",
+      "donor": "tommy_haas_4.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/john_manley_5.jpg",
+      "label": "real",
+      "identity": "john_manley",
+      "source": "john_manley_5.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/john_manley_5_swap.jpg",
+      "label": "fake",
+      "identity": "john_manley",
+      "source": "john_manley_5.png",
+      "donor": "igor_ivanov_7.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jose_serra_0.jpg",
+      "label": "real",
+      "identity": "jose_serra",
+      "source": "jose_serra_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jose_serra_0_swap.jpg",
+      "label": "fake",
+      "identity": "jose_serra",
+      "source": "jose_serra_0.png",
+      "donor": "kim_clijsters_5.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jose_serra_1.jpg",
+      "label": "real",
+      "identity": "jose_serra",
+      "source": "jose_serra_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jose_serra_1_swap.jpg",
+      "label": "fake",
+      "identity": "jose_serra",
+      "source": "jose_serra_1.png",
+      "donor": "kim_clijsters_6.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jose_serra_2.jpg",
+      "label": "real",
+      "identity": "jose_serra",
+      "source": "jose_serra_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jose_serra_2_swap.jpg",
+      "label": "fake",
+      "identity": "jose_serra",
+      "source": "jose_serra_2.png",
+      "donor": "jennifer_lopez_4.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jose_serra_3.jpg",
+      "label": "real",
+      "identity": "jose_serra",
+      "source": "jose_serra_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jose_serra_3_swap.jpg",
+      "label": "fake",
+      "identity": "jose_serra",
+      "source": "jose_serra_3.png",
+      "donor": "paul_burrell_6.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jose_serra_4.jpg",
+      "label": "real",
+      "identity": "jose_serra",
+      "source": "jose_serra_4.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jose_serra_4_swap.jpg",
+      "label": "fake",
+      "identity": "jose_serra",
+      "source": "jose_serra_4.png",
+      "donor": "hugo_chavez_6.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jose_serra_5.jpg",
+      "label": "real",
+      "identity": "jose_serra",
+      "source": "jose_serra_5.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jose_serra_5_swap.jpg",
+      "label": "fake",
+      "identity": "jose_serra",
+      "source": "jose_serra_5.png",
+      "donor": "vincent_brooks_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jose_serra_6.jpg",
+      "label": "real",
+      "identity": "jose_serra",
+      "source": "jose_serra_6.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jose_serra_6_swap.jpg",
+      "label": "fake",
+      "identity": "jose_serra",
+      "source": "jose_serra_6.png",
+      "donor": "paul_burrell_6.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/jose_serra_7.jpg",
+      "label": "real",
+      "identity": "jose_serra",
+      "source": "jose_serra_7.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/jose_serra_7_swap.jpg",
+      "label": "fake",
+      "identity": "jose_serra",
+      "source": "jose_serra_7.png",
+      "donor": "tom_hanks_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/justin_timberlake_0.jpg",
+      "label": "real",
+      "identity": "justin_timberlake",
+      "source": "justin_timberlake_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/justin_timberlake_0_swap.jpg",
+      "label": "fake",
+      "identity": "justin_timberlake",
+      "source": "justin_timberlake_0.png",
+      "donor": "daisy_fuentes_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/justin_timberlake_1.jpg",
+      "label": "real",
+      "identity": "justin_timberlake",
+      "source": "justin_timberlake_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/justin_timberlake_1_swap.jpg",
+      "label": "fake",
+      "identity": "justin_timberlake",
+      "source": "justin_timberlake_1.png",
+      "donor": "tony_shalhoub_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/justin_timberlake_2.jpg",
+      "label": "real",
+      "identity": "justin_timberlake",
+      "source": "justin_timberlake_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/justin_timberlake_2_swap.jpg",
+      "label": "fake",
+      "identity": "justin_timberlake",
+      "source": "justin_timberlake_2.png",
+      "donor": "jose_serra_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/justin_timberlake_3.jpg",
+      "label": "real",
+      "identity": "justin_timberlake",
+      "source": "justin_timberlake_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/justin_timberlake_3_swap.jpg",
+      "label": "fake",
+      "identity": "justin_timberlake",
+      "source": "justin_timberlake_3.png",
+      "donor": "daisy_fuentes_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/justin_timberlake_4.jpg",
+      "label": "real",
+      "identity": "justin_timberlake",
+      "source": "justin_timberlake_4.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/justin_timberlake_4_swap.jpg",
+      "label": "fake",
+      "identity": "justin_timberlake",
+      "source": "justin_timberlake_4.png",
+      "donor": "rick_carlisle_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/justin_timberlake_5.jpg",
+      "label": "real",
+      "identity": "justin_timberlake",
+      "source": "justin_timberlake_5.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/justin_timberlake_5_swap.jpg",
+      "label": "fake",
+      "identity": "justin_timberlake",
+      "source": "justin_timberlake_5.png",
+      "donor": "edward_lu_4.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/justin_timberlake_6.jpg",
+      "label": "real",
+      "identity": "justin_timberlake",
+      "source": "justin_timberlake_6.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/justin_timberlake_6_swap.jpg",
+      "label": "fake",
+      "identity": "justin_timberlake",
+      "source": "justin_timberlake_6.png",
+      "donor": "jim_furyk_4.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/kim_clijsters_0.jpg",
+      "label": "real",
+      "identity": "kim_clijsters",
+      "source": "kim_clijsters_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/kim_clijsters_0_swap.jpg",
+      "label": "fake",
+      "identity": "kim_clijsters",
+      "source": "kim_clijsters_0.png",
+      "donor": "larry_thompson_3.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/kim_clijsters_1.jpg",
+      "label": "real",
+      "identity": "kim_clijsters",
+      "source": "kim_clijsters_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/kim_clijsters_1_swap.jpg",
+      "label": "fake",
+      "identity": "kim_clijsters",
+      "source": "kim_clijsters_1.png",
+      "donor": "jim_furyk_3.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/kim_clijsters_2.jpg",
+      "label": "real",
+      "identity": "kim_clijsters",
+      "source": "kim_clijsters_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/kim_clijsters_2_swap.jpg",
+      "label": "fake",
+      "identity": "kim_clijsters",
+      "source": "kim_clijsters_2.png",
+      "donor": "jose_serra_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/kim_clijsters_3.jpg",
+      "label": "real",
+      "identity": "kim_clijsters",
+      "source": "kim_clijsters_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/kim_clijsters_3_swap.jpg",
+      "label": "fake",
+      "identity": "kim_clijsters",
+      "source": "kim_clijsters_3.png",
+      "donor": "tommy_haas_5.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/kim_clijsters_4.jpg",
+      "label": "real",
+      "identity": "kim_clijsters",
+      "source": "kim_clijsters_4.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/kim_clijsters_4_swap.jpg",
+      "label": "fake",
+      "identity": "kim_clijsters",
+      "source": "kim_clijsters_4.png",
+      "donor": "jerry_springer_3.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/kim_clijsters_5.jpg",
+      "label": "real",
+      "identity": "kim_clijsters",
+      "source": "kim_clijsters_5.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/kim_clijsters_5_swap.jpg",
+      "label": "fake",
+      "identity": "kim_clijsters",
+      "source": "kim_clijsters_5.png",
+      "donor": "jose_serra_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/kim_clijsters_6.jpg",
+      "label": "real",
+      "identity": "kim_clijsters",
+      "source": "kim_clijsters_6.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/kim_clijsters_6_swap.jpg",
+      "label": "fake",
+      "identity": "kim_clijsters",
+      "source": "kim_clijsters_6.png",
+      "donor": "ben_howland_3.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/kim_clijsters_7.jpg",
+      "label": "real",
+      "identity": "kim_clijsters",
+      "source": "kim_clijsters_7.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/kim_clijsters_7_swap.jpg",
+      "label": "fake",
+      "identity": "kim_clijsters",
+      "source": "kim_clijsters_7.png",
+      "donor": "bernard_law_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/larry_thompson_0.jpg",
+      "label": "real",
+      "identity": "larry_thompson",
+      "source": "larry_thompson_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/larry_thompson_0_swap.jpg",
+      "label": "fake",
+      "identity": "larry_thompson",
+      "source": "larry_thompson_0.png",
+      "donor": "bernard_law_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/larry_thompson_1.jpg",
+      "label": "real",
+      "identity": "larry_thompson",
+      "source": "larry_thompson_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/larry_thompson_1_swap.jpg",
+      "label": "fake",
+      "identity": "larry_thompson",
+      "source": "larry_thompson_1.png",
+      "donor": "ben_howland_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/larry_thompson_2.jpg",
+      "label": "real",
+      "identity": "larry_thompson",
+      "source": "larry_thompson_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/larry_thompson_2_swap.jpg",
+      "label": "fake",
+      "identity": "larry_thompson",
+      "source": "larry_thompson_2.png",
+      "donor": "rick_carlisle_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/larry_thompson_3.jpg",
+      "label": "real",
+      "identity": "larry_thompson",
+      "source": "larry_thompson_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/larry_thompson_3_swap.jpg",
+      "label": "fake",
+      "identity": "larry_thompson",
+      "source": "larry_thompson_3.png",
+      "donor": "kim_clijsters_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/mark_hurlbert_0.jpg",
+      "label": "real",
+      "identity": "mark_hurlbert",
+      "source": "mark_hurlbert_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/mark_hurlbert_0_swap.jpg",
+      "label": "fake",
+      "identity": "mark_hurlbert",
+      "source": "mark_hurlbert_0.png",
+      "donor": "vincent_brooks_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/mark_hurlbert_1.jpg",
+      "label": "real",
+      "identity": "mark_hurlbert",
+      "source": "mark_hurlbert_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/mark_hurlbert_1_swap.jpg",
+      "label": "fake",
+      "identity": "mark_hurlbert",
+      "source": "mark_hurlbert_1.png",
+      "donor": "ben_howland_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/mark_hurlbert_2.jpg",
+      "label": "real",
+      "identity": "mark_hurlbert",
+      "source": "mark_hurlbert_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/mark_hurlbert_2_swap.jpg",
+      "label": "fake",
+      "identity": "mark_hurlbert",
+      "source": "mark_hurlbert_2.png",
+      "donor": "roger_moore_4.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/mark_hurlbert_3.jpg",
+      "label": "real",
+      "identity": "mark_hurlbert",
+      "source": "mark_hurlbert_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/mark_hurlbert_3_swap.jpg",
+      "label": "fake",
+      "identity": "mark_hurlbert",
+      "source": "mark_hurlbert_3.png",
+      "donor": "bernard_law_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/monica_bellucci_0.jpg",
+      "label": "real",
+      "identity": "monica_bellucci",
+      "source": "monica_bellucci_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/monica_bellucci_0_swap.jpg",
+      "label": "fake",
+      "identity": "monica_bellucci",
+      "source": "monica_bellucci_0.png",
+      "donor": "daisy_fuentes_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/monica_bellucci_1.jpg",
+      "label": "real",
+      "identity": "monica_bellucci",
+      "source": "monica_bellucci_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/monica_bellucci_1_swap.jpg",
+      "label": "fake",
+      "identity": "monica_bellucci",
+      "source": "monica_bellucci_1.png",
+      "donor": "jennifer_lopez_5.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/monica_bellucci_2.jpg",
+      "label": "real",
+      "identity": "monica_bellucci",
+      "source": "monica_bellucci_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/monica_bellucci_2_swap.jpg",
+      "label": "fake",
+      "identity": "monica_bellucci",
+      "source": "monica_bellucci_2.png",
+      "donor": "daisy_fuentes_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/paul_burrell_0.jpg",
+      "label": "real",
+      "identity": "paul_burrell",
+      "source": "paul_burrell_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/paul_burrell_0_swap.jpg",
+      "label": "fake",
+      "identity": "paul_burrell",
+      "source": "paul_burrell_0.png",
+      "donor": "tommy_haas_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/paul_burrell_1.jpg",
+      "label": "real",
+      "identity": "paul_burrell",
+      "source": "paul_burrell_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/paul_burrell_1_swap.jpg",
+      "label": "fake",
+      "identity": "paul_burrell",
+      "source": "paul_burrell_1.png",
+      "donor": "jack_straw_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/paul_burrell_2.jpg",
+      "label": "real",
+      "identity": "paul_burrell",
+      "source": "paul_burrell_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/paul_burrell_2_swap.jpg",
+      "label": "fake",
+      "identity": "paul_burrell",
+      "source": "paul_burrell_2.png",
+      "donor": "jim_furyk_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/paul_burrell_3.jpg",
+      "label": "real",
+      "identity": "paul_burrell",
+      "source": "paul_burrell_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/paul_burrell_3_swap.jpg",
+      "label": "fake",
+      "identity": "paul_burrell",
+      "source": "paul_burrell_3.png",
+      "donor": "jack_straw_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/paul_burrell_4.jpg",
+      "label": "real",
+      "identity": "paul_burrell",
+      "source": "paul_burrell_4.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/paul_burrell_4_swap.jpg",
+      "label": "fake",
+      "identity": "paul_burrell",
+      "source": "paul_burrell_4.png",
+      "donor": "bernard_law_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/paul_burrell_5.jpg",
+      "label": "real",
+      "identity": "paul_burrell",
+      "source": "paul_burrell_5.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/paul_burrell_5_swap.jpg",
+      "label": "fake",
+      "identity": "paul_burrell",
+      "source": "paul_burrell_5.png",
+      "donor": "igor_ivanov_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/paul_burrell_6.jpg",
+      "label": "real",
+      "identity": "paul_burrell",
+      "source": "paul_burrell_6.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/paul_burrell_6_swap.jpg",
+      "label": "fake",
+      "identity": "paul_burrell",
+      "source": "paul_burrell_6.png",
+      "donor": "jose_serra_6.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/paul_burrell_7.jpg",
+      "label": "real",
+      "identity": "paul_burrell",
+      "source": "paul_burrell_7.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/paul_burrell_7_swap.jpg",
+      "label": "fake",
+      "identity": "paul_burrell",
+      "source": "paul_burrell_7.png",
+      "donor": "tom_hanks_3.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/rick_carlisle_0.jpg",
+      "label": "real",
+      "identity": "rick_carlisle",
+      "source": "rick_carlisle_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/rick_carlisle_0_swap.jpg",
+      "label": "fake",
+      "identity": "rick_carlisle",
+      "source": "rick_carlisle_0.png",
+      "donor": "jerry_springer_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/rick_carlisle_1.jpg",
+      "label": "real",
+      "identity": "rick_carlisle",
+      "source": "rick_carlisle_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/rick_carlisle_1_swap.jpg",
+      "label": "fake",
+      "identity": "rick_carlisle",
+      "source": "rick_carlisle_1.png",
+      "donor": "larry_thompson_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/rick_carlisle_2.jpg",
+      "label": "real",
+      "identity": "rick_carlisle",
+      "source": "rick_carlisle_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/rick_carlisle_2_swap.jpg",
+      "label": "fake",
+      "identity": "rick_carlisle",
+      "source": "rick_carlisle_2.png",
+      "donor": "justin_timberlake_4.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/roger_moore_0.jpg",
+      "label": "real",
+      "identity": "roger_moore",
+      "source": "roger_moore_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/roger_moore_0_swap.jpg",
+      "label": "fake",
+      "identity": "roger_moore",
+      "source": "roger_moore_0.png",
+      "donor": "larry_thompson_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/roger_moore_1.jpg",
+      "label": "real",
+      "identity": "roger_moore",
+      "source": "roger_moore_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/roger_moore_1_swap.jpg",
+      "label": "fake",
+      "identity": "roger_moore",
+      "source": "roger_moore_1.png",
+      "donor": "tommy_haas_5.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/roger_moore_2.jpg",
+      "label": "real",
+      "identity": "roger_moore",
+      "source": "roger_moore_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/roger_moore_2_swap.jpg",
+      "label": "fake",
+      "identity": "roger_moore",
+      "source": "roger_moore_2.png",
+      "donor": "jack_straw_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/roger_moore_3.jpg",
+      "label": "real",
+      "identity": "roger_moore",
+      "source": "roger_moore_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/roger_moore_3_swap.jpg",
+      "label": "fake",
+      "identity": "roger_moore",
+      "source": "roger_moore_3.png",
+      "donor": "tom_hanks_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/roger_moore_4.jpg",
+      "label": "real",
+      "identity": "roger_moore",
+      "source": "roger_moore_4.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/roger_moore_4_swap.jpg",
+      "label": "fake",
+      "identity": "roger_moore",
+      "source": "roger_moore_4.png",
+      "donor": "binyamin_ben-eliezer_5.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/thomas_fargo_0.jpg",
+      "label": "real",
+      "identity": "thomas_fargo",
+      "source": "thomas_fargo_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/thomas_fargo_0_swap.jpg",
+      "label": "fake",
+      "identity": "thomas_fargo",
+      "source": "thomas_fargo_0.png",
+      "donor": "tom_hanks_3.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/thomas_fargo_1.jpg",
+      "label": "real",
+      "identity": "thomas_fargo",
+      "source": "thomas_fargo_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/thomas_fargo_1_swap.jpg",
+      "label": "fake",
+      "identity": "thomas_fargo",
+      "source": "thomas_fargo_1.png",
+      "donor": "jack_straw_7.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/thomas_fargo_2.jpg",
+      "label": "real",
+      "identity": "thomas_fargo",
+      "source": "thomas_fargo_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/thomas_fargo_2_swap.jpg",
+      "label": "fake",
+      "identity": "thomas_fargo",
+      "source": "thomas_fargo_2.png",
+      "donor": "paul_burrell_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/thomas_fargo_3.jpg",
+      "label": "real",
+      "identity": "thomas_fargo",
+      "source": "thomas_fargo_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/thomas_fargo_3_swap.jpg",
+      "label": "fake",
+      "identity": "thomas_fargo",
+      "source": "thomas_fargo_3.png",
+      "donor": "vincent_brooks_6.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/tim_duncan_0.jpg",
+      "label": "real",
+      "identity": "tim_duncan",
+      "source": "tim_duncan_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/tim_duncan_0_swap.jpg",
+      "label": "fake",
+      "identity": "tim_duncan",
+      "source": "tim_duncan_0.png",
+      "donor": "jack_straw_3.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/tim_duncan_1.jpg",
+      "label": "real",
+      "identity": "tim_duncan",
+      "source": "tim_duncan_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/tim_duncan_1_swap.jpg",
+      "label": "fake",
+      "identity": "tim_duncan",
+      "source": "tim_duncan_1.png",
+      "donor": "roger_moore_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/tim_duncan_2.jpg",
+      "label": "real",
+      "identity": "tim_duncan",
+      "source": "tim_duncan_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/tim_duncan_2_swap.jpg",
+      "label": "fake",
+      "identity": "tim_duncan",
+      "source": "tim_duncan_2.png",
+      "donor": "jennifer_lopez_5.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/tim_duncan_3.jpg",
+      "label": "real",
+      "identity": "tim_duncan",
+      "source": "tim_duncan_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/tim_duncan_3_swap.jpg",
+      "label": "fake",
+      "identity": "tim_duncan",
+      "source": "tim_duncan_3.png",
+      "donor": "binyamin_ben-eliezer_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/tom_hanks_0.jpg",
+      "label": "real",
+      "identity": "tom_hanks",
+      "source": "tom_hanks_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/tom_hanks_0_swap.jpg",
+      "label": "fake",
+      "identity": "tom_hanks",
+      "source": "tom_hanks_0.png",
+      "donor": "binyamin_ben-eliezer_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/tom_hanks_1.jpg",
+      "label": "real",
+      "identity": "tom_hanks",
+      "source": "tom_hanks_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/tom_hanks_1_swap.jpg",
+      "label": "fake",
+      "identity": "tom_hanks",
+      "source": "tom_hanks_1.png",
+      "donor": "roger_moore_3.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/tom_hanks_2.jpg",
+      "label": "real",
+      "identity": "tom_hanks",
+      "source": "tom_hanks_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/tom_hanks_2_swap.jpg",
+      "label": "fake",
+      "identity": "tom_hanks",
+      "source": "tom_hanks_2.png",
+      "donor": "paul_burrell_3.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/tom_hanks_3.jpg",
+      "label": "real",
+      "identity": "tom_hanks",
+      "source": "tom_hanks_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/tom_hanks_3_swap.jpg",
+      "label": "fake",
+      "identity": "tom_hanks",
+      "source": "tom_hanks_3.png",
+      "donor": "thomas_fargo_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/tom_hanks_4.jpg",
+      "label": "real",
+      "identity": "tom_hanks",
+      "source": "tom_hanks_4.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/tom_hanks_4_swap.jpg",
+      "label": "fake",
+      "identity": "tom_hanks",
+      "source": "tom_hanks_4.png",
+      "donor": "tony_shalhoub_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/tom_hanks_5.jpg",
+      "label": "real",
+      "identity": "tom_hanks",
+      "source": "tom_hanks_5.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/tom_hanks_5_swap.jpg",
+      "label": "fake",
+      "identity": "tom_hanks",
+      "source": "tom_hanks_5.png",
+      "donor": "justin_timberlake_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/tom_hanks_6.jpg",
+      "label": "real",
+      "identity": "tom_hanks",
+      "source": "tom_hanks_6.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/tom_hanks_6_swap.jpg",
+      "label": "fake",
+      "identity": "tom_hanks",
+      "source": "tom_hanks_6.png",
+      "donor": "tony_shalhoub_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/tom_hanks_7.jpg",
+      "label": "real",
+      "identity": "tom_hanks",
+      "source": "tom_hanks_7.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/tom_hanks_7_swap.jpg",
+      "label": "fake",
+      "identity": "tom_hanks",
+      "source": "tom_hanks_7.png",
+      "donor": "tony_shalhoub_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/tommy_haas_0.jpg",
+      "label": "real",
+      "identity": "tommy_haas",
+      "source": "tommy_haas_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/tommy_haas_0_swap.jpg",
+      "label": "fake",
+      "identity": "tommy_haas",
+      "source": "tommy_haas_0.png",
+      "donor": "jack_straw_5.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/tommy_haas_1.jpg",
+      "label": "real",
+      "identity": "tommy_haas",
+      "source": "tommy_haas_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/tommy_haas_1_swap.jpg",
+      "label": "fake",
+      "identity": "tommy_haas",
+      "source": "tommy_haas_1.png",
+      "donor": "jack_straw_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/tommy_haas_3.jpg",
+      "label": "real",
+      "identity": "tommy_haas",
+      "source": "tommy_haas_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/tommy_haas_3_swap.jpg",
+      "label": "fake",
+      "identity": "tommy_haas",
+      "source": "tommy_haas_3.png",
+      "donor": "bernard_law_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/tommy_haas_4.jpg",
+      "label": "real",
+      "identity": "tommy_haas",
+      "source": "tommy_haas_4.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/tommy_haas_4_swap.jpg",
+      "label": "fake",
+      "identity": "tommy_haas",
+      "source": "tommy_haas_4.png",
+      "donor": "vincent_brooks_4.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/tommy_haas_5.jpg",
+      "label": "real",
+      "identity": "tommy_haas",
+      "source": "tommy_haas_5.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/tommy_haas_5_swap.jpg",
+      "label": "fake",
+      "identity": "tommy_haas",
+      "source": "tommy_haas_5.png",
+      "donor": "kim_clijsters_3.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/tony_shalhoub_0.jpg",
+      "label": "real",
+      "identity": "tony_shalhoub",
+      "source": "tony_shalhoub_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/tony_shalhoub_0_swap.jpg",
+      "label": "fake",
+      "identity": "tony_shalhoub",
+      "source": "tony_shalhoub_0.png",
+      "donor": "hugo_chavez_6.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/tony_shalhoub_1.jpg",
+      "label": "real",
+      "identity": "tony_shalhoub",
+      "source": "tony_shalhoub_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/tony_shalhoub_1_swap.jpg",
+      "label": "fake",
+      "identity": "tony_shalhoub",
+      "source": "tony_shalhoub_1.png",
+      "donor": "justin_timberlake_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/tony_shalhoub_2.jpg",
+      "label": "real",
+      "identity": "tony_shalhoub",
+      "source": "tony_shalhoub_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/tony_shalhoub_2_swap.jpg",
+      "label": "fake",
+      "identity": "tony_shalhoub",
+      "source": "tony_shalhoub_2.png",
+      "donor": "tom_hanks_4.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/tony_shalhoub_3.jpg",
+      "label": "real",
+      "identity": "tony_shalhoub",
+      "source": "tony_shalhoub_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/tony_shalhoub_3_swap.jpg",
+      "label": "fake",
+      "identity": "tony_shalhoub",
+      "source": "tony_shalhoub_3.png",
+      "donor": "daisy_fuentes_0.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/vincent_brooks_0.jpg",
+      "label": "real",
+      "identity": "vincent_brooks",
+      "source": "vincent_brooks_0.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/vincent_brooks_0_swap.jpg",
+      "label": "fake",
+      "identity": "vincent_brooks",
+      "source": "vincent_brooks_0.png",
+      "donor": "hugo_chavez_1.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/vincent_brooks_1.jpg",
+      "label": "real",
+      "identity": "vincent_brooks",
+      "source": "vincent_brooks_1.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/vincent_brooks_1_swap.jpg",
+      "label": "fake",
+      "identity": "vincent_brooks",
+      "source": "vincent_brooks_1.png",
+      "donor": "jose_serra_5.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/vincent_brooks_2.jpg",
+      "label": "real",
+      "identity": "vincent_brooks",
+      "source": "vincent_brooks_2.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/vincent_brooks_2_swap.jpg",
+      "label": "fake",
+      "identity": "vincent_brooks",
+      "source": "vincent_brooks_2.png",
+      "donor": "ben_howland_2.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/vincent_brooks_3.jpg",
+      "label": "real",
+      "identity": "vincent_brooks",
+      "source": "vincent_brooks_3.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/vincent_brooks_3_swap.jpg",
+      "label": "fake",
+      "identity": "vincent_brooks",
+      "source": "vincent_brooks_3.png",
+      "donor": "hugo_chavez_4.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/vincent_brooks_4.jpg",
+      "label": "real",
+      "identity": "vincent_brooks",
+      "source": "vincent_brooks_4.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/vincent_brooks_4_swap.jpg",
+      "label": "fake",
+      "identity": "vincent_brooks",
+      "source": "vincent_brooks_4.png",
+      "donor": "tommy_haas_4.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/vincent_brooks_5.jpg",
+      "label": "real",
+      "identity": "vincent_brooks",
+      "source": "vincent_brooks_5.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/vincent_brooks_5_swap.jpg",
+      "label": "fake",
+      "identity": "vincent_brooks",
+      "source": "vincent_brooks_5.png",
+      "donor": "tommy_haas_4.png",
+      "method": "landmark_affine_hull_blend"
+    },
+    {
+      "path": "data/test/manipulated/real/vincent_brooks_6.jpg",
+      "label": "real",
+      "identity": "vincent_brooks",
+      "source": "vincent_brooks_6.png"
+    },
+    {
+      "path": "data/test/manipulated/fake/vincent_brooks_6_swap.jpg",
+      "label": "fake",
+      "identity": "vincent_brooks",
+      "source": "vincent_brooks_6.png",
+      "donor": "thomas_fargo_3.png",
+      "method": "landmark_affine_hull_blend"
+    }
+  ]
+}

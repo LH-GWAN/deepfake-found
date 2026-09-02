@@ -1,0 +1,187 @@
+{
+  "environment": {
+    "deepshield_version": "0.1.0",
+    "git_commit": "not-a-git-repository",
+    "python": "3.12.10",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "numpy": "2.5.2",
+    "random_seed": 42,
+    "device": "cpu",
+    "face_detector": "opencv_yunet",
+    "face_aligner": "landmark",
+    "face_embedder": "insightface",
+    "deepfake_detector": "spectral",
+    "watermark_backend": "dct",
+    "watermark_strength": 0.12,
+    "recorded_at": "2026-09-02T03:26:07.753358+00:00"
+  },
+  "evaluation_set": {
+    "path": "data/test/eval_faces",
+    "photos": 170,
+    "identities": 30,
+    "degradations": [
+      "clean",
+      "jpeg30",
+      "crop_20",
+      "blur_3",
+      "screenshot"
+    ]
+  },
+  "pooled": {
+    "genuine": 850,
+    "impostor": 24650,
+    "roc": {
+      "auc": 1.0,
+      "eer": 0.0,
+      "eer_threshold": 0.439688,
+      "points": 25501
+    },
+    "genuine_min": 0.439688,
+    "impostor_max": 0.332284
+  },
+  "per_degradation": {
+    "clean": {
+      "probes": 170.0,
+      "auc": 1.0,
+      "eer": 0.0,
+      "genuine_min": 0.566315,
+      "genuine_median": 0.77991,
+      "impostor_max": 0.279437
+    },
+    "jpeg30": {
+      "probes": 170.0,
+      "auc": 1.0,
+      "eer": 0.0,
+      "genuine_min": 0.553422,
+      "genuine_median": 0.755706,
+      "impostor_max": 0.287563
+    },
+    "crop_20": {
+      "probes": 170.0,
+      "auc": 1.0,
+      "eer": 0.0,
+      "genuine_min": 0.544339,
+      "genuine_median": 0.775002,
+      "impostor_max": 0.287216
+    },
+    "blur_3": {
+      "probes": 170.0,
+      "auc": 1.0,
+      "eer": 0.0,
+      "genuine_min": 0.439688,
+      "genuine_median": 0.644804,
+      "impostor_max": 0.332284
+    },
+    "screenshot": {
+      "probes": 170.0,
+      "auc": 1.0,
+      "eer": 0.0,
+      "genuine_min": 0.565801,
+      "genuine_median": 0.773293,
+      "impostor_max": 0.282149
+    }
+  },
+  "placement": "gap [0.3323, 0.4397] width 0.1074; placed at the midpoint -/+ 25% of the gap",
+  "separable": true,
+  "gap": 0.107405,
+  "candidate": {
+    "threshold": 0.359135,
+    "metric": "cosine",
+    "criterion": "max_margin",
+    "roc": {
+      "auc": 1.0,
+      "eer": 0.0,
+      "eer_threshold": 0.439688,
+      "points": 25501
+    },
+    "true_positive_rate": 1.0,
+    "false_positive_rate": 0.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "genuine_pairs": 850,
+    "impostor_pairs": 24650,
+    "independent_pairs": 30,
+    "notes": [
+      "classes are separable; placed midway between the highest impostor (0.3323) and the lowest genuine (0.4397)"
+    ],
+    "operating_point": {
+      "threshold": 0.35913506895303726,
+      "true_positives": 850.0,
+      "false_positives": 0.0,
+      "false_negatives": 0.0,
+      "true_negatives": 24650.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "false_positive_rate": 0.0
+    }
+  },
+  "high_confidence": {
+    "threshold": 0.412837,
+    "criterion": "gap [0.3323, 0.4397] width 0.1074; placed at the midpoint -/+ 25% of the gap",
+    "operating_point": {
+      "threshold": 0.41283731907606125,
+      "true_positives": 850.0,
+      "false_positives": 0.0,
+      "false_negatives": 0.0,
+      "true_negatives": 24650.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "false_positive_rate": 0.0
+    }
+  },
+  "margin": {
+    "min": 0.431159,
+    "p1": 0.45453,
+    "median": 0.614808
+  },
+  "quality_guard": {
+    "clean": {
+      "median_probe_quality": 0.8325,
+      "raised_threshold": 0.4128,
+      "recall_without_guard": 1.0,
+      "recall_with_guard": 1.0,
+      "false_positives_without_guard": 0.0,
+      "false_positives_with_guard": 0.0
+    },
+    "jpeg30": {
+      "median_probe_quality": 0.8412,
+      "raised_threshold": 0.4128,
+      "recall_without_guard": 1.0,
+      "recall_with_guard": 1.0,
+      "false_positives_without_guard": 0.0,
+      "false_positives_with_guard": 0.0
+    },
+    "crop_20": {
+      "median_probe_quality": 1.0,
+      "raised_threshold": 0.4128,
+      "recall_without_guard": 1.0,
+      "recall_with_guard": 1.0,
+      "false_positives_without_guard": 0.0,
+      "false_positives_with_guard": 0.0
+    },
+    "blur_3": {
+      "median_probe_quality": 0.0357,
+      "raised_threshold": 0.4128,
+      "recall_without_guard": 1.0,
+      "recall_with_guard": 1.0,
+      "false_positives_without_guard": 0.0,
+      "false_positives_with_guard": 0.0
+    },
+    "screenshot": {
+      "median_probe_quality": 0.8314,
+      "raised_threshold": 0.4128,
+      "recall_without_guard": 1.0,
+      "recall_with_guard": 1.0,
+      "false_positives_without_guard": 0.0,
+      "false_positives_with_guard": 0.0
+    }
+  },
+  "probe_quality": {
+    "min": 0.213226,
+    "p5": 0.407812,
+    "median": 0.83246
+  },
+  "caveat": "Comparisons within one identity are not independent, and the evaluation set is drawn from a benchmark skewed by demographic and pose. Refit on data resembling the deployment population before relying on these values."
+}
