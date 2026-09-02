@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+
+# Model weights — fetched with `make models` / scripts/fetch_deepfake_detector.py.
+# GitHub rejects files over 100 MB, and these are 130–330 MB each.
+models/**/*.onnx
+models/**/*.onnx.data
+models/**/*.zip
+models/insightface/
+
+# Downloaded datasets (scikit-learn LFW cache, ~1.8 GB)
+data/sklearn/
+
+# Generated evaluation and manipulation sets — regenerate rather than commit.
+# These are LFW crops and face swaps of real, named people; publishing them
+# from a project about protecting people from exactly that is the wrong trade.
+#   python scripts/build_evaluation_set.py     (downloads LFW on demand)
+#   python scripts/build_manipulation_set.py
+data/test/eval_faces/
+data/test/manipulated/
+
+# Runtime state written by the pipeline, not source
+data/embeddings/
+data/identities/
+data/protected/
+data/assets/
+data/results/analyses/
+data/provenance.jsonl

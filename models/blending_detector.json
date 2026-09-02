@@ -1,0 +1,100 @@
+{
+  "version": "0.1.0",
+  "features": [
+    "noise_ratio",
+    "sharpness_ratio",
+    "blockiness_ratio",
+    "spectral_ratio",
+    "mean_difference",
+    "std_ratio",
+    "seam_edge_ratio",
+    "saturation_difference",
+    "interior_noise",
+    "interior_sharpness",
+    "edge_density"
+  ],
+  "mean": [
+    0.9625376513990161,
+    0.9520005262775116,
+    5020.069559147087,
+    2.7461486685247256,
+    0.13489678401324615,
+    0.6071345280029768,
+    0.8241920193657631,
+    0.057395745137129806,
+    0.008621736647131789,
+    0.029090164196270384,
+    0.06422640640913345
+  ],
+  "scale": [
+    0.3571469873141848,
+    0.3548930602428446,
+    70802.7228351807,
+    19.914050113356623,
+    0.1252890317939038,
+    0.2502215142882045,
+    0.20767165313137906,
+    0.12885378290984445,
+    0.0028360838394366553,
+    0.009981936734258233,
+    0.00799103691301584
+  ],
+  "coefficients": [
+    -0.07974306135576244,
+    0.12443809250718518,
+    0.10449676472590712,
+    0.33210194120508624,
+    0.40066573528693605,
+    0.04318755782971082,
+    -0.08785003609854182,
+    0.01687222402678633,
+    -0.24962632431053539,
+    -0.4240025755249776,
+    0.22938698679149025
+  ],
+  "intercept": 0.003174579753901759,
+  "trained_on": "graphics-based face swap: 106-landmark affine warp, colour matching, feathered convex-hull blend, JPEG re-encode",
+  "covers": [
+    "graphics-based face swap"
+  ],
+  "does_not_cover": [
+    "GAN synthesis",
+    "diffusion synthesis",
+    "reenactment"
+  ],
+  "usable": false,
+  "usable_floor": 0.75,
+  "metrics": {
+    "pooled_auc": 0.551962,
+    "clean_auc": 0.57908,
+    "per_condition": {
+      "clean": {
+        "rows": 138,
+        "auc": 0.57908,
+        "eer": 0.434783,
+        "threshold": 0.872867,
+        "precision": 1.0,
+        "recall": 0.028986,
+        "false_positives": 0
+      },
+      "jpeg50": {
+        "rows": 138,
+        "auc": 0.536442,
+        "eer": 0.478261,
+        "threshold": 0.880433,
+        "precision": 1.0,
+        "recall": 0.028986,
+        "false_positives": 0
+      },
+      "resize50": {
+        "rows": 138,
+        "auc": 0.545054,
+        "eer": 0.434783,
+        "threshold": 0.907212,
+        "precision": 1.0,
+        "recall": 0.014493,
+        "false_positives": 0
+      }
+    }
+  }
+}
