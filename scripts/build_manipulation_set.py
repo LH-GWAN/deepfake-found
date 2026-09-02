@@ -359,7 +359,7 @@ def main(argv: list[str] | None = None) -> int:
         json.dumps(
             {
                 "method": "graphics-based face swap: 106-landmark affine warp, colour "
-                "matching, feathered convex-hull blend, JPEG re-encode",
+                "matching, Poisson blend over the convex hull, JPEG re-encode",
                 "covers": ["blending-based face swap"],
                 "does_not_cover": ["GAN synthesis", "diffusion synthesis", "reenactment"],
                 "jpeg_quality": args.quality,
