@@ -70,6 +70,39 @@ def test_implemented_commands_fail_cleanly_on_missing_input(
     assert pattern in capsys.readouterr().err
 
 
+@pytest.mark.parametrize(
+    ("module", "attribute", "argv"),
+    [
+        (
+            "deepshield.face.enrollment",
+            "DefaultIdentityEnroller",
+            ["enroll", "nowhere/", "--user-id", "u1"],
+        ),
+        (
+            "deepshield.pipeline.analysis_pipeline",
+            "DefaultAnalysisPipeline",
+            ["analyze-image", "nowhere.jpg"],
+        ),
+    ],
+)
+def test_missing_input_is_reported_before_any_model_is_built(
+    module: str,
+    attribute: str,
+    argv: list[str],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A mistyped path must not load or download a model to find that out."""
+    import importlib
+
+    def refuse(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("a model backend was built before the input path was checked")
+
+    monkeypatch.setattr(importlib.import_module(module), attribute, refuse)
+    assert main(argv) == EXIT_ERROR
+    assert "not found" in capsys.readouterr().err
+
+
 def test_no_command_is_reported_as_not_implemented() -> None:
     """The dispatcher still has an explicit branch for an unhandled command name."""
     from deepshield.cli import command_not_implemented
