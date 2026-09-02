@@ -27,6 +27,8 @@ from deepshield.config import DeepShieldConfig, load_config
 from deepshield.detection.deepfake import DEEPFAKE_REGISTRY
 from deepshield.exceptions import (
     DeepShieldError,
+    EnrollmentError,
+    InvalidMediaError,
     ModelNotAvailableError,
     NotImplementedInPhaseError,
 )
@@ -308,7 +310,12 @@ def command_download_models(config: DeepShieldConfig, args: Any, as_json: bool) 
 
 
 def command_enroll(config: DeepShieldConfig, args: Any, as_json: bool) -> int:
-    """Enroll a user identity from a directory of reference photographs."""
+    """Enroll a user identity from a directory of reference photographs.
+
+    The directory is checked before the enroller is built, because building one
+    loads face models and may download them. A mistyped path must be reported as
+    a missing directory, not as a failed download.
+    """
     from deepshield.face.enrollment import DefaultIdentityEnroller
     from deepshield.storage import build_identity_repository
 
@@ -328,6 +335,9 @@ def command_enroll(config: DeepShieldConfig, args: Any, as_json: bool) -> int:
                 "pose and lighting variation, so similarity scores become less reliable.",
                 file=sys.stderr,
             )
+
+    if not Path(args.images_dir).is_dir():
+        raise EnrollmentError(f"enrollment directory not found: {args.images_dir}")
 
     enroller = DefaultIdentityEnroller(settings)
     result = enroller.enroll_directory(args.user_id, args.images_dir)
@@ -434,9 +444,17 @@ def _render_evidence(payload: dict[str, Any]) -> list[str]:
 
 
 def command_analyze(config: DeepShieldConfig, args: Any, as_json: bool, video: bool) -> int:
-    """Analyse one image or video and print its evidence record."""
+    """Analyse one image or video and print its evidence record.
+
+    The input file is checked before the pipeline is built, for the same reason
+    as in :func:`command_enroll`.
+    """
     from deepshield.pipeline.analysis_pipeline import DefaultAnalysisPipeline
     from deepshield.storage import build_evidence_repository
+
+    source = args.video if video else args.image
+    if not Path(source).is_file():
+        raise InvalidMediaError(f"{'video' if video else 'image'} not found: {source}")
 
     pipeline = DefaultAnalysisPipeline(config)
     record = (
