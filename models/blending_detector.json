@@ -53,7 +53,7 @@
     0.22938698679149025
   ],
   "intercept": 0.003174579753901759,
-  "trained_on": "graphics-based face swap: 106-landmark affine warp, colour matching, feathered convex-hull blend, JPEG re-encode",
+  "trained_on": "graphics-based face swap: 106-landmark affine warp, colour matching, Poisson blend over the convex hull, JPEG re-encode",
   "covers": [
     "graphics-based face swap"
   ],
