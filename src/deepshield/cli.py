@@ -586,7 +586,11 @@ def command_report(config: DeepShieldConfig, args: Any, as_json: bool) -> int:
 
 
 def command_robustness(config: DeepShieldConfig, args: Any, as_json: bool) -> int:
-    """Run one of the transformation robustness benchmarks."""
+    """Run one of the transformation robustness benchmarks.
+
+    Every selected file is checked before an experiment is built, for the same
+    reason as in :func:`command_enroll`.
+    """
     from deepshield.experiments import (
         CombinedProtectionExperiment,
         FaceRobustnessExperiment,
@@ -603,6 +607,8 @@ def command_robustness(config: DeepShieldConfig, args: Any, as_json: bool) -> in
                 sorted(p for p in path.iterdir() if p.suffix.lower() in IMAGE_SUFFIXES)
             )
         else:
+            if not path.is_file():
+                raise InvalidMediaError(f"image not found: {path}")
             paths.append(path)
     if not paths:
         print("error: no images found", file=sys.stderr)
