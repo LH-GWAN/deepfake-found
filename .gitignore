@@ -36,6 +36,11 @@ data/sklearn/
 data/test/eval_faces/
 data/test/manipulated/
 
+# Aligned face crops cached for watermark training (~650 MB, regenerate rather
+# than commit):
+#   python scripts/prepare_face_crops.py --output data/results/face_crops_128.npy
+data/results/face_crops_*.npy
+
 # Runtime state written by the pipeline, not source
 data/embeddings/
 data/identities/

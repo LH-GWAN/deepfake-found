@@ -16,9 +16,18 @@ Validation reports bit accuracy at three distortion strengths. The clean column
 is the model's own ceiling - what it can do with nothing done to the carrier -
 and no amount of robustness work raises it.
 
+A run of this length outlives a laptop lid, so the state needed to continue one -
+both networks, the optimiser, the schedule and the step - is written every
+``--checkpoint-every`` steps. The write goes to a temporary file and is renamed
+over the destination, because a process killed midway through writing a
+checkpoint would otherwise leave a truncated one where the good one used to be.
+``--resume`` continues from whatever the checkpoint last recorded.
+
 Usage:
     python scripts/train_learned_watermark.py --data data/results/face_crops_128.npy \
         --out models/learned_watermark.pt
+    python scripts/train_learned_watermark.py --data data/results/face_crops_128.npy \
+        --out models/learned_watermark.pt --resume
 """
 
 from __future__ import annotations
@@ -58,6 +67,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--img-weight", type=float, default=1.5)
     parser.add_argument("--res-scale", type=float, default=0.15)
     parser.add_argument("--lr", type=float, default=2e-4)
+    parser.add_argument("--checkpoint-every", type=int, default=500)
+    parser.add_argument(
+        "--resume", action="store_true", help="continue from the checkpoint at --out"
+    )
     args = parser.parse_args(argv)
 
     if not args.data.is_file():
@@ -79,8 +92,42 @@ def main(argv: list[str] | None = None) -> int:
     optimiser = torch.optim.Adam(parameters, lr=args.lr)
     schedule = torch.optim.lr_scheduler.CosineAnnealingLR(optimiser, args.steps)
 
+    first_step = 1
+    if args.resume:
+        if not args.out.is_file():
+            raise SystemExit(f"--resume given but {args.out} does not exist")
+        saved = torch.load(args.out, map_location=device)
+        encoder.load_state_dict(saved["encoder"])
+        decoder.load_state_dict(saved["decoder"])
+        if "optimiser" in saved:
+            optimiser.load_state_dict(saved["optimiser"])
+            schedule.load_state_dict(saved["schedule"])
+            first_step = saved["step"] + 1
+            print(f"resuming at step {first_step}", flush=True)
+        else:
+            print(f"{args.out} holds weights only; restarting the schedule", flush=True)
+
+    def save(step: int) -> None:
+        """Write the checkpoint atomically so a kill cannot truncate it."""
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        staging = args.out.with_suffix(args.out.suffix + ".partial")
+        torch.save(
+            {
+                "encoder": encoder.state_dict(),
+                "decoder": decoder.state_dict(),
+                "optimiser": optimiser.state_dict(),
+                "schedule": schedule.state_dict(),
+                "step": step,
+                "steps": args.steps,
+                "bits": BITS,
+                "res_scale": args.res_scale,
+            },
+            staging,
+        )
+        staging.replace(args.out)
+
     started = time.time()
-    for step in range(1, args.steps + 1):
+    for step in range(first_step, args.steps + 1):
         warmed = min(1.0, step / (args.steps * WARMUP_FRACTION))
         batch = training[torch.randint(0, training.size(0), (args.batch,))]
         images = batch.float().div(127.5).sub(1).to(device)
@@ -117,16 +164,10 @@ def main(argv: list[str] | None = None) -> int:
             encoder.train()
             decoder.train()
 
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    torch.save(
-        {
-            "encoder": encoder.state_dict(),
-            "decoder": decoder.state_dict(),
-            "bits": BITS,
-            "res_scale": args.res_scale,
-        },
-        args.out,
-    )
+        if step % args.checkpoint_every == 0:
+            save(step)
+
+    save(args.steps)
     print(f"wrote {args.out}")
     return 0
 
