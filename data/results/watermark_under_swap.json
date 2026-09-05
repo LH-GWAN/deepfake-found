@@ -1,0 +1,53 @@
+{
+  "pairs": 24,
+  "framings": [
+    {
+      "framing": 1.0,
+      "hull_fraction": 0.1013,
+      "directions": {
+        "target": {
+          "swaps": 24,
+          "detected": 24,
+          "bit_accuracy": 1.0
+        },
+        "source": {
+          "swaps": 24,
+          "detected": 0,
+          "bit_accuracy": 0.5215
+        }
+      }
+    },
+    {
+      "framing": 0.5,
+      "hull_fraction": 0.0505,
+      "directions": {
+        "target": {
+          "swaps": 24,
+          "detected": 24,
+          "bit_accuracy": 1.0
+        },
+        "source": {
+          "swaps": 24,
+          "detected": 0,
+          "bit_accuracy": 0.5156
+        }
+      }
+    },
+    {
+      "framing": 0.25,
+      "hull_fraction": 0.0253,
+      "directions": {
+        "target": {
+          "swaps": 24,
+          "detected": 24,
+          "bit_accuracy": 1.0
+        },
+        "source": {
+          "swaps": 24,
+          "detected": 0,
+          "bit_accuracy": 0.502
+        }
+      }
+    }
+  ]
+}

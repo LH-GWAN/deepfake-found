@@ -1,0 +1,22 @@
+{
+  "pairs": 24,
+  "orientation": "transposed",
+  "psnr_db": 40.2,
+  "stages": {
+    "crop": {
+      "n": 24,
+      "bit_accuracy": 0.8008,
+      "exact": 0
+    },
+    "roundtrip": {
+      "n": 24,
+      "bit_accuracy": 0.8008,
+      "exact": 0
+    },
+    "swap": {
+      "n": 24,
+      "bit_accuracy": 0.7188,
+      "exact": 0
+    }
+  }
+}
