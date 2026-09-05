@@ -1,0 +1,22 @@
+{
+  "checkpoint": "models/learned_watermark_v2.pt",
+  "swapper": "graphics Delaunay swap, never in the training graph",
+  "samples": 23,
+  "closed_set_attribution_top1": [
+    {"registered_users": 2,    "soft": 0.9998, "hard": 0.9961},
+    {"registered_users": 8,    "soft": 0.9959, "hard": 0.9502},
+    {"registered_users": 32,   "soft": 0.9828, "hard": 0.8563},
+    {"registered_users": 72,   "soft": 0.9630, "hard": 0.7815},
+    {"registered_users": 256,  "soft": 0.8937, "hard": 0.6222},
+    {"registered_users": 1024, "soft": 0.7802, "hard": 0.4193}
+  ],
+  "open_set_detection": {
+    "codebook": 72,
+    "marked": {"n": 23, "mean_score": 33.12, "min_score": 11.72},
+    "unmarked": {"n": 23, "mean_score": 12.79, "max_score": 18.54},
+    "auc": 0.9716,
+    "threshold_at_zero_false_positive": 18.54,
+    "detection_rate_at_that_threshold": 0.913,
+    "threshold_is_in_sample": true
+  }
+}
