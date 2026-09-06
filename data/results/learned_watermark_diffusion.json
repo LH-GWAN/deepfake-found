@@ -1,0 +1,16 @@
+{
+  "checkpoint": "models/learned_watermark_v2.pt",
+  "attack": "Stable Diffusion v1.5 img2img, 30 steps, guidance 7.5, prompt 'a photograph of a person, portrait'",
+  "note": "generative resynthesis, a different destruction family from the graphics Delaunay swap",
+  "samples_per_strength": 39,
+  "codebook": 72,
+  "by_strength": [
+    {"strength": 0.10, "marked_mean": 29.18, "clean_mean": 14.47, "auc": 0.9691, "attribution_top1_of_72": 0.3077},
+    {"strength": 0.20, "marked_mean": 26.53, "clean_mean": 15.51, "auc": 0.9316, "attribution_top1_of_72": 0.1026},
+    {"strength": 0.30, "marked_mean": 26.06, "clean_mean": 17.07, "auc": 0.9158, "attribution_top1_of_72": 0.0513},
+    {"strength": 0.40, "marked_mean": 25.52, "clean_mean": 18.57, "auc": 0.8757, "attribution_top1_of_72": 0.0256},
+    {"strength": 0.50, "marked_mean": 24.62, "clean_mean": 18.96, "auc": 0.7620, "attribution_top1_of_72": 0.0256}
+  ],
+  "chance_attribution": 0.0139,
+  "graphics_swap_reference": {"attribution_top1_of_72": 0.9333, "auc": 0.9868}
+}
