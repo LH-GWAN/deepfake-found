@@ -1,0 +1,34 @@
+{
+  "question": "does adding a differentiable stand-in for diffusion to the training distortion buy robustness against real diffusion",
+  "training_difference": {
+    "v2": {"checkpoint": "models/learned_watermark_v2.pt", "steps": 20000, "distortion": "swap surrogate only"},
+    "v3": {"checkpoint": "models/learned_watermark_v3.pt", "steps": 15000, "distortion": "swap surrogate + Stable Diffusion VAE round trip on a random 8 of 32 samples, half the steps"}
+  },
+  "evaluation": "identical images, seeds and 72-entry codebook for both models; graphics Delaunay swap and real Stable Diffusion v1.5 img2img at 30 steps",
+  "samples_per_cell": "33 to 35",
+  "results": {
+    "v2": {
+      "swap":          {"n": 33, "auc": 0.9688, "attribution_top1_of_72": 0.8788},
+      "diffusion_0.1": {"n": 35, "auc": 0.9894, "attribution_top1_of_72": 0.5429},
+      "diffusion_0.2": {"n": 35, "auc": 0.9576, "attribution_top1_of_72": 0.2286},
+      "diffusion_0.3": {"n": 34, "auc": 0.9481, "attribution_top1_of_72": 0.0882}
+    },
+    "v3": {
+      "swap":          {"n": 34, "auc": 0.9922, "attribution_top1_of_72": 0.7941},
+      "diffusion_0.1": {"n": 35, "auc": 1.0000, "attribution_top1_of_72": 0.8857},
+      "diffusion_0.2": {"n": 35, "auc": 1.0000, "attribution_top1_of_72": 0.8286},
+      "diffusion_0.3": {"n": 35, "auc": 0.9731, "attribution_top1_of_72": 0.8000}
+    }
+  },
+  "training_validation": {
+    "v2": {"swap_distortion": 0.875, "vae_roundtrip": 0.5797},
+    "v3": {"swap_distortion": 0.754, "vae_roundtrip": 0.732}
+  },
+  "chance_attribution": 0.0139,
+  "caveats": [
+    "v3 trained for 15000 steps against v2's 20000, so part of the swap gap is training budget rather than the split objective",
+    "v2 diffusion figures here differ from data/results/learned_watermark_diffusion.json because that run used different images and seeds; only the within-run v2 vs v3 comparison is controlled",
+    "35 samples per cell",
+    "no GAN face swap, no attacker trying to strip the mark"
+  ]
+}
