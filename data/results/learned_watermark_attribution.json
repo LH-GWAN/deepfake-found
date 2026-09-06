@@ -1,22 +1,24 @@
 {
   "checkpoint": "models/learned_watermark_v2.pt",
   "swapper": "graphics Delaunay swap, never in the training graph",
-  "samples": 23,
-  "closed_set_attribution_top1": [
-    {"registered_users": 2,    "soft": 0.9998, "hard": 0.9961},
-    {"registered_users": 8,    "soft": 0.9959, "hard": 0.9502},
-    {"registered_users": 32,   "soft": 0.9828, "hard": 0.8563},
-    {"registered_users": 72,   "soft": 0.9630, "hard": 0.7815},
-    {"registered_users": 256,  "soft": 0.8937, "hard": 0.6222},
-    {"registered_users": 1024, "soft": 0.7802, "hard": 0.4193}
-  ],
-  "open_set_detection": {
+  "faces": "LFW funneled originals, 150 distinct identity pairs",
+  "samples": 150,
+  "split": {"calibration": 75, "test": 75, "threshold_fitted_on": "calibration only"},
+  "detection": {
     "codebook": 72,
-    "marked": {"n": 23, "mean_score": 33.12, "min_score": 11.72},
-    "unmarked": {"n": 23, "mean_score": 12.79, "max_score": 18.54},
-    "auc": 0.9716,
-    "threshold_at_zero_false_positive": 18.54,
-    "detection_rate_at_that_threshold": 0.913,
-    "threshold_is_in_sample": true
-  }
+    "threshold_zero_fp_on_calibration": 21.08,
+    "test_detection_rate": 0.8933,
+    "test_false_positive_rate": 0.0,
+    "threshold_1pct_fp_on_calibration": 18.67,
+    "test_detection_rate_at_1pct": 0.9333,
+    "test_false_positive_rate_at_1pct": 0.0267,
+    "test_auc": 0.9868
+  },
+  "attribution_closed_set_test_half": [
+    {"registered_users": 2,  "top1": 0.9968},
+    {"registered_users": 8,  "top1": 0.9813},
+    {"registered_users": 32, "top1": 0.9525},
+    {"registered_users": 72, "top1": 0.9333}
+  ],
+  "supersedes": "earlier 23-sample run whose threshold was fitted in-sample"
 }
