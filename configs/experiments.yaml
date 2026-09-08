@@ -6,6 +6,7 @@ transformations:
   resize_50: { type: resize, scale: 0.50 }
   resize_25: { type: resize, scale: 0.25 }
   crop_10: { type: crop, ratio: 0.10 }
+  crop_20: { type: crop, ratio: 0.20 }
   crop_30: { type: crop, ratio: 0.30 }
   rotate_2: { type: rotation, degrees: 2 }
   rotate_5: { type: rotation, degrees: 5 }
