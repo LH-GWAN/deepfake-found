@@ -79,14 +79,23 @@ def load_vae(device: str) -> Any:
     vae.eval()
     for parameter in vae.parameters():
         parameter.requires_grad_(False)
+    if device == "cuda":
+        # A 16 GB T4 cannot hold the round trip's activations for eight
+        # 128-pixel images; recomputing them in the backward pass can.
+        vae.enable_gradient_checkpointing()
     return vae
 
 
 def vae_roundtrip(vae: Any, image: torch.Tensor) -> torch.Tensor:
-    """Encode to the latent and decode back, keeping the graph for backprop."""
-    latent = vae.encode(image).latent_dist.mean
-    decoded: torch.Tensor = vae.decode(latent).sample
-    return decoded.clamp(-1, 1)
+    """Encode to the latent and decode back, keeping the graph for backprop.
+
+    On CUDA the VAE runs under fp16 autocast, which halves its activation
+    memory; the encoder and decoder being trained stay in fp32.
+    """
+    with torch.autocast("cuda", dtype=torch.float16, enabled=bool(image.is_cuda)):
+        latent = vae.encode(image).latent_dist.mean
+        decoded: torch.Tensor = vae.decode(latent).sample
+    return decoded.float().clamp(-1, 1)
 
 
 def peak_snr(marked: torch.Tensor, original: torch.Tensor) -> float:
