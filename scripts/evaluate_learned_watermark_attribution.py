@@ -32,9 +32,11 @@ inswapper, inswapper_target
     the output at all; measuring it settles whether any residual leaks through
     the identity vector. ``--inswapper`` points at the ONNX file.
 diffusion
-    Stable Diffusion v1.5 img2img on the marked photograph, at each
-    ``--strength``. Nothing here was in the training graph; the training used
-    only the VAE round trip.
+    Stable Diffusion v1.5 img2img on the whole marked photograph, at each
+    ``--strength``, followed by re-detection of the face. Nothing here was in
+    the training graph; the training used only the VAE round trip. The
+    photograph is resampled to ``--diffusion-size`` square first (default 512,
+    the model's native size); 256 is a cheaper and much harsher variant.
 none
     No attack, as a ceiling.
 
@@ -69,10 +71,10 @@ from deepshield.media import load_image
 SUBSETS = (2, 8, 32, 72)
 SUBSET_DRAWS = 20
 DIFFUSION_REPOSITORY = "stable-diffusion-v1-5/stable-diffusion-v1-5"
-DIFFUSION_SIZE = 256
+DIFFUSION_SIZE = 512
 DIFFUSION_STEPS = 30
-DIFFUSION_PROMPT = "a photograph of a person"
-DIFFUSION_GUIDANCE = 5.0
+DIFFUSION_PROMPT = "a photograph of a person, portrait"
+DIFFUSION_GUIDANCE = 7.5
 
 
 def identity_pairs(faces: Path) -> list[tuple[Path, Path]]:
@@ -150,11 +152,22 @@ class Model:
 class Attacks:
     """Every attack the benchmark can apply, each built only when first used."""
 
-    def __init__(self, models: Path, inswapper: Path, device: str) -> None:
+    def __init__(
+        self,
+        models: Path,
+        inswapper: Path,
+        device: str,
+        diffusion_size: int = DIFFUSION_SIZE,
+        diffusion_guidance: float = DIFFUSION_GUIDANCE,
+        diffusion_prompt: str = DIFFUSION_PROMPT,
+    ) -> None:
         """Remember where the heavy models live without loading them yet."""
         self.models = models
         self.inswapper_path = inswapper
         self.device = device
+        self.diffusion_size = diffusion_size
+        self.diffusion_guidance = diffusion_guidance
+        self.diffusion_prompt = diffusion_prompt
         self._recogniser: Any = None
         self._swapper: Any = None
         self._pipeline: Any = None
@@ -224,20 +237,26 @@ class Attacks:
         return np.ascontiguousarray(swapped[:, :, ::-1])
 
     def diffuse(self, image: np.ndarray, strength: float, seed: int) -> np.ndarray:
-        """Regenerate the photograph with img2img at one denoising strength."""
+        """Regenerate the whole photograph with img2img at one denoising strength.
+
+        The photograph is resampled to ``diffusion_size`` square first. The
+        size matters as much as the strength: a 250-pixel LFW face fills about
+        100 pixels, so at 256 it occupies ~12 latent cells and at 512 ~25, and
+        the 8x VAE bottleneck erases far more of the mark at the smaller size.
+        """
         from PIL import Image
 
         height, width = image.shape[:2]
         pil = Image.fromarray(image).resize(
-            (DIFFUSION_SIZE, DIFFUSION_SIZE), Image.Resampling.LANCZOS
+            (self.diffusion_size, self.diffusion_size), Image.Resampling.LANCZOS
         )
         generator = torch.Generator(device="cpu").manual_seed(seed)
         out = self.pipeline()(
-            prompt=DIFFUSION_PROMPT,
+            prompt=self.diffusion_prompt,
             image=pil,
             strength=strength,
             num_inference_steps=DIFFUSION_STEPS,
-            guidance_scale=DIFFUSION_GUIDANCE,
+            guidance_scale=self.diffusion_guidance,
             generator=generator,
         ).images[0]
         return np.asarray(out.resize((width, height), Image.Resampling.LANCZOS), dtype=np.uint8)
@@ -357,6 +376,14 @@ def main(argv: list[str] | None = None) -> int:
         default="swap",
     )
     parser.add_argument("--strength", type=float, nargs="+", default=[0.1, 0.2, 0.3])
+    parser.add_argument(
+        "--diffusion-size",
+        type=int,
+        default=DIFFUSION_SIZE,
+        help="square size the photograph is resampled to before img2img",
+    )
+    parser.add_argument("--guidance", type=float, default=DIFFUSION_GUIDANCE)
+    parser.add_argument("--prompt", default=DIFFUSION_PROMPT)
     parser.add_argument("--orientation", choices=("transposed", "upright"), default=None)
     parser.add_argument("--tag", default=None, help="name for the output file")
     args = parser.parse_args(argv)
@@ -372,7 +399,14 @@ def main(argv: list[str] | None = None) -> int:
     device = pick_device()
     model = Model(args.checkpoint, device, args.orientation)
     app = swaps.build_analyzer(args.models)
-    attacks = Attacks(args.models, args.inswapper, device)
+    attacks = Attacks(
+        args.models,
+        args.inswapper,
+        device,
+        diffusion_size=args.diffusion_size,
+        diffusion_guidance=args.guidance,
+        diffusion_prompt=args.prompt,
+    )
 
     rng = np.random.default_rng(args.seed)
     codebook = rng.integers(0, 2, (args.codebook, BITS)).astype(np.uint8)
@@ -438,10 +472,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.attack == "diffusion":
         report["diffusion"] = {
             "repository": DIFFUSION_REPOSITORY,
-            "size": DIFFUSION_SIZE,
+            "size": args.diffusion_size,
             "steps": DIFFUSION_STEPS,
-            "guidance": DIFFUSION_GUIDANCE,
-            "prompt": DIFFUSION_PROMPT,
+            "guidance": args.guidance,
+            "prompt": args.prompt,
         }
     for strength, cell in cells.items():
         key = f"strength_{strength:.2f}" if args.attack == "diffusion" else args.attack
