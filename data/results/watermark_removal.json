@@ -1,0 +1,307 @@
+{
+  "question": "how much image quality does it cost to strip or forge the mark on purpose",
+  "faces": "data/sklearn/lfw_home/lfw_funneled",
+  "pairs": 60,
+  "codebook": 72,
+  "pgd": {
+    "steps": 40,
+    "budget_grey_levels": [
+      4.0,
+      8.0,
+      16.0
+    ],
+    "domain": "aligned 128px face frame, warped back",
+    "expectation_over_distortion_strength": 0.5
+  },
+  "learned": {
+    "learned_watermark_v2": {
+      "none": {
+        "n": 60,
+        "psnr_vs_marked_db": null,
+        "detection_auc": 1.0,
+        "attribution_top1_of_codebook": 1.0,
+        "marked_score_mean": 126.52,
+        "unmarked_score_mean": 12.27
+      },
+      "jpeg_50": {
+        "n": 60,
+        "psnr_vs_marked_db": 35.73,
+        "detection_auc": 0.9581,
+        "attribution_top1_of_codebook": 0.0333,
+        "marked_score_mean": 24.72,
+        "unmarked_score_mean": 12.29
+      },
+      "jpeg_30": {
+        "n": 60,
+        "psnr_vs_marked_db": 33.9,
+        "detection_auc": 0.9514,
+        "attribution_top1_of_codebook": 0.0167,
+        "marked_score_mean": 23.23,
+        "unmarked_score_mean": 12.15
+      },
+      "blur_1.5": {
+        "n": 60,
+        "psnr_vs_marked_db": 31.01,
+        "detection_auc": 0.9811,
+        "attribution_top1_of_codebook": 0.9167,
+        "marked_score_mean": 30.98,
+        "unmarked_score_mean": 11.21
+      },
+      "median_3": {
+        "n": 60,
+        "psnr_vs_marked_db": 41.05,
+        "detection_auc": 1.0,
+        "attribution_top1_of_codebook": 1.0,
+        "marked_score_mean": 93.0,
+        "unmarked_score_mean": 11.58
+      },
+      "resize_50_up": {
+        "n": 60,
+        "psnr_vs_marked_db": 36.77,
+        "detection_auc": 1.0,
+        "attribution_top1_of_codebook": 1.0,
+        "marked_score_mean": 92.67,
+        "unmarked_score_mean": 11.85
+      },
+      "noise_8": {
+        "n": 60,
+        "psnr_vs_marked_db": 30.38,
+        "detection_auc": 1.0,
+        "attribution_top1_of_codebook": 1.0,
+        "marked_score_mean": 128.16,
+        "unmarked_score_mean": 16.13
+      },
+      "sharpen": {
+        "n": 58,
+        "psnr_vs_marked_db": 27.1,
+        "detection_auc": 1.0,
+        "attribution_top1_of_codebook": 1.0,
+        "marked_score_mean": 199.75,
+        "unmarked_score_mean": 21.53
+      },
+      "blur_noise_jpeg": {
+        "n": 60,
+        "psnr_vs_marked_db": 32.13,
+        "detection_auc": 0.915,
+        "attribution_top1_of_codebook": 0.0833,
+        "marked_score_mean": 16.09,
+        "unmarked_score_mean": 11.16
+      },
+      "vae_roundtrip": {
+        "n": 60,
+        "psnr_vs_marked_db": 31.2,
+        "detection_auc": 0.9536,
+        "attribution_top1_of_codebook": 0.0667,
+        "marked_score_mean": 20.82,
+        "unmarked_score_mean": 11.88
+      },
+      "pgd_erase_4": {
+        "n": 60,
+        "psnr_vs_marked_db": 45.18,
+        "detection_auc": 1.0,
+        "attribution_top1_of_codebook": 1.0,
+        "marked_score_mean": 28.66,
+        "unmarked_score_mean": 5.21
+      },
+      "pgd_erase_8": {
+        "n": 60,
+        "psnr_vs_marked_db": 41.29,
+        "detection_auc": 0.9528,
+        "attribution_top1_of_codebook": 0.7833,
+        "marked_score_mean": 20.97,
+        "unmarked_score_mean": 8.86
+      },
+      "pgd_erase_16": {
+        "n": 59,
+        "psnr_vs_marked_db": 36.19,
+        "detection_auc": 0.8316,
+        "attribution_top1_of_codebook": 0.4237,
+        "marked_score_mean": 22.85,
+        "unmarked_score_mean": 15.9
+      },
+      "pgd_frame_4": {
+        "n": 60,
+        "psnr_vs_marked_db": 44.49,
+        "detection_auc": 0.4408,
+        "attribution_top1_of_codebook": 0.0167,
+        "marked_score_mean": 94.09,
+        "unmarked_score_mean": 96.34,
+        "attributed_to_framed_registrant": 0.9833
+      },
+      "pgd_frame_8": {
+        "n": 59,
+        "psnr_vs_marked_db": 39.9,
+        "detection_auc": 0.5424,
+        "attribution_top1_of_codebook": 0.0,
+        "marked_score_mean": 144.25,
+        "unmarked_score_mean": 139.54,
+        "attributed_to_framed_registrant": 1.0
+      },
+      "pgd_frame_16": {
+        "n": 58,
+        "psnr_vs_marked_db": 35.16,
+        "detection_auc": 0.5466,
+        "attribution_top1_of_codebook": 0.0,
+        "marked_score_mean": 179.96,
+        "unmarked_score_mean": 177.06,
+        "attributed_to_framed_registrant": 1.0
+      }
+    },
+    "learned_watermark_v3": {
+      "none": {
+        "n": 60,
+        "psnr_vs_marked_db": null,
+        "detection_auc": 1.0,
+        "attribution_top1_of_codebook": 1.0,
+        "marked_score_mean": 58.44,
+        "unmarked_score_mean": 6.72
+      },
+      "jpeg_50": {
+        "n": 60,
+        "psnr_vs_marked_db": 35.88,
+        "detection_auc": 1.0,
+        "attribution_top1_of_codebook": 0.95,
+        "marked_score_mean": 31.81,
+        "unmarked_score_mean": 6.87
+      },
+      "jpeg_30": {
+        "n": 60,
+        "psnr_vs_marked_db": 33.86,
+        "detection_auc": 1.0,
+        "attribution_top1_of_codebook": 0.8833,
+        "marked_score_mean": 25.3,
+        "unmarked_score_mean": 6.99
+      },
+      "blur_1.5": {
+        "n": 60,
+        "psnr_vs_marked_db": 31.34,
+        "detection_auc": 1.0,
+        "attribution_top1_of_codebook": 1.0,
+        "marked_score_mean": 44.26,
+        "unmarked_score_mean": 5.78
+      },
+      "median_3": {
+        "n": 60,
+        "psnr_vs_marked_db": 42.07,
+        "detection_auc": 1.0,
+        "attribution_top1_of_codebook": 1.0,
+        "marked_score_mean": 55.37,
+        "unmarked_score_mean": 6.45
+      },
+      "resize_50_up": {
+        "n": 60,
+        "psnr_vs_marked_db": 37.16,
+        "detection_auc": 1.0,
+        "attribution_top1_of_codebook": 1.0,
+        "marked_score_mean": 57.33,
+        "unmarked_score_mean": 6.95
+      },
+      "noise_8": {
+        "n": 60,
+        "psnr_vs_marked_db": 30.39,
+        "detection_auc": 1.0,
+        "attribution_top1_of_codebook": 1.0,
+        "marked_score_mean": 55.13,
+        "unmarked_score_mean": 5.65
+      },
+      "sharpen": {
+        "n": 60,
+        "psnr_vs_marked_db": 27.44,
+        "detection_auc": 1.0,
+        "attribution_top1_of_codebook": 1.0,
+        "marked_score_mean": 70.16,
+        "unmarked_score_mean": 9.32
+      },
+      "blur_noise_jpeg": {
+        "n": 60,
+        "psnr_vs_marked_db": 32.22,
+        "detection_auc": 1.0,
+        "attribution_top1_of_codebook": 0.95,
+        "marked_score_mean": 28.86,
+        "unmarked_score_mean": 7.03
+      },
+      "vae_roundtrip": {
+        "n": 60,
+        "psnr_vs_marked_db": 31.59,
+        "detection_auc": 1.0,
+        "attribution_top1_of_codebook": 0.95,
+        "marked_score_mean": 25.43,
+        "unmarked_score_mean": 7.01
+      },
+      "pgd_erase_4": {
+        "n": 60,
+        "psnr_vs_marked_db": 43.46,
+        "detection_auc": 0.9894,
+        "attribution_top1_of_codebook": 0.9167,
+        "marked_score_mean": 12.93,
+        "unmarked_score_mean": 3.63
+      },
+      "pgd_erase_8": {
+        "n": 60,
+        "psnr_vs_marked_db": 39.88,
+        "detection_auc": 0.6306,
+        "attribution_top1_of_codebook": 0.15,
+        "marked_score_mean": 6.33,
+        "unmarked_score_mean": 5.23
+      },
+      "pgd_erase_16": {
+        "n": 60,
+        "psnr_vs_marked_db": 35.24,
+        "detection_auc": 0.6306,
+        "attribution_top1_of_codebook": 0.0333,
+        "marked_score_mean": 8.33,
+        "unmarked_score_mean": 7.16
+      },
+      "pgd_frame_4": {
+        "n": 60,
+        "psnr_vs_marked_db": 43.25,
+        "detection_auc": 0.3811,
+        "attribution_top1_of_codebook": 0.1,
+        "marked_score_mean": 37.73,
+        "unmarked_score_mean": 41.94,
+        "attributed_to_framed_registrant": 0.7667
+      },
+      "pgd_frame_8": {
+        "n": 60,
+        "psnr_vs_marked_db": 38.34,
+        "detection_auc": 0.4503,
+        "attribution_top1_of_codebook": 0.0,
+        "marked_score_mean": 57.41,
+        "unmarked_score_mean": 59.37,
+        "attributed_to_framed_registrant": 1.0
+      },
+      "pgd_frame_16": {
+        "n": 60,
+        "psnr_vs_marked_db": 34.0,
+        "detection_auc": 0.4931,
+        "attribution_top1_of_codebook": 0.0,
+        "marked_score_mean": 69.37,
+        "unmarked_score_mean": 68.92,
+        "attributed_to_framed_registrant": 1.0
+      }
+    }
+  },
+  "dct": {
+    "none": {
+      "n": 60,
+      "detected": 1.0,
+      "owner_code_read": 1.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": null
+    },
+    "equalise": {
+      "n": 60,
+      "detected": 0.0,
+      "owner_code_read": 0.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 36.31
+    },
+    "overwrite": {
+      "n": 60,
+      "detected": 1.0,
+      "owner_code_read": 0.0,
+      "forger_code_read": 1.0,
+      "psnr_vs_marked_db": 33.57
+    }
+  }
+}
