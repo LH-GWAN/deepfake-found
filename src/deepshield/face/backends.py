@@ -95,9 +95,9 @@ class YuNetFaceDetector(FaceDetector):
             self.config.max_faces,
         )
 
-    def detect(self, image: np.ndarray) -> list[DetectedFace]:
+    def _detect_once(self, image: np.ndarray) -> list[DetectedFace]:
         """Detect faces and return them sorted by descending confidence."""
-        original = self.validate_image(image)
+        original = image
         array, scale = self.downscale_for_detection(original, self.config.max_detection_side)
         height, width = array.shape[:2]
         self._detector.setInputSize((width, height))
@@ -149,9 +149,9 @@ class InsightFaceDetector(FaceDetector):
         )
         self._app.prepare(ctx_id=-1, det_size=(640, 640))
 
-    def detect(self, image: np.ndarray) -> list[DetectedFace]:
+    def _detect_once(self, image: np.ndarray) -> list[DetectedFace]:
         """Detect faces with SCRFD and return them sorted by confidence."""
-        original = self.validate_image(image)
+        original = image
         array, scale = self.downscale_for_detection(original, self.config.max_detection_side)
         detections = self._app.get(np.ascontiguousarray(array[:, :, ::-1]))
         min_side = self.config.min_face_size * scale
