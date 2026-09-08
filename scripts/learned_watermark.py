@@ -45,6 +45,15 @@ from torch import nn
 BITS = 32
 
 
+def pick_device() -> str:
+    """Return the fastest device available: CUDA on Colab, MPS on a Mac, else CPU."""
+    if torch.cuda.is_available():
+        return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
 def _block(inputs: int, outputs: int, stride: int = 1) -> nn.Sequential:
     """Return the convolution, normalisation and activation used throughout."""
     return nn.Sequential(

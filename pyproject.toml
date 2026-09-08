@@ -27,6 +27,7 @@ dependencies = [
 [project.optional-dependencies]
 face = ["insightface>=0.7.3", "onnxruntime>=1.17", "opencv-python>=4.9"]
 torch = ["torch>=2.2", "torchvision>=0.17", "onnxscript>=0.7"]
+diffusion = ["diffusers>=0.30", "transformers>=4.40", "accelerate>=0.30"]
 video = ["opencv-python>=4.9", "av>=12.0"]
 api = ["fastapi>=0.110", "uvicorn[standard]>=0.29", "python-multipart>=0.0.9", "sqlalchemy>=2.0"]
 experiments = ["pandas>=2.2", "matplotlib>=3.8", "scikit-learn>=1.4", "scipy>=1.12"]
