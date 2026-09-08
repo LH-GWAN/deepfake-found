@@ -40,6 +40,36 @@ MIN_CONFIDENCE = 0.7
 MIN_FACE_PIXELS = 60
 
 
+def list_people(funneled: Path, min_photos: int) -> tuple[list[str], np.ndarray, list[list[Path]]]:
+    """Index the extracted LFW folder the way ``fetch_lfw_people`` numbers it.
+
+    sklearn's loader keeps every person with at least ``min_photos`` files,
+    names them with spaces instead of underscores, sorts the unique names and
+    numbers people by that order, with each person's files in sorted order.
+    Reading the folder directly reproduces those indices without decoding all
+    the photographs first, which needs about 8 GB as float32 and is what
+    killed the previous version of this script on a 12 GB machine.
+    """
+    people: dict[str, list[Path]] = {}
+    for folder in sorted(funneled.iterdir()):
+        if not folder.is_dir():
+            continue
+        paths = sorted(p for p in folder.iterdir() if p.is_file())
+        if len(paths) >= min_photos:
+            people[folder.name.replace("_", " ")] = paths
+    names = sorted(people)
+    counts = np.array([len(people[name]) for name in names], dtype=np.int64)
+    return names, counts, [people[name] for name in names]
+
+
+def read_like_sklearn(path: Path) -> np.ndarray:
+    """Decode one photograph through the same arithmetic as ``fetch_lfw_people``."""
+    from PIL import Image
+
+    face = np.asarray(Image.open(path), dtype=np.float32) / 255.0
+    return (face * 255).clip(0, 255).astype(np.uint8)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Download LFW, keep photos with one clear face, and write a manifest."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -59,19 +89,18 @@ def main(argv: list[str] | None = None) -> int:
         ) from None
 
     print("loading Labeled Faces in the Wild", flush=True)
-    dataset = fetch_lfw_people(
-        min_faces_per_person=args.min_photos,
-        resize=1.0,
-        color=True,
-        slice_=None,
-        data_home=str(args.cache.resolve()),
-        download_if_missing=True,
-    )
-    images = (dataset.images * 255).clip(0, 255).astype(np.uint8)
-    targets = dataset.target
-    names = dataset.target_names
+    funneled = args.cache.resolve() / "lfw_home" / "lfw_funneled"
+    if not funneled.is_dir():
+        # Only the download and extraction are wanted here; the smallest
+        # subset sklearn will load keeps this cheap.
+        fetch_lfw_people(
+            min_faces_per_person=70,
+            resize=0.5,
+            data_home=str(args.cache.resolve()),
+            download_if_missing=True,
+        )
+    names, counts, files = list_people(funneled, args.min_photos)
 
-    counts = np.bincount(targets)
     eligible = [index for index in np.argsort(-counts) if counts[index] >= args.min_photos]
     rng = np.random.default_rng(args.seed)
     chosen = sorted(rng.permutation(eligible)[: args.identities].tolist())
@@ -89,12 +118,11 @@ def main(argv: list[str] | None = None) -> int:
 
     for target in chosen:
         identity = str(names[target]).lower().replace(" ", "_")
-        indices = np.where(targets == target)[0]
         kept = 0
-        for index in indices:
+        for path in files[target]:
             if kept >= args.per_identity:
                 break
-            image = images[index]
+            image = read_like_sklearn(path)
             faces = detector.detect(image)
             usable = [
                 face
