@@ -9,6 +9,15 @@ Detection has to come first because every later signal - alignment, embedding,
 similarity, deepfake scoring - operates on a face crop rather than the full
 frame. Failure modes to expect: very small faces, extreme pose, heavy motion
 blur, occlusion, and images with no face at all.
+
+Two of those failures were measured to be about framing rather than content,
+and the base class rescues them. A 250-pixel photograph shrunk to a quarter is
+a 62-pixel image whose face is below anything the detectors were trained on,
+and a 30% crop of a portrait leaves a face that fills the frame edge to edge,
+outside the range of face-to-image ratios they expect. When a first pass finds
+nothing, the detector is rerun on an enlarged copy of a small image and then on
+a padded copy, and the boxes are mapped back. Both passes only ever add a
+detection; a frame that truly holds no face still returns none.
 """
 
 from __future__ import annotations
@@ -30,10 +39,14 @@ class FaceDetector(ABC):
     """Contract every face detection backend must satisfy."""
 
     name: str = "abstract"
+    config: FaceDetectorConfig
 
-    @abstractmethod
     def detect(self, image: np.ndarray) -> list[DetectedFace]:
         """Locate faces in an RGB image.
+
+        Runs the backend once, and when that finds nothing and rescue passes are
+        enabled, again on an enlarged copy of an undersized image and then on a
+        padded copy, mapping any boxes back into the original frame.
 
         Args:
             image: ``H x W x 3`` uint8 array in RGB order.
@@ -46,6 +59,74 @@ class FaceDetector(ABC):
             InvalidMediaError: If the array is not a decodable RGB image.
 
         """
+        original = self.validate_image(image)
+        faces = self._detect_once(original)
+        if faces or not self.config.rescue_enabled:
+            return faces
+
+        enlarged, factor = self.upscale_for_detection(original, self.config.rescue_min_side)
+        if factor != 1.0:
+            faces = [self.rescale_face(face, factor) for face in self._detect_once(enlarged)]
+            if faces:
+                logger.debug("detector rescued a face by enlarging the image %.2fx", factor)
+                return faces
+
+        if self.config.rescue_pad_fraction > 0.0:
+            padded, pad_x, pad_y = self.pad_for_detection(
+                original, self.config.rescue_pad_fraction
+            )
+            faces = [self.shift_face(face, -pad_x, -pad_y) for face in self._detect_once(padded)]
+            if faces:
+                logger.debug("detector rescued a face by padding the frame")
+        return faces
+
+    @abstractmethod
+    def _detect_once(self, image: np.ndarray) -> list[DetectedFace]:
+        """Run the backend on one already validated image, without rescue passes."""
+
+    @staticmethod
+    def upscale_for_detection(image: np.ndarray, min_side: int) -> tuple[np.ndarray, float]:
+        """Enlarge an undersized image before detection and report the scale used.
+
+        Returns:
+            The image to run detection on, and the factor its coordinates must
+            be divided by to return to the original frame.
+
+        """
+        from PIL import Image
+
+        height, width = image.shape[:2]
+        shortest = min(height, width)
+        if shortest >= min_side:
+            return image, 1.0
+        scale = min_side / float(shortest)
+        resized = Image.fromarray(image).resize(
+            (max(1, int(round(width * scale))), max(1, int(round(height * scale)))),
+            Image.Resampling.LANCZOS,
+        )
+        return np.asarray(resized, dtype=np.uint8), scale
+
+    @staticmethod
+    def pad_for_detection(image: np.ndarray, fraction: float) -> tuple[np.ndarray, int, int]:
+        """Surround a frame-filling face with replicated border and report the offsets."""
+        height, width = image.shape[:2]
+        pad_y, pad_x = int(round(height * fraction)), int(round(width * fraction))
+        padded = np.pad(image, ((pad_y, pad_y), (pad_x, pad_x), (0, 0)), mode="edge")
+        return np.ascontiguousarray(padded), pad_x, pad_y
+
+    @staticmethod
+    def shift_face(face: DetectedFace, dx: float, dy: float) -> DetectedFace:
+        """Translate a detection by a pixel offset."""
+        box = face.bbox
+        return DetectedFace(
+            bbox=BoundingBox(box.x1 + dx, box.y1 + dy, box.x2 + dx, box.y2 + dy),
+            detection_confidence=face.detection_confidence,
+            landmarks=None
+            if face.landmarks is None
+            else face.landmarks + np.asarray([dx, dy], dtype=np.float32),
+            frame_index=face.frame_index,
+            timestamp_seconds=face.timestamp_seconds,
+        )
 
     @staticmethod
     def downscale_for_detection(
@@ -126,6 +207,10 @@ class MockFaceDetector(FaceDetector):
     def detect(self, image: np.ndarray) -> list[DetectedFace]:
         """Return a single centred face box covering half of the image."""
         self.validate_image(image)
+        return self._detect_once(image)
+
+    def _detect_once(self, image: np.ndarray) -> list[DetectedFace]:
+        """Return the centred box; the mock never needs a rescue pass."""
         height, width = image.shape[:2]
         box_w, box_h = width * 0.5, height * 0.5
         x1, y1 = (width - box_w) / 2.0, (height - box_h) / 2.0

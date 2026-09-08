@@ -80,6 +80,9 @@ class FaceDetectorConfig(_Base):
     nms_threshold: float = Field(default=0.3, ge=0.0, le=1.0)
     allow_download: bool = True
     max_detection_side: int = Field(default=1280, gt=0)
+    rescue_enabled: bool = True
+    rescue_min_side: int = Field(default=160, gt=0)
+    rescue_pad_fraction: float = Field(default=0.25, ge=0.0, le=1.0)
 
 
 class FaceAlignerConfig(_Base):

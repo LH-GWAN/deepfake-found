@@ -26,6 +26,9 @@ face:
     max_faces: 20
     nms_threshold: 0.3
     max_detection_side: 1280
+    rescue_enabled: true
+    rescue_min_side: 160
+    rescue_pad_fraction: 0.25
     allow_download: true
   aligner:
     backend: landmark
