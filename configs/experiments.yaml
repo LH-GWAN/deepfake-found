@@ -7,7 +7,11 @@ transformations:
   resize_25: { type: resize, scale: 0.25 }
   crop_10: { type: crop, ratio: 0.10 }
   crop_30: { type: crop, ratio: 0.30 }
+  rotate_2: { type: rotation, degrees: 2 }
   rotate_5: { type: rotation, degrees: 5 }
+  rotate_10: { type: rotation, degrees: 10 }
+  rotate_15: { type: rotation, degrees: 15 }
+  rotate_30: { type: rotation, degrees: 30 }
   blur_1: { type: blur, sigma: 1.0 }
   noise_5: { type: noise, sigma: 5.0 }
   brightness_up: { type: brightness, factor: 1.2 }

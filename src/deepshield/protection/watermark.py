@@ -47,7 +47,9 @@ The budget is therefore explicit, and it was set by measurement. The direct path
 tries one grid and up to ``2^soft_decode_bits`` corrections, about four thousand
 candidates. The resynchronising path tries every tile phase of several candidate
 grids by hard decision only - two hundred and fifty-six candidates, and no bit
-flipping by default.
+flipping by default. The rotation search that follows adds sixty-four phases for
+each of a few offsets at each of its two refined angles, and only runs when the
+crop search found nothing.
 
 Bit flipping is disabled there because it was measured to buy almost nothing and
 cost precision: enabling it recovered the same 57 of 60 cropped images while
@@ -63,11 +65,22 @@ checksum validates and accepts the result only when they all name the same code.
 Two different valid codes from one image is evidence of an accident, not of two
 watermarks, and the detector reports nothing.
 
+Rotation is handled by a second search that runs only when the first one has
+found nothing. Rotating a marked image back by the exact angle restores every
+bit - the interpolation costs nothing the mid-band cannot absorb - so the whole
+problem is estimating the angle. The decoder sweeps candidate angles one degree
+apart over a bounded range, scores each by the same vote agreement the crop
+search uses, then refines the best few to a quarter of a degree. The tolerance
+was measured before the steps were chosen: half a degree of error still decodes
+exactly, and three quarters does not, so a one-degree coarse grid always holds
+a candidate that decodes. The sweep is done at unit scale only. Rotation
+combined with a rescaling crop is not covered, and the benchmark says so.
+
 Remaining failure modes, all measured by the Phase 13 benchmark rather than
-assumed: rotation, which the grid search does not cover; heavy downscaling,
-which destroys the 8x8 structure outright; strong blur, which removes the
-mid-band; and regenerating the image through another model, which removes the
-mark entirely.
+assumed: rotation beyond the searched range or combined with rescaling; heavy
+downscaling, which destroys the 8x8 structure outright; strong blur, which
+removes the mid-band; and regenerating the image through another model, which
+removes the mark entirely.
 """
 
 from __future__ import annotations
@@ -333,6 +346,19 @@ class DctWatermarker(Watermarker):
         return np.asarray(resized, dtype=np.uint8)
 
     @staticmethod
+    def _rotated(image: np.ndarray, degrees: float) -> np.ndarray:
+        """Return the image rotated about its centre, frame size kept.
+
+        Undoing a rotation about the centre puts the block grid back where it
+        was; the corners the rotation dragged in carry no votes worth counting,
+        and the majority vote absorbs them.
+        """
+        rotated = Image.fromarray(validate_rgb(image)).rotate(
+            float(degrees), resample=Image.Resampling.BICUBIC, expand=False
+        )
+        return np.asarray(rotated, dtype=np.uint8)
+
+    @staticmethod
     def _agreement(votes: np.ndarray, counts: np.ndarray) -> tuple[np.ndarray, float]:
         """Return per-bit vote ratios and their mean agreement with the majority."""
         with np.errstate(invalid="ignore"):
@@ -447,6 +473,101 @@ class DctWatermarker(Watermarker):
             candidates.append((ratios, full_agreement, grid))
         return candidates
 
+    def _rank_offsets(self, luminance: np.ndarray) -> list[tuple[float, int, int]]:
+        """Return every sub-block offset of one grid, best agreement first.
+
+        Several are kept rather than one because agreement barely separates
+        them on a strongly marked image: a grid shifted by two pixels reads the
+        same structure with some signs inverted and scores almost as high, and
+        only the checksum can tell the two apart.
+        """
+        budget = int(self.config.resync_max_blocks)
+        ranked: list[tuple[float, int, int]] = []
+        for offset_y in range(BLOCK_SIZE):
+            for offset_x in range(BLOCK_SIZE):
+                blocks, rows, cols = self._block_stack(luminance, offset_y, offset_x)
+                if blocks.shape[0] < MESSAGE_BITS * MIN_REPETITIONS:
+                    continue
+                votes, counts = self._tally(
+                    self._block_differences(blocks), rows, cols, limit=budget
+                )
+                _, agreement = self._agreement(votes, counts)
+                ranked.append((agreement, offset_y, offset_x))
+        ranked.sort(key=lambda item: item[0], reverse=True)
+        return ranked
+
+    def _score_angle(self, image: np.ndarray, angle: float) -> list[tuple[float, int, int]]:
+        """Undo one candidate rotation and rank its offsets by agreement."""
+        luminance = self._luminance(self._rotated(image, -angle))
+        if min(luminance.shape) < BLOCK_SIZE * 2:
+            return []
+        return self._rank_offsets(luminance)
+
+    def _search_rotation(
+        self, image: np.ndarray
+    ) -> list[tuple[np.ndarray, float, dict[str, Any]]]:
+        """Rank candidate rotation angles by vote agreement, coarse then fine.
+
+        A one-degree coarse grid is enough to find the peak because half a
+        degree of error was measured to decode exactly; the fine pass only
+        sharpens the estimate before the full vote is taken. Every angle is
+        tried at unit scale, so this covers rotation on its own and not rotation
+        combined with a rescaling crop. Each refined angle contributes its best
+        few offsets as separate candidates, for the reason given on
+        :meth:`_rank_offsets`.
+        """
+        limit = float(self.config.resync_rotation_max_degrees)
+        coarse_step = float(self.config.resync_rotation_coarse_step)
+        fine_step = float(self.config.resync_rotation_fine_step)
+        keep = int(self.config.resync_rotation_candidates)
+        per_angle = int(self.config.resync_candidates)
+        if limit <= 0.0:
+            return []
+
+        def peak(offsets: list[tuple[float, int, int]]) -> float:
+            return offsets[0][0] if offsets else 0.0
+
+        coarse = [
+            float(angle)
+            for angle in np.arange(-limit, limit + coarse_step / 2.0, coarse_step)
+            if abs(angle) > 1e-9
+        ]
+        ranked = sorted(
+            ((self._score_angle(image, angle), angle) for angle in coarse),
+            key=lambda item: peak(item[0]),
+            reverse=True,
+        )
+
+        candidates: list[tuple[np.ndarray, float, dict[str, Any]]] = []
+        for offsets, angle in ranked[:keep]:
+            best_offsets, best_angle = offsets, angle
+            fine = np.arange(
+                angle - coarse_step / 2.0, angle + coarse_step / 2.0 + 1e-9, fine_step
+            )
+            for refined in fine:
+                if abs(float(refined) - angle) < 1e-9 or abs(float(refined)) > limit + 1e-9:
+                    continue
+                scored = self._score_angle(image, float(refined))
+                if peak(scored) > peak(best_offsets):
+                    best_offsets, best_angle = scored, float(refined)
+            derotated = self._rotated(image, -best_angle)
+            for _, offset_y, offset_x in best_offsets[:per_angle]:
+                votes, counts = self._extract_votes(derotated, (offset_y, offset_x))
+                ratios, full_agreement = self._agreement(votes, counts)
+                candidates.append(
+                    (
+                        ratios,
+                        full_agreement,
+                        {
+                            "rotation": round(best_angle, 4),
+                            "scale": 1.0,
+                            "offset_y": offset_y,
+                            "offset_x": offset_x,
+                        },
+                    )
+                )
+        return candidates
+
     def _soft_decode(
         self, ratios: np.ndarray, width: int | None = None
     ) -> tuple[np.ndarray, int] | None:
@@ -527,9 +648,42 @@ class DctWatermarker(Watermarker):
                 detected=False, confidence=confidence, backend=self.name
             )
 
-        best_confidence = confidence
-        candidates = self._search_grid(array)
+        accepted, best_confidence = self._decode_candidates(self._search_grid(array), confidence)
+
+        if not accepted and self.config.resync_rotation_enabled:
+            accepted, best_confidence = self._decode_candidates(
+                self._search_rotation(array), best_confidence
+            )
+
+        if len(accepted) == 1:
+            bits, flips, resync_confidence = next(iter(accepted.values()))
+            return self._result((bits, flips), resync_confidence)
+
+        if len(accepted) > 1:
+            logger.warning(
+                "grid search produced %d different valid codes; reporting no detection",
+                len(accepted),
+            )
+
+        return WatermarkDetectionResult(
+            detected=False, confidence=best_confidence, backend=self.name
+        )
+
+    def _decode_candidates(
+        self,
+        candidates: list[tuple[np.ndarray, float, dict[str, Any]]],
+        confidence: float,
+    ) -> tuple[dict[int, tuple[np.ndarray, int, float]], float]:
+        """Try every tile phase of every candidate grid and collect the valid codes.
+
+        Every code whose checksum validates is kept, keyed by its value, so the
+        caller can apply the one guard the search depends on: a single image
+        that yields two different valid codes is an accident of the search, not
+        two watermarks, and is reported as nothing. The best confidence seen is
+        returned alongside so a negative result still says how close it came.
+        """
         accepted: dict[int, tuple[np.ndarray, int, float]] = {}
+        best_confidence = confidence
 
         for ratios, grid_agreement, grid in candidates:
             resync_confidence = float(np.clip((grid_agreement - 0.5) * 2.0, 0.0, 1.0))
@@ -552,19 +706,7 @@ class DctWatermarker(Watermarker):
                     accepted.setdefault(code, (decoded[0], decoded[1], resync_confidence))
                     logger.debug("watermark candidate %08x on grid %s", code, grid)
 
-        if len(accepted) == 1:
-            bits, flips, resync_confidence = next(iter(accepted.values()))
-            return self._result((bits, flips), resync_confidence)
-
-        if len(accepted) > 1:
-            logger.warning(
-                "grid search produced %d different valid codes; reporting no detection",
-                len(accepted),
-            )
-
-        return WatermarkDetectionResult(
-            detected=False, confidence=best_confidence, backend=self.name
-        )
+        return accepted, best_confidence
 
     def _result(
         self, decoded: tuple[np.ndarray, int], confidence: float

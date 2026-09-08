@@ -191,6 +191,11 @@ class WatermarkConfig(_Base):
     resync_candidates: int = Field(default=4, gt=0, le=32)
     resync_soft_decode_bits: int = Field(default=0, ge=0, le=16)
     resync_max_blocks: int = Field(default=2048, gt=0)
+    resync_rotation_enabled: bool = True
+    resync_rotation_max_degrees: float = Field(default=15.0, ge=0.0, le=45.0)
+    resync_rotation_coarse_step: float = Field(default=1.0, gt=0.0, le=5.0)
+    resync_rotation_fine_step: float = Field(default=0.25, gt=0.0, le=1.0)
+    resync_rotation_candidates: int = Field(default=2, gt=0, le=8)
 
 
 class FingerprintConfig(_Base):
