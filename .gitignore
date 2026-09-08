@@ -48,3 +48,8 @@ data/protected/
 data/assets/
 data/results/analyses/
 data/provenance.jsonl
+
+# GAN-swap manipulation set: the same real, named people as data/test/manipulated/
+data/test/manipulated_inswapper/
+# Research-only GAN swapper weights fetched by scripts/fetch_inswapper.py
+models/inswapper/

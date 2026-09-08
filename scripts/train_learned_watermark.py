@@ -16,6 +16,18 @@ Validation reports bit accuracy at three distortion strengths. The clean column
 is the model's own ceiling - what it can do with nothing done to the carrier -
 and no amount of robustness work raises it.
 
+``--vae-roundtrip`` adds a second distortion that stands in for diffusion
+regeneration. Diffusion itself cannot go in the loop - thirty denoising steps are
+not practically differentiable and cost seconds per image - but every img2img
+output passes through Stable Diffusion's VAE decoder, and its eight-fold spatial
+compression is the bottleneck that erases the mark: the swap-only model drops from
+0.879 to 0.580 bit accuracy through the VAE round trip alone, with no denoising.
+Encode-decode is one differentiable forward pass, so on every second step a
+random quarter of the batch is passed through it after the swap distortion. The
+VAE weights are frozen and gradients flow through them into the encoder. A model
+trained this way (v3) was measured against real thirty-step img2img and held its
+attribution where the swap-only model lost it; the numbers are in the README.
+
 A run of this length outlives a laptop lid, so the state needed to continue one -
 both networks, the optimiser, the schedule and the step - is written every
 ``--checkpoint-every`` steps. The write goes to a temporary file and is renamed
@@ -28,6 +40,8 @@ Usage:
         --out models/learned_watermark.pt
     python scripts/train_learned_watermark.py --data data/results/face_crops_128.npy \
         --out models/learned_watermark.pt --resume
+    python scripts/train_learned_watermark.py --data data/results/face_crops_128.npy \
+        --out models/learned_watermark_v3.pt --steps 20000 --vae-roundtrip
 """
 
 from __future__ import annotations
@@ -36,6 +50,7 @@ import argparse
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import torch
@@ -45,10 +60,33 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from learned_watermark import BITS, Decoder, Encoder, distort
+from learned_watermark import BITS, Decoder, Encoder, distort, pick_device
 
 VALIDATION = 512
 WARMUP_FRACTION = 0.4
+VAE_REPOSITORY = "stable-diffusion-v1-5/stable-diffusion-v1-5"
+
+
+def load_vae(device: str) -> Any:
+    """Return Stable Diffusion's VAE, frozen, as a differentiable distortion."""
+    try:
+        from diffusers import AutoencoderKL
+    except ImportError as exc:
+        raise SystemExit(
+            "--vae-roundtrip needs diffusers; pip install diffusers transformers"
+        ) from exc
+    vae = AutoencoderKL.from_pretrained(VAE_REPOSITORY, subfolder="vae").to(device)
+    vae.eval()
+    for parameter in vae.parameters():
+        parameter.requires_grad_(False)
+    return vae
+
+
+def vae_roundtrip(vae: Any, image: torch.Tensor) -> torch.Tensor:
+    """Encode to the latent and decode back, keeping the graph for backprop."""
+    latent = vae.encode(image).latent_dist.mean
+    decoded: torch.Tensor = vae.decode(latent).sample
+    return decoded.clamp(-1, 1)
 
 
 def peak_snr(marked: torch.Tensor, original: torch.Tensor) -> float:
@@ -71,12 +109,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--resume", action="store_true", help="continue from the checkpoint at --out"
     )
+    parser.add_argument(
+        "--vae-roundtrip",
+        action="store_true",
+        help="also pass a random quarter of every second batch through the SD VAE",
+    )
+    parser.add_argument("--vae-fraction", type=float, default=0.25)
+    parser.add_argument("--vae-every", type=int, default=2)
     args = parser.parse_args(argv)
 
     if not args.data.is_file():
         raise SystemExit(f"missing {args.data}; run scripts/prepare_face_crops.py first")
 
-    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    device = pick_device()
     crops = np.load(args.data)
     if crops.shape[0] <= VALIDATION:
         raise SystemExit(
@@ -88,6 +133,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"device={device} train={tuple(training.shape)} val={tuple(held_out.shape)}", flush=True)
 
     encoder, decoder = Encoder().to(device), Decoder().to(device)
+    vae = load_vae(device) if args.vae_roundtrip else None
     parameters = list(encoder.parameters()) + list(decoder.parameters())
     optimiser = torch.optim.Adam(parameters, lr=args.lr)
     schedule = torch.optim.lr_scheduler.CosineAnnealingLR(optimiser, args.steps)
@@ -121,6 +167,8 @@ def main(argv: list[str] | None = None) -> int:
                 "steps": args.steps,
                 "bits": BITS,
                 "res_scale": args.res_scale,
+                "vae_roundtrip": bool(vae is not None),
+                "orientation": "upright",
             },
             staging,
         )
@@ -133,7 +181,13 @@ def main(argv: list[str] | None = None) -> int:
         images = batch.float().div(127.5).sub(1).to(device)
         message = torch.randint(0, 2, (args.batch, BITS), device=device).float()
         marked = (images + encoder(images, message) * args.res_scale).clamp(-1, 1)
-        logits = decoder(distort(marked, warmed))
+        distorted = distort(marked, warmed)
+        if vae is not None and step % args.vae_every == 0:
+            subset = max(1, int(round(args.batch * args.vae_fraction)))
+            chosen = torch.randperm(args.batch, device=device)[:subset]
+            distorted = distorted.clone()
+            distorted[chosen] = vae_roundtrip(vae, distorted[chosen])
+        logits = decoder(distorted)
         message_loss = F.binary_cross_entropy_with_logits(logits, message)
         image_loss = F.mse_loss(marked, images)
         loss = message_loss + args.img_weight * image_loss
@@ -154,11 +208,19 @@ def main(argv: list[str] | None = None) -> int:
                 for level in (0.0, 0.5, 1.0):
                     read = (decoder(distort(candidate, level)) > 0).float()
                     accuracies.append((read == probe).float().mean().item())
+                vae_note = ""
+                if vae is not None:
+                    hits = []
+                    for start in range(0, VALIDATION, 64):
+                        piece = vae_roundtrip(vae, candidate[start : start + 64])
+                        read = (decoder(piece) > 0).float()
+                        hits.append((read == probe[start : start + 64]).float().mean().item())
+                    vae_note = f" vae {float(np.mean(hits)):.3f}"
             print(
                 f"step {step:5d} loss {loss.item():.4f} msg {message_loss.item():.4f} "
                 f"psnr {peak_snr(candidate, held_out):.1f} "
-                f"acc[clean/mid/full] {accuracies[0]:.3f}/{accuracies[1]:.3f}/{accuracies[2]:.3f} "
-                f"warm {warmed:.2f} {time.time() - started:.0f}s",
+                f"acc[clean/mid/full] {accuracies[0]:.3f}/{accuracies[1]:.3f}/{accuracies[2]:.3f}"
+                f"{vae_note} warm {warmed:.2f} {time.time() - started:.0f}s",
                 flush=True,
             )
             encoder.train()

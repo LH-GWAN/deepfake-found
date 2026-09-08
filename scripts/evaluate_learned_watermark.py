@@ -22,8 +22,11 @@ swap
 trained before the displacement grid was corrected saw every image transposed,
 because the grid was built in (row, column) order where ``grid_sample`` reads
 (x, y); with square crops that transposes rather than fails. Such a checkpoint
-decodes correctly only in the orientation it was trained on. Models trained after
-the fix use ``--orientation upright``.
+decodes correctly only in the orientation it was trained on. The 9,000-step
+``models/learned_watermark.pt`` is one and needs the flag; every later checkpoint
+(v2, v3 and anything the training script writes now) is upright, which is the
+default, and the training script records the orientation in the checkpoint so
+this can be checked rather than remembered.
 
 Usage:
     python scripts/evaluate_learned_watermark.py --checkpoint models/learned_watermark.pt
@@ -45,7 +48,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import build_manipulation_set as swaps
-from learned_watermark import BITS, Decoder, Encoder
+from learned_watermark import BITS, Decoder, Encoder, pick_device
 
 from deepshield.face.backends import ARCFACE_TEMPLATE_112
 
@@ -93,9 +96,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--models", type=Path, default=Path("models/insightface"))
     parser.add_argument("--output", type=Path, default=Path("data/results"))
     parser.add_argument("--pairs", type=int, default=24)
-    parser.add_argument(
-        "--orientation", choices=("transposed", "upright"), default="transposed"
-    )
+    parser.add_argument("--orientation", choices=("transposed", "upright"), default=None)
     args = parser.parse_args(argv)
 
     if not args.checkpoint.is_file():
@@ -110,7 +111,7 @@ def main(argv: list[str] | None = None) -> int:
 
     from deepshield.media import load_image
 
-    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    device = pick_device()
     state = torch.load(args.checkpoint, map_location=device)
     encoder, decoder = Encoder().to(device), Decoder().to(device)
     encoder.load_state_dict(state["encoder"])
@@ -118,7 +119,8 @@ def main(argv: list[str] | None = None) -> int:
     encoder.eval()
     decoder.eval()
     scale = state["res_scale"]
-    transposed = args.orientation == "transposed"
+    orientation = args.orientation or state.get("orientation", "upright")
+    transposed = orientation == "transposed"
     app = swaps.build_analyzer(args.models)
 
     rng = np.random.default_rng(0)
@@ -168,7 +170,7 @@ def main(argv: list[str] | None = None) -> int:
 
     report = {
         "pairs": len(pairs),
-        "orientation": args.orientation,
+        "orientation": orientation,
         "psnr_db": round(float(np.mean(quality)), 2) if quality else None,
         "stages": {
             name: {

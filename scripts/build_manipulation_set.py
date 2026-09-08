@@ -23,13 +23,21 @@ would publish, and a detector that learns to spot that has learned nothing
 useful. Each target is paired with the face from another identity whose
 normalised landmark geometry is closest to its own.
 
-What this set is not: it contains no GAN and no diffusion output. A detector
-calibrated here is calibrated for blending-based swaps only. Every downstream
-report says so, because a detector's training family is the single best
-predictor of where it will fail.
+What this set is not: it contains no diffusion output, and by default no GAN
+output either. A detector calibrated here is calibrated for blending-based
+swaps only. Every downstream report says so, because a detector's training
+family is the single best predictor of where it will fail.
+
+``--swapper inswapper`` builds the same layout with the GAN swapper
+``inswapper_128`` instead (fetch it with ``scripts/fetch_inswapper.py``). The
+donor then contributes an identity embedding rather than pixels, and the face
+is regenerated at 128 pixels and pasted back. That is the family the published
+detectors were mostly trained on, which is why it is worth a second set: a
+detector that is at chance on blending swaps may not be at chance here.
 
 Usage:
     python scripts/build_manipulation_set.py --faces data/test/eval_faces
+    python scripts/build_manipulation_set.py --swapper inswapper
 """
 
 from __future__ import annotations
@@ -269,11 +277,18 @@ def main(argv: list[str] | None = None) -> int:
     """Build matched real and manipulated sets with an identity-disjoint layout."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--faces", type=Path, default=Path("data/test/eval_faces"))
-    parser.add_argument("--output", type=Path, default=Path("data/test/manipulated"))
+    parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--models", type=Path, default=Path("models"))
     parser.add_argument("--quality", type=int, default=90)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--swapper", choices=("graphics", "inswapper"), default="graphics")
+    parser.add_argument(
+        "--inswapper", type=Path, default=Path("models/inswapper/inswapper_128.onnx")
+    )
     args = parser.parse_args(argv)
+    if args.output is None:
+        suffix = "" if args.swapper == "graphics" else f"_{args.swapper}"
+        args.output = Path(f"data/test/manipulated{suffix}")
 
     try:
         import cv2
@@ -282,6 +297,35 @@ def main(argv: list[str] | None = None) -> int:
 
     manifest = read_manifest(args.faces)
     app = build_analyzer(args.models)
+
+    if args.swapper == "inswapper":
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from evaluate_learned_watermark_attribution import Attacks
+
+        attacks = Attacks(args.models, args.inswapper, "cpu")
+
+        def swap(source: np.ndarray, target: np.ndarray) -> np.ndarray | None:
+            return attacks.inswap(source, target)
+
+        method = (
+            "GAN face swap: inswapper_128 conditioned on the donor's ArcFace embedding, "
+            "regenerated at 128 pixels and pasted back"
+        )
+        covers = ["GAN face swap (inswapper family)"]
+        does_not_cover = ["blending-based face swap", "diffusion synthesis", "reenactment"]
+        method_tag = "inswapper_128"
+    else:
+
+        def swap(source: np.ndarray, target: np.ndarray) -> np.ndarray | None:
+            return swap_face(cv2, source, target, app)
+
+        method = (
+            "graphics-based face swap: 106-landmark affine warp, colour "
+            "matching, Poisson blend over the convex hull, JPEG re-encode"
+        )
+        covers = ["blending-based face swap"]
+        does_not_cover = ["GAN synthesis", "diffusion synthesis", "reenactment"]
+        method_tag = "landmark_affine_hull_blend"
 
     real_dir = args.output / "real"
     fake_dir = args.output / "fake"
@@ -331,7 +375,7 @@ def main(argv: list[str] | None = None) -> int:
                 }
             )
 
-            swapped = swap_face(cv2, source, target, app)
+            swapped = swap(source, target)
             if swapped is None:
                 failures += 1
                 continue
@@ -344,7 +388,7 @@ def main(argv: list[str] | None = None) -> int:
                     "identity": identity,
                     "source": target_name,
                     "donor": donor_name,
-                    "method": "landmark_affine_hull_blend",
+                    "method": method_tag,
                 }
             )
             if position == 0:
@@ -358,10 +402,10 @@ def main(argv: list[str] | None = None) -> int:
     manifest_path.write_text(
         json.dumps(
             {
-                "method": "graphics-based face swap: 106-landmark affine warp, colour "
-                "matching, Poisson blend over the convex hull, JPEG re-encode",
-                "covers": ["blending-based face swap"],
-                "does_not_cover": ["GAN synthesis", "diffusion synthesis", "reenactment"],
+                "method": method,
+                "swapper": args.swapper,
+                "covers": covers,
+                "does_not_cover": does_not_cover,
                 "jpeg_quality": args.quality,
                 "seed": args.seed,
                 "records": records,
@@ -375,10 +419,8 @@ def main(argv: list[str] | None = None) -> int:
     fake = sum(1 for r in records if r["label"] == "fake")
     print(f"\n{real} real and {fake} manipulated images, {failures} swaps failed")
     print(f"wrote {manifest_path}")
-    print(
-        "\nThis set covers blending-based face swapping only. A detector calibrated "
-        "on it says nothing about GAN or diffusion output."
-    )
+    print(f"\nThis set covers {covers[0]} only. A detector calibrated on it says nothing about "
+          f"{', '.join(does_not_cover)}.")
     return 0
 
 

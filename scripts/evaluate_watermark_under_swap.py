@@ -27,9 +27,17 @@ a larger canvas.
 Bit accuracy is reported next to the detection count because it separates a mark
 that is degraded from one that is gone. Chance is 0.5.
 
+``--swapper inswapper`` runs the same protocol through the GAN swapper
+``inswapper_128`` instead of the graphics one. Its source input is an identity
+embedding rather than pixels, so the source direction has no carrier by
+construction; the target direction is the one worth measuring, because the GAN
+repaints a 128-pixel aligned crop and pastes it back, which is a different
+footprint from the graphics swap's landmark hull.
+
 Usage:
     python scripts/evaluate_watermark_under_swap.py
     python scripts/evaluate_watermark_under_swap.py --pairs 40
+    python scripts/evaluate_watermark_under_swap.py --swapper inswapper
 """
 
 from __future__ import annotations
@@ -47,6 +55,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import build_manipulation_set as swaps
+from evaluate_learned_watermark_attribution import Attacks
 
 from deepshield.config import WatermarkConfig
 from deepshield.protection.watermark import DctWatermarker
@@ -98,6 +107,7 @@ def measure(
     payload: WatermarkPayload,
     pairs: list[tuple[Path, Path]],
     fraction: float,
+    swap: Any,
 ) -> dict[str, Any]:
     """Run both swap directions over every pair at one framing."""
     from deepshield.media import load_image
@@ -115,8 +125,8 @@ def measure(
         if hull is not None:
             hulls.append(hull)
         outputs = {
-            "target": swaps.swap_face(cv2, other, marked, app),
-            "source": swaps.swap_face(cv2, marked, other, app),
+            "target": swap(other, marked),
+            "source": swap(marked, other),
         }
         for direction, output in outputs.items():
             if output is None:
@@ -152,6 +162,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--models", type=Path, default=Path("models/insightface"))
     parser.add_argument("--output", type=Path, default=Path("data/results"))
     parser.add_argument("--pairs", type=int, default=24)
+    parser.add_argument("--swapper", choices=("graphics", "inswapper"), default="graphics")
+    parser.add_argument(
+        "--inswapper", type=Path, default=Path("models/inswapper/inswapper_128.onnx")
+    )
     args = parser.parse_args(argv)
 
     if not args.faces.is_dir():
@@ -168,15 +182,28 @@ def main(argv: list[str] | None = None) -> int:
     watermarker = DctWatermarker(WatermarkConfig())
     payload = WatermarkPayload(version=1, user_token="evaluation", asset_id="swap")
 
+    if args.swapper == "inswapper":
+        attacks = Attacks(args.models.parent, args.inswapper, "cpu")
+
+        def swap(source: np.ndarray, target: np.ndarray) -> np.ndarray | None:
+            return attacks.inswap(source, target)
+
+    else:
+
+        def swap(source: np.ndarray, target: np.ndarray) -> np.ndarray | None:
+            return swaps.swap_face(cv2, source, target, app)
+
     report = {
         "pairs": len(pairs),
+        "swapper": args.swapper,
         "framings": [
-            measure(cv2, app, watermarker, payload, pairs, fraction)
+            measure(cv2, app, watermarker, payload, pairs, fraction, swap)
             for fraction in FRAMINGS
         ],
     }
     args.output.mkdir(parents=True, exist_ok=True)
-    destination = args.output / "watermark_under_swap.json"
+    suffix = "" if args.swapper == "graphics" else f"_{args.swapper}"
+    destination = args.output / f"watermark_under_swap{suffix}.json"
     destination.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=2))
     print(f"\nwrote {destination}")

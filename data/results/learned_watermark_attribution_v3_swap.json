@@ -1,0 +1,46 @@
+{
+  "checkpoint": "models/learned_watermark_v3.pt",
+  "orientation": "upright",
+  "attack": "swap",
+  "faces": "data/sklearn/lfw_home/lfw_funneled",
+  "pairs_requested": 150,
+  "pairs_marked": 150,
+  "codebook": 72,
+  "seed": 0,
+  "psnr_db": 35.24,
+  "scoring": "soft correlation of decoder logits with every codebook entry",
+  "results": {
+    "swap": {
+      "samples": {
+        "marked": 148,
+        "unmarked": 148,
+        "paired": 148
+      },
+      "split": {
+        "calibration": 74,
+        "test": 74
+      },
+      "detection": {
+        "threshold_zero_fp_on_calibration": 11.9453,
+        "test_detection_rate": 0.8514,
+        "test_false_positive_rate": 0.0135,
+        "threshold_1pct_fp_on_calibration": 11.3016,
+        "test_detection_rate_at_1pct": 0.8649,
+        "test_false_positive_rate_at_1pct": 0.027,
+        "test_auc": 0.9748,
+        "all_auc": 0.9697,
+        "marked_score_mean": 17.4642,
+        "unmarked_score_mean": 7.3733
+      },
+      "attribution_test_half": {
+        "top1_of_2": 0.998,
+        "top1_of_8": 0.9824,
+        "top1_of_32": 0.9595,
+        "top1_of_72": 0.9324
+      },
+      "attribution_all": {
+        "top1_of_codebook": 0.9257
+      }
+    }
+  }
+}
