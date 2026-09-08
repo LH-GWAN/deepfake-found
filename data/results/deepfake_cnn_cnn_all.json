@@ -1,0 +1,75 @@
+{
+  "tag": "cnn_all",
+  "trained_on": [
+    "graphics",
+    "inswapper",
+    "diffusion"
+  ],
+  "holdout_identities": 9,
+  "train_crops": 472,
+  "epochs": 12,
+  "held_out_real": 50,
+  "per_family": {
+    "graphics": {
+      "seen_in_training": true,
+      "held_out_fake": 50,
+      "clean": {
+        "n": 100,
+        "auc": 0.9824,
+        "eer": 0.04,
+        "recall_at_0.5": 0.86,
+        "false_positive_rate_at_0.5": 0.04
+      },
+      "jpeg50": {
+        "n": 100,
+        "auc": 0.8492,
+        "eer": 0.24,
+        "recall_at_0.5": 0.7,
+        "false_positive_rate_at_0.5": 0.2
+      },
+      "usable_by_this_project's_bar": true
+    },
+    "inswapper": {
+      "seen_in_training": true,
+      "held_out_fake": 50,
+      "clean": {
+        "n": 100,
+        "auc": 0.9884,
+        "eer": 0.04,
+        "recall_at_0.5": 0.94,
+        "false_positive_rate_at_0.5": 0.04
+      },
+      "jpeg50": {
+        "n": 100,
+        "auc": 0.83,
+        "eer": 0.24,
+        "recall_at_0.5": 0.66,
+        "false_positive_rate_at_0.5": 0.2
+      },
+      "usable_by_this_project's_bar": true
+    },
+    "diffusion": {
+      "seen_in_training": true,
+      "held_out_fake": 50,
+      "clean": {
+        "n": 100,
+        "auc": 0.9988,
+        "eer": 0.02,
+        "recall_at_0.5": 1.0,
+        "false_positive_rate_at_0.5": 0.04
+      },
+      "jpeg50": {
+        "n": 100,
+        "auc": 0.9664,
+        "eer": 0.06,
+        "recall_at_0.5": 1.0,
+        "false_positive_rate_at_0.5": 0.2
+      },
+      "usable_by_this_project's_bar": true
+    }
+  },
+  "criteria": {
+    "min_auc": 0.75,
+    "max_false_positive_rate": 0.1
+  }
+}
