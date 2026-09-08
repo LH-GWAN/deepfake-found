@@ -444,8 +444,8 @@ python scripts/evaluate_learned_watermark.py --checkpoint models/learned_waterma
 `--vae-roundtrip`이 v3의 확산 왜곡 학습입니다. Stable Diffusion의 VAE를 얼려 두고 스텝의
 절반마다 배치 32 중 무작위 8장을 인코드·디코드 왕복시키며, 그래디언트는 VAE를 통과해
 인코더로 흐릅니다. 이전에는 Colab 노트북에만 있던 코드입니다. T4 15GB에서는 VAE 왕복의
-활성값이 메모리를 넘기므로 그래디언트 체크포인팅과 fp16 autocast를 VAE에만 적용해야 하며,
-Apple 통합 메모리에서는 그대로 돕니다.
+활성값이 메모리를 넘기므로 스크립트가 CUDA에서는 그래디언트 체크포인팅과 fp16 autocast를
+VAE에만 자동으로 적용하며, Apple 통합 메모리에서는 그대로 돕니다.
 
 학습 코퍼스는 이 저장소가 얼굴 매칭 평가를 위해 이미 내려받아 둔 LFW입니다(13,185개
 정렬 크롭). 데이터 사용 동의서가 필요 없다는 점이 딥페이크 탐지기 쪽이 막혀 있는 것과
