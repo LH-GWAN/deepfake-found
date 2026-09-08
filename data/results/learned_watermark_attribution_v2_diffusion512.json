@@ -1,0 +1,117 @@
+{
+  "checkpoint": "models/learned_watermark_v2.pt",
+  "orientation": "upright",
+  "attack": "diffusion",
+  "faces": "data/sklearn/lfw_home/lfw_funneled",
+  "pairs_requested": 150,
+  "pairs_marked": 150,
+  "codebook": 72,
+  "seed": 0,
+  "psnr_db": 38.97,
+  "scoring": "soft correlation of decoder logits with every codebook entry",
+  "results": {
+    "strength_0.10": {
+      "samples": {
+        "marked": 147,
+        "unmarked": 150,
+        "paired": 147
+      },
+      "split": {
+        "calibration": 73,
+        "test": 74
+      },
+      "detection": {
+        "threshold_zero_fp_on_calibration": 22.4509,
+        "test_detection_rate": 0.8378,
+        "test_false_positive_rate": 0.0405,
+        "threshold_1pct_fp_on_calibration": 19.9625,
+        "test_detection_rate_at_1pct": 0.9054,
+        "test_false_positive_rate_at_1pct": 0.0405,
+        "test_auc": 0.9644,
+        "all_auc": 0.9794,
+        "marked_score_mean": 30.099,
+        "unmarked_score_mean": 14.2242
+      },
+      "attribution_test_half": {
+        "top1_of_2": 0.9108,
+        "top1_of_8": 0.6743,
+        "top1_of_32": 0.448,
+        "top1_of_72": 0.3649
+      },
+      "attribution_all": {
+        "top1_of_codebook": 0.3605
+      }
+    },
+    "strength_0.20": {
+      "samples": {
+        "marked": 147,
+        "unmarked": 150,
+        "paired": 147
+      },
+      "split": {
+        "calibration": 73,
+        "test": 74
+      },
+      "detection": {
+        "threshold_zero_fp_on_calibration": 21.0927,
+        "test_detection_rate": 0.7568,
+        "test_false_positive_rate": 0.0405,
+        "threshold_1pct_fp_on_calibration": 20.5384,
+        "test_detection_rate_at_1pct": 0.7838,
+        "test_false_positive_rate_at_1pct": 0.0405,
+        "test_auc": 0.9407,
+        "all_auc": 0.9573,
+        "marked_score_mean": 26.0717,
+        "unmarked_score_mean": 14.8507
+      },
+      "attribution_test_half": {
+        "top1_of_2": 0.8399,
+        "top1_of_8": 0.4851,
+        "top1_of_32": 0.2628,
+        "top1_of_72": 0.1892
+      },
+      "attribution_all": {
+        "top1_of_codebook": 0.1769
+      }
+    },
+    "strength_0.30": {
+      "samples": {
+        "marked": 148,
+        "unmarked": 150,
+        "paired": 148
+      },
+      "split": {
+        "calibration": 74,
+        "test": 74
+      },
+      "detection": {
+        "threshold_zero_fp_on_calibration": 24.0158,
+        "test_detection_rate": 0.4595,
+        "test_false_positive_rate": 0.0405,
+        "threshold_1pct_fp_on_calibration": 23.0966,
+        "test_detection_rate_at_1pct": 0.5405,
+        "test_false_positive_rate_at_1pct": 0.0541,
+        "test_auc": 0.9202,
+        "all_auc": 0.9207,
+        "marked_score_mean": 24.1563,
+        "unmarked_score_mean": 15.654
+      },
+      "attribution_test_half": {
+        "top1_of_2": 0.7507,
+        "top1_of_8": 0.3764,
+        "top1_of_32": 0.1635,
+        "top1_of_72": 0.1081
+      },
+      "attribution_all": {
+        "top1_of_codebook": 0.0878
+      }
+    }
+  },
+  "diffusion": {
+    "repository": "stable-diffusion-v1-5/stable-diffusion-v1-5",
+    "size": 512,
+    "steps": 30,
+    "guidance": 7.5,
+    "prompt": "a photograph of a person, portrait"
+  }
+}
