@@ -169,12 +169,12 @@ def test_watermark_survives_common_transformations(
 
 @pytest.mark.parametrize(
     ("kind", "params"),
-    [("rotation", {"degrees": 5}), ("resize", {"scale": 0.25})],
+    [("rotation", {"degrees": 30}), ("resize", {"scale": 0.25})],
 )
 def test_unrecoverable_attacks_report_failure_rather_than_a_code(
     watermarker: DctWatermarker, large_photo: np.ndarray, kind: str, params: dict
 ) -> None:
-    """A documented limitation: rotation and heavy downscaling defeat the grid search.
+    """Rotation beyond the searched range and heavy downscaling defeat the grid search.
 
     The requirement is not that the mark survives, but that the detector reports
     failure instead of inventing a code.
@@ -182,6 +182,41 @@ def test_unrecoverable_attacks_report_failure_rather_than_a_code(
     marked = watermarker.embed(large_photo, PAYLOAD)
     result = watermarker.detect(_transform(marked, kind, params))
     assert result.detected is False or result.watermark_code == f"{PAYLOAD.code(CODE_BITS):08x}"
+
+
+@pytest.mark.parametrize("degrees", [2.0, 5.0, -7.3, 10.0])
+def test_rotation_is_recovered_by_angle_search(
+    watermarker: DctWatermarker, large_photo: np.ndarray, degrees: float
+) -> None:
+    """Rotation is undone by sweeping candidate angles and re-running the grid search."""
+    marked = watermarker.embed(large_photo, PAYLOAD)
+    result = watermarker.detect(_transform(marked, "rotation", {"degrees": degrees}))
+    assert result.detected is True
+    assert result.watermark_code == f"{PAYLOAD.code(CODE_BITS):08x}"
+
+
+def test_rotation_search_can_be_disabled(large_photo: np.ndarray) -> None:
+    plain = DctWatermarker(WatermarkConfig(strength=0.16, resync_rotation_enabled=False))
+    rotated = _transform(plain.embed(large_photo, PAYLOAD), "rotation", {"degrees": 5})
+    assert plain.detect(rotated).detected is False
+
+
+def test_rotation_search_does_not_invent_a_code_on_unmarked_images(
+    watermarker: DctWatermarker, large_photo: np.ndarray
+) -> None:
+    """More candidate angles are more chances for a checksum to pass on noise."""
+    for degrees in (0.0, 3.0, 5.0):
+        probe = large_photo
+        if degrees:
+            probe = _transform(large_photo, "rotation", {"degrees": degrees})
+        assert watermarker.detect(probe).detected is False
+
+
+def test_rotation_search_budget_is_bounded_by_default() -> None:
+    config = WatermarkConfig()
+    assert config.resync_rotation_max_degrees <= 20.0
+    assert config.resync_rotation_candidates <= 4
+    assert config.resync_rotation_fine_step <= config.resync_rotation_coarse_step / 2.0
 
 
 def test_bit_accuracy_degrades_gracefully(

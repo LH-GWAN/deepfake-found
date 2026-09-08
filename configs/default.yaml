@@ -82,6 +82,11 @@ protection:
     resync_candidates: 4
     resync_soft_decode_bits: 0
     resync_max_blocks: 2048
+    resync_rotation_enabled: true
+    resync_rotation_max_degrees: 15.0
+    resync_rotation_coarse_step: 1.0
+    resync_rotation_fine_step: 0.25
+    resync_rotation_candidates: 2
   fingerprint:
     hash_size: 8
     semantic_embedding: false
