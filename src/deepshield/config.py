@@ -354,6 +354,12 @@ class Thresholds(_Base):
     risk: RiskThresholds = RiskThresholds()
 
 
+class ProvenanceConfig(_Base):
+    """Provenance settings: which C2PA adapter verifies content credentials."""
+
+    c2pa_backend: str = "auto"
+
+
 class DeepShieldConfig(_Base):
     """Root configuration object handed to every pipeline and component factory."""
 
@@ -366,6 +372,7 @@ class DeepShieldConfig(_Base):
     protection: ProtectionConfig = ProtectionConfig()
     video: VideoConfig = VideoConfig()
     storage: StorageConfig = StorageConfig()
+    provenance: ProvenanceConfig = ProvenanceConfig()
     api: ApiConfig = ApiConfig()
     experiments: ExperimentsConfig = ExperimentsConfig()
     thresholds: Thresholds = Thresholds()

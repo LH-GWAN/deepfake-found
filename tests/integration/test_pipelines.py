@@ -223,3 +223,24 @@ def test_evidence_reports_the_identity_decision(config, source_image: Path) -> N
         "ambiguous",
         "high_confidence",
     }
+
+
+def test_analysis_reports_content_credentials_without_scoring_them(config) -> None:
+    """A C2PA-signed file is described in the record and never enters the risk score."""
+    pytest.importorskip("c2pa")
+    fixture = Path(__file__).resolve().parents[1] / "fixtures" / "c2pa" / "C.jpg"
+    record = DefaultAnalysisPipeline(config).analyze_image(fixture)
+    assert record.content_credentials is not None
+    assert record.content_credentials["present"] is True
+    assert record.content_credentials["verified"] is True
+    assert record.content_credentials["trusted"] is False
+    assert any("C2PA" in line for line in record.limitations)
+    assert record.to_dict()["provenance"]["content_credentials"]["issuer"]
+
+
+def test_analysis_says_when_a_file_carries_no_credentials(config, source_image: Path) -> None:
+    pytest.importorskip("c2pa")
+    record = DefaultAnalysisPipeline(config).analyze_image(source_image)
+    assert record.content_credentials is not None
+    assert record.content_credentials["present"] is False
+    assert any("no C2PA" in line for line in record.limitations)

@@ -243,6 +243,7 @@ def command_doctor(config: DeepShieldConfig, as_json: bool) -> int:
         "cv2": "face detection, alignment and video decoding",
         "onnxruntime": "ONNX model execution",
         "insightface": "SCRFD detection and ArcFace embeddings",
+        "c2pa": "C2PA content credential verification",
         "fastapi": "REST API",
         "uvicorn": "REST API server",
         "sklearn": "extended metrics",
