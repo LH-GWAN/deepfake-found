@@ -451,6 +451,7 @@ class EvidenceRecord:
 
     perceptual_similarity: float | None = None
     provenance_confidence: float | None = None
+    content_credentials: dict[str, Any] | None = None
 
     risk: RiskAssessment | None = None
     detector_versions: dict[str, ModelInfo] = field(default_factory=dict)
@@ -493,7 +494,10 @@ class EvidenceRecord:
                 "matched_asset_id": self.matched_asset_id,
             },
             "faces": list(self.faces),
-            "provenance": {"confidence": self.provenance_confidence},
+            "provenance": {
+                "confidence": self.provenance_confidence,
+                "content_credentials": self.content_credentials,
+            },
             "risk": self.risk.to_dict() if self.risk else None,
             "detector_versions": {k: v.to_dict() for k, v in self.detector_versions.items()},
             "limitations": list(self.limitations),

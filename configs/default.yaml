@@ -117,6 +117,9 @@ storage:
   separate_embedding_store: true
   embedding_store_dir: data/embeddings
 
+provenance:
+  c2pa_backend: auto     # auto | c2pa_python | stub
+
 api:
   host: 127.0.0.1
   port: 8000

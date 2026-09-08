@@ -47,6 +47,7 @@ from deepshield.logging_utils import get_logger, safe_embedding_repr
 from deepshield.media import is_video_path, load_image, sha256_file, validate_rgb
 from deepshield.protection.fingerprint import DefaultFingerprinter, hash_similarity
 from deepshield.protection.watermark import Watermarker, build_watermarker
+from deepshield.provenance.c2pa_adapter import build_c2pa_adapter
 from deepshield.quality import face_quality_score
 from deepshield.risk.features import DefaultRiskFeatureBuilder
 from deepshield.risk.scorer import WeightedRiskScorer
@@ -72,6 +73,48 @@ DEEPFAKE_CROP_MARGIN = 0.25
 EXACT_MATCH_PROVENANCE_CONFIDENCE = 1.0
 WATERMARK_PROVENANCE_CONFIDENCE = 0.8
 PERCEPTUAL_PROVENANCE_CONFIDENCE = 0.4
+
+
+def describe_credentials(credentials: dict[str, Any]) -> str:
+    """Return the one-line reading of a C2PA verification result.
+
+    Credentials are reported, never scored. A valid signature from an unknown
+    signer proves that the file has not changed since someone signed it, and
+    nothing about who that someone is; the absence of credentials proves
+    nothing at all, since almost no photograph carries them yet.
+    """
+    if not credentials.get("supported"):
+        return (
+            "C2PA content credentials were not checked: the 'provenance' extra is not "
+            "installed. Absence of a check is not absence of credentials."
+        )
+    if credentials.get("present") is False:
+        return (
+            "The file carries no C2PA content credentials. Most photographs do not, so "
+            "this says nothing about authenticity."
+        )
+    if credentials.get("present") is None:
+        return f"C2PA content credentials could not be read: {credentials.get('reason')}"
+    signer = credentials.get("issuer") or "an unnamed signer"
+    generator = credentials.get("claim_generator") or "an unnamed tool"
+    if credentials.get("trusted"):
+        return (
+            f"C2PA content credentials verified and trusted: signed by {signer} using "
+            f"{generator}. The bytes have not changed since signing."
+        )
+    if credentials.get("verified"):
+        return (
+            f"C2PA content credentials verified but not trusted: signed by {signer} using "
+            f"{generator}, and the bytes have not changed since signing, but the signing "
+            "certificate is not on a configured trust list, so the signer's identity is "
+            "asserted rather than vouched for."
+        )
+    codes = ", ".join(str(issue.get("code")) for issue in credentials.get("issues") or [])
+    return (
+        f"C2PA content credentials are present but did not validate ({codes}). The file "
+        "was altered after signing or the manifest is malformed; treat the credential as "
+        "absent, not as proof of tampering by any particular party."
+    )
 
 
 class AnalysisPipeline(ABC):
@@ -137,6 +180,7 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
         self.identities = identity_repository or build_identity_repository(config)
         self.assets = asset_repository or build_asset_repository(config)
         self.provenance = provenance_store or build_provenance_store(config)
+        self.c2pa = build_c2pa_adapter(config.provenance.c2pa_backend)
         self.feature_builder = DefaultRiskFeatureBuilder(config.thresholds)
         self.scorer = WeightedRiskScorer(config.thresholds.risk)
 
@@ -289,6 +333,7 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
 
         watermark = self.watermarker.detect(image)
         attribution = self._source_attribution(image, file_digest, watermark.watermark_code)
+        credentials = self.c2pa.verify(path)
         face_records, best_result, best_face = self._analyse_faces(image, profiles)
 
         deepfake_score: float | None = None
@@ -316,6 +361,7 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
         risk = self.scorer.score(feature_set)
 
         limitations = list(risk.limitations)
+        limitations.append(describe_credentials(credentials))
         if (
             attribution["perceptual_similarity"] is not None
             and attribution["fingerprint_evidence"] is None
@@ -384,6 +430,7 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
             perceptual_similarity=attribution["perceptual_similarity"],
             matched_asset_id=attribution["matched_asset_id"],
             provenance_confidence=attribution["provenance_confidence"],
+            content_credentials=credentials,
             risk=risk,
             faces=face_records,
             detector_versions={
