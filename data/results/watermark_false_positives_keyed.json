@@ -1,0 +1,17 @@
+{
+  "images": 175,
+  "rotations": [
+    0.0,
+    5.0
+  ],
+  "probes": 350,
+  "false_positives": 0,
+  "positives": [],
+  "mean_seconds_per_probe": 2.753,
+  "keyed": true,
+  "search": {
+    "resync_enabled": true,
+    "rotation_enabled": true,
+    "rotation_max_degrees": 15.0
+  }
+}

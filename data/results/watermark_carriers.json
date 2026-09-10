@@ -1,0 +1,138 @@
+{
+  "images": 40,
+  "strength": 0.16,
+  "carriers": {
+    "(3, 4)": {
+      "psnr_db": 36.12,
+      "ssim": 0.907,
+      "recovered": {
+        "clean": 1.0,
+        "jpeg_q70": 1.0,
+        "resize_50": 0.75,
+        "crop_20": 0.975,
+        "rotate_5": 1.0
+      },
+      "adopted": true
+    },
+    "(2, 3)": {
+      "psnr_db": 35.95,
+      "ssim": 0.907,
+      "recovered": {
+        "clean": 1.0,
+        "jpeg_q70": 1.0,
+        "resize_50": 1.0,
+        "crop_20": 1.0,
+        "rotate_5": 1.0
+      },
+      "adopted": true
+    },
+    "(1, 4)": {
+      "psnr_db": 36.01,
+      "ssim": 0.907,
+      "recovered": {
+        "clean": 1.0,
+        "jpeg_q70": 1.0,
+        "resize_50": 0.6,
+        "crop_20": 0.975,
+        "rotate_5": 1.0
+      },
+      "adopted": false
+    },
+    "(2, 4)": {
+      "psnr_db": 36.24,
+      "ssim": 0.913,
+      "recovered": {
+        "clean": 1.0,
+        "jpeg_q70": 1.0,
+        "resize_50": 0.975,
+        "crop_20": 0.95,
+        "rotate_5": 1.0
+      },
+      "adopted": false
+    },
+    "(1, 5)": {
+      "psnr_db": 36.03,
+      "ssim": 0.906,
+      "recovered": {
+        "clean": 1.0,
+        "jpeg_q70": 1.0,
+        "resize_50": 1.0,
+        "crop_20": 1.0,
+        "rotate_5": 1.0
+      },
+      "adopted": true
+    },
+    "(2, 5)": {
+      "psnr_db": 36.14,
+      "ssim": 0.908,
+      "recovered": {
+        "clean": 1.0,
+        "jpeg_q70": 1.0,
+        "resize_50": 1.0,
+        "crop_20": 0.825,
+        "rotate_5": 1.0
+      },
+      "adopted": false
+    },
+    "(1, 6)": {
+      "psnr_db": 36.13,
+      "ssim": 0.908,
+      "recovered": {
+        "clean": 1.0,
+        "jpeg_q70": 1.0,
+        "resize_50": 0.075,
+        "crop_20": 1.0,
+        "rotate_5": 1.0
+      },
+      "adopted": false
+    },
+    "(3, 5)": {
+      "psnr_db": 36.04,
+      "ssim": 0.904,
+      "recovered": {
+        "clean": 1.0,
+        "jpeg_q70": 1.0,
+        "resize_50": 0.975,
+        "crop_20": 0.175,
+        "rotate_5": 1.0
+      },
+      "adopted": false
+    },
+    "(2, 6)": {
+      "psnr_db": 35.74,
+      "ssim": 0.897,
+      "recovered": {
+        "clean": 1.0,
+        "jpeg_q70": 1.0,
+        "resize_50": 0.025,
+        "crop_20": 1.0,
+        "rotate_5": 1.0
+      },
+      "adopted": false
+    },
+    "(4, 5)": {
+      "psnr_db": 36.16,
+      "ssim": 0.907,
+      "recovered": {
+        "clean": 1.0,
+        "jpeg_q70": 0.0,
+        "resize_50": 0.0,
+        "crop_20": 0.975,
+        "rotate_5": 1.0
+      },
+      "adopted": false
+    },
+    "(3, 6)": {
+      "psnr_db": 36.18,
+      "ssim": 0.908,
+      "recovered": {
+        "clean": 1.0,
+        "jpeg_q70": 0.0,
+        "resize_50": 0.025,
+        "crop_20": 1.0,
+        "rotate_5": 1.0
+      },
+      "adopted": false
+    }
+  }
+}

@@ -44,48 +44,78 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-import torch
-import torch.nn.functional as F
 from PIL import Image, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import build_manipulation_set as swaps
-from evaluate_learned_watermark import SIZE, align_matrix, as_tensor
-from evaluate_learned_watermark_attribution import (
-    SUBSETS,
-    Model,
-    closed_set_top1,
-    identity_pairs,
-    rank_auc,
-    score,
-    summarise,
-)
-from learned_watermark import BITS, distort, pick_device
-from train_learned_watermark import load_vae, vae_roundtrip
-
 from deepshield.config import WatermarkConfig
 from deepshield.media import load_image
 from deepshield.protection.fingerprint import dct2, idct2
 from deepshield.protection.watermark import (
     BLOCK_SIZE,
+    CARRIER_PAIRS,
     CODE_BITS,
-    COEFFICIENT_A,
-    COEFFICIENT_B,
     DctWatermarker,
+    derive_layout,
 )
 from deepshield.quality import psnr
 from deepshield.transforms import Transformation
 from deepshield.types import WatermarkPayload
 
+Pair = tuple[tuple[int, int], tuple[int, int]]
+
 PGD_STEPS = 40
 PGD_EOT_STRENGTH = 0.5
+
+
+def load_learned_stack() -> None:
+    """Import the torch and insightface halves of this script.
+
+    They are loaded on demand rather than at module scope so that ``--dct-only``
+    can run on a machine with neither. The DCT half needs nothing but numpy and
+    Pillow, and it is the half a keyed layout is measured on.
+    """
+    global torch, F, swaps, SIZE, align_matrix, as_tensor
+    global SUBSETS, Model, closed_set_top1, identity_pairs, rank_auc, score, summarise
+    global BITS, distort, pick_device, load_vae, vae_roundtrip
+
+    import build_manipulation_set as swaps
+    import torch
+    import torch.nn.functional as F
+    from evaluate_learned_watermark import SIZE, align_matrix, as_tensor
+    from evaluate_learned_watermark_attribution import (
+        SUBSETS,
+        Model,
+        closed_set_top1,
+        identity_pairs,
+        rank_auc,
+        score,
+        summarise,
+    )
+    from learned_watermark import BITS, distort, pick_device
+    from train_learned_watermark import load_vae, vae_roundtrip
+
+
+def dct_paths(faces: Path, limit: int) -> list[Path]:
+    """Return the photographs ``identity_pairs`` would hand the DCT measurement.
+
+    It reproduces that selection rather than calling it because ``identity_pairs``
+    lives beside the learned-watermark evaluation, and importing that module pulls
+    in torch - which is exactly what ``--dct-only`` exists to avoid.
+    """
+    by_identity: dict[str, list[Path]] = {}
+    for path in sorted(faces.rglob("*.jpg")):
+        identity = path.parent.name if path.parent != faces else path.stem.rsplit("_", 1)[0]
+        by_identity.setdefault(identity, []).append(path)
+    names = sorted(by_identity)
+    return [by_identity[name][0] for name in names[0 : 2 * limit : 2]]
 
 
 def uninformed_attacks() -> dict[str, Any]:
@@ -199,8 +229,15 @@ def warp_back(cv2: Any, image: np.ndarray, matrix: np.ndarray, shift: np.ndarray
     return np.clip(image.astype(np.float32) + spread, 0, 255).astype(np.uint8)
 
 
-def dct_equalise(image: np.ndarray) -> np.ndarray:
-    """Remove the DCT mark by giving both carrier coefficients their mean."""
+def dct_equalise(image: np.ndarray, pairs: Sequence[Pair]) -> np.ndarray:
+    """Remove the DCT mark by giving each named pair of coefficients their mean.
+
+    The pairs are a parameter because that is the whole question a key asks. An
+    attacker who guesses the wrong carrier equalises coefficients the mark was
+    never in and pays the quality cost for nothing; one who refuses to guess has
+    to flatten the whole published family in a single pass, which is the attack
+    a coefficient key this short actually has to answer.
+    """
     ycbcr = np.asarray(Image.fromarray(image).convert("YCbCr"), dtype=np.float64)
     luminance = ycbcr[:, :, 0]
     rows, cols = luminance.shape[0] // BLOCK_SIZE, luminance.shape[1] // BLOCK_SIZE
@@ -208,24 +245,47 @@ def dct_equalise(image: np.ndarray) -> np.ndarray:
         for col in range(cols):
             y0, x0 = row * BLOCK_SIZE, col * BLOCK_SIZE
             block = dct2(luminance[y0 : y0 + BLOCK_SIZE, x0 : x0 + BLOCK_SIZE])
-            mean = (block[COEFFICIENT_A] + block[COEFFICIENT_B]) / 2.0
-            block[COEFFICIENT_A] = mean
-            block[COEFFICIENT_B] = mean
+            for first, second in pairs:
+                mean = (block[first] + block[second]) / 2.0
+                block[first] = mean
+                block[second] = mean
             luminance[y0 : y0 + BLOCK_SIZE, x0 : x0 + BLOCK_SIZE] = idct2(block)
     ycbcr[:, :, 0] = np.clip(luminance, 0, 255)
     return np.asarray(Image.fromarray(ycbcr.astype(np.uint8), mode="YCbCr").convert("RGB"))
 
 
-def evaluate_dct(paths: list[Path]) -> dict[str, Any]:
-    """Measure informed removal and forgery against the keyless DCT mark."""
-    watermarker = DctWatermarker(WatermarkConfig())
+def evaluate_dct(paths: list[Path], owner_key: str | None, forger_key: str) -> dict[str, Any]:
+    """Measure informed removal and forgery against the DCT mark, with and without the key.
+
+    Both attacks are run twice: once by an attacker holding the owner's key and
+    once by one holding a different key. The first is the control. Without it a
+    key that quietly broke the attack would look exactly like a key that
+    defeated it, and the numbers would say nothing.
+
+    Removal is run a third time against the whole published family of carrier
+    pairs at once. Three pairs is about a bit and a half, so guessing is not the
+    attack a coefficient key has to survive - sweeping is, and its cost belongs
+    in the same table as the guesses.
+    """
+    watermarker = DctWatermarker(WatermarkConfig(key=owner_key))
+    attacker = DctWatermarker(WatermarkConfig(key=forger_key))
+    right, wrong = derive_layout(owner_key), derive_layout(forger_key)
+    right_pair = (right.coefficient_a, right.coefficient_b)
+    wrong_pair = (wrong.coefficient_a, wrong.coefficient_b)
     owner = WatermarkPayload(version=1, user_token="owner", asset_id="photo", distribution_id="a")
     forger = WatermarkPayload(version=1, user_token="forger", asset_id="photo", distribution_id="b")
     owner_code = f"{owner.code(CODE_BITS):08x}"
     forger_code = f"{forger.code(CODE_BITS):08x}"
     outcomes: dict[str, dict[str, list[float]]] = {
         name: {"owner": [], "forger": [], "detected": [], "psnr": []}
-        for name in ("none", "equalise", "overwrite")
+        for name in (
+            "none",
+            "equalise_right_key",
+            "overwrite_right_key",
+            "equalise_wrong_key",
+            "overwrite_wrong_key",
+            "equalise_family",
+        )
     }
     for path in paths:
         image = load_image(path)
@@ -235,8 +295,11 @@ def evaluate_dct(paths: list[Path]) -> dict[str, Any]:
             continue
         variants = {
             "none": marked,
-            "equalise": dct_equalise(marked),
-            "overwrite": watermarker.embed(marked, forger),
+            "equalise_right_key": dct_equalise(marked, [right_pair]),
+            "overwrite_right_key": watermarker.embed(marked, forger),
+            "equalise_wrong_key": dct_equalise(marked, [wrong_pair]),
+            "overwrite_wrong_key": attacker.embed(marked, forger),
+            "equalise_family": dct_equalise(marked, CARRIER_PAIRS),
         }
         for name, variant in variants.items():
             result = watermarker.detect(variant)
@@ -378,7 +441,14 @@ def evaluate_learned(
 def main(argv: list[str] | None = None) -> int:
     """Measure removal attacks against the learned and the DCT watermarks."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--checkpoint", type=Path, nargs="+", required=True)
+    parser.add_argument("--checkpoint", type=Path, nargs="+", default=[])
+    parser.add_argument(
+        "--dct-only",
+        action="store_true",
+        help="measure only the DCT mark, which needs neither torch nor a GPU",
+    )
+    parser.add_argument("--owner-key", default=None)
+    parser.add_argument("--forger-key", default="forger-key")
     parser.add_argument("--faces", type=Path, default=Path("data/sklearn/lfw_home/lfw_funneled"))
     parser.add_argument("--models", type=Path, default=Path("models"))
     parser.add_argument("--output", type=Path, default=Path("data/results"))
@@ -388,7 +458,30 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--levels", type=float, nargs="+", default=[4.0, 8.0, 16.0])
     parser.add_argument("--orientation", choices=("transposed", "upright"), default=None)
     args = parser.parse_args(argv)
+    if not args.dct_only and not args.checkpoint:
+        parser.error("--checkpoint is required unless --dct-only is given")
 
+    if args.dct_only:
+        paths = dct_paths(args.faces, args.pairs)
+        if not paths:
+            raise SystemExit(f"no photographs found in {args.faces}")
+        report = {
+            "question": "does a key make informed removal and forgery need the key",
+            "faces": str(args.faces),
+            "pairs": len(paths),
+            "dct": {
+                "keyless": evaluate_dct(paths, None, args.forger_key),
+                "keyed": evaluate_dct(paths, args.owner_key or "owner-key", args.forger_key),
+            },
+        }
+        args.output.mkdir(parents=True, exist_ok=True)
+        destination = args.output / "watermark_removal_dct.json"
+        destination.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps(report, indent=2))
+        print(f"\nwrote {destination}")
+        return 0
+
+    load_learned_stack()
     pairs = identity_pairs(args.faces)
     if not pairs:
         raise SystemExit(f"no identity pairs found in {args.faces}")
@@ -420,7 +513,9 @@ def main(argv: list[str] | None = None) -> int:
             cv2, app, model, pairs, codebook, args.pairs, args.seed, args.levels, device
         )
     print("== dct", flush=True)
-    report["dct"] = evaluate_dct([own for own, _ in pairs[: args.pairs]])
+    report["dct"] = evaluate_dct(
+        [own for own, _ in pairs[: args.pairs]], args.owner_key, args.forger_key
+    )
 
     args.output.mkdir(parents=True, exist_ok=True)
     destination = args.output / "watermark_removal.json"

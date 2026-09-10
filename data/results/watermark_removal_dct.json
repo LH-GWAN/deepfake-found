@@ -1,0 +1,95 @@
+{
+  "question": "does a key make informed removal and forgery need the key",
+  "faces": "data/sklearn/lfw_home/lfw_funneled",
+  "pairs": 60,
+  "dct": {
+    "keyless": {
+      "none": {
+        "n": 60,
+        "detected": 1.0,
+        "owner_code_read": 1.0,
+        "forger_code_read": 0.0,
+        "psnr_vs_marked_db": null
+      },
+      "equalise_right_key": {
+        "n": 60,
+        "detected": 0.0167,
+        "owner_code_read": 0.0,
+        "forger_code_read": 0.0,
+        "psnr_vs_marked_db": 36.31
+      },
+      "overwrite_right_key": {
+        "n": 60,
+        "detected": 1.0,
+        "owner_code_read": 0.0,
+        "forger_code_read": 1.0,
+        "psnr_vs_marked_db": 33.57
+      },
+      "equalise_wrong_key": {
+        "n": 60,
+        "detected": 1.0,
+        "owner_code_read": 1.0,
+        "forger_code_read": 0.0,
+        "psnr_vs_marked_db": 41.86
+      },
+      "overwrite_wrong_key": {
+        "n": 60,
+        "detected": 1.0,
+        "owner_code_read": 1.0,
+        "forger_code_read": 0.0,
+        "psnr_vs_marked_db": 36.06
+      },
+      "equalise_family": {
+        "n": 60,
+        "detected": 0.0333,
+        "owner_code_read": 0.0167,
+        "forger_code_read": 0.0,
+        "psnr_vs_marked_db": 36.01
+      }
+    },
+    "keyed": {
+      "none": {
+        "n": 60,
+        "detected": 1.0,
+        "owner_code_read": 1.0,
+        "forger_code_read": 0.0,
+        "psnr_vs_marked_db": null
+      },
+      "equalise_right_key": {
+        "n": 60,
+        "detected": 0.45,
+        "owner_code_read": 0.0,
+        "forger_code_read": 0.0,
+        "psnr_vs_marked_db": 36.23
+      },
+      "overwrite_right_key": {
+        "n": 60,
+        "detected": 1.0,
+        "owner_code_read": 0.0,
+        "forger_code_read": 1.0,
+        "psnr_vs_marked_db": 33.69
+      },
+      "equalise_wrong_key": {
+        "n": 60,
+        "detected": 1.0,
+        "owner_code_read": 1.0,
+        "forger_code_read": 0.0,
+        "psnr_vs_marked_db": 41.86
+      },
+      "overwrite_wrong_key": {
+        "n": 60,
+        "detected": 1.0,
+        "owner_code_read": 1.0,
+        "forger_code_read": 0.0,
+        "psnr_vs_marked_db": 36.07
+      },
+      "equalise_family": {
+        "n": 60,
+        "detected": 0.2167,
+        "owner_code_read": 0.0,
+        "forger_code_read": 0.0,
+        "psnr_vs_marked_db": 35.99
+      }
+    }
+  }
+}

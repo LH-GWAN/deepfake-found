@@ -76,6 +76,16 @@ exactly, and three quarters does not, so a one-degree coarse grid always holds
 a candidate that decodes. The sweep is done at unit scale only. Rotation
 combined with a rescaling crop is not covered, and the benchmark says so.
 
+A key may move the mark. ``derive_layout`` turns a key string into the carrier
+pair the bit rides on and a permutation of the sixty-four tile slots. The
+permutation is applied after the phase roll rather than instead of it: the roll
+enumerates crop offsets in slot positions, the key maps position to message
+bit, and the two compose. What that buys is forgery resistance rather than
+removal resistance - the carrier list is short enough to flatten in a single
+pass - and the README's removal table measures what the difference costs. The
+default is keyless, because a fixed key written into this file would be no more
+secret than the constants it replaced.
+
 Remaining failure modes, all measured by the Phase 13 benchmark rather than
 assumed: rotation beyond the searched range or combined with rescaling; heavy
 downscaling, which destroys the 8x8 structure outright; strong blur, which
@@ -85,8 +95,12 @@ removes the mark entirely.
 
 from __future__ import annotations
 
+import hashlib
 import zlib
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from dataclasses import dataclass
+from functools import cache
 from typing import Any
 
 import numpy as np
@@ -111,6 +125,113 @@ TILE_COLS = 8
 COEFFICIENT_A = (3, 4)
 COEFFICIENT_B = (4, 3)
 MIN_REPETITIONS = 3
+DRAW_BITS = 16
+CARRIER_PAIRS: tuple[tuple[tuple[int, int], tuple[int, int]], ...] = (
+    (COEFFICIENT_A, COEFFICIENT_B),
+    ((2, 3), (3, 2)),
+    ((1, 5), (5, 1)),
+)
+"""Carrier pairs a key may choose between, the published one first.
+
+Mid-band transposes (u,v)/(v,u) are the only candidates, because the two
+coefficients have to share a radial frequency for their difference to survive
+quantisation: the blind decoder reads a sign, not a magnitude, and a pair that
+JPEG quantises unevenly loses that sign.
+
+The list is short because membership was decided by measurement rather than by
+geometry. ``scripts/evaluate_watermark_carriers.py`` marks forty LFW
+photographs with each of eleven transposes at strength 0.16 and reads them back
+after JPEG q70, a half-scale resize, a 20 per cent crop and a five-degree
+rotation. Quality and the clean read were the same everywhere (35.7-36.2dB,
+SSIM 0.897-0.913, 1.00 clean); the attacks are what separated them. (4,5) and
+(3,6) lost every image to JPEG q70, (1,6) and (2,6) lost the resize, (3,5) fell
+to 0.17 on the crop, and (1,4), (2,4) and (2,5) each gave up part of a
+transform the published pair keeps. A pair is adopted only if it matches or
+beats (3,4) on every one, so choosing a key can never cost robustness.
+
+Three pairs is about a bit and a half, and that is the honest limit of the
+coefficient key: an attacker who will not guess can flatten the whole list in
+one pass. What that costs is measured rather than assumed - see the README's
+removal table. The bits that make forgery hard come from the tile permutation
+instead.
+"""
+
+
+@dataclass(frozen=True, eq=False)
+class KeyedLayout:
+    """Where a key puts the mark: which coefficients carry it, and in what order.
+
+    Two surfaces can take a key and they defend against different attacks. The
+    carrier pair defends against removal, because an attacker who does not know
+    which two coefficients hold the bit has to equalise the whole mid-band and
+    pay for it in image quality. The tile permutation defends only against
+    forgery - equalising needs no knowledge of which slot holds which bit - but
+    it costs one gather, and it is what stops an attacker from brute-forcing the
+    short list of carrier pairs and re-embedding.
+    """
+
+    coefficient_a: tuple[int, int]
+    coefficient_b: tuple[int, int]
+    permutation: np.ndarray
+    """Message-bit index carried by each tile slot."""
+    inverse: np.ndarray
+    """Tile slot carrying each message-bit index."""
+
+
+def _draws(key: str, purpose: bytes) -> Iterator[int]:
+    """Yield an endless deterministic stream of 16-bit values derived from a key.
+
+    The stream comes from BLAKE2b rather than from ``numpy.random`` because a
+    watermark is a persistent format: a layout that moved with a numpy upgrade
+    would leave already-marked photographs undecodable.
+    """
+    material = key.encode("utf-8")
+    counter = 0
+    while True:
+        block = hashlib.blake2b(
+            material, digest_size=64, person=purpose, salt=counter.to_bytes(8, "big")
+        ).digest()
+        for offset in range(0, len(block), DRAW_BITS // 8):
+            yield int.from_bytes(block[offset : offset + DRAW_BITS // 8], "big")
+        counter += 1
+
+
+def _below(draws: Iterator[int], bound: int) -> int:
+    """Return a uniform value below ``bound``, rejecting draws that would bias it."""
+    limit = (1 << DRAW_BITS) - ((1 << DRAW_BITS) % bound)
+    while True:
+        draw = next(draws)
+        if draw < limit:
+            return draw % bound
+
+
+@cache
+def derive_layout(key: str | None) -> KeyedLayout:
+    """Return the carrier pair and tile permutation a key selects.
+
+    ``None`` is not a key and does not pretend to be one: it reproduces the
+    published layout exactly, so every number measured for the keyless mark
+    still describes the default. A fixed key baked into this file would be no
+    more secret than the constants it replaced, while sounding safe.
+    """
+    identity = np.arange(MESSAGE_BITS, dtype=np.intp)
+    identity.flags.writeable = False
+    if key is None:
+        return KeyedLayout(COEFFICIENT_A, COEFFICIENT_B, identity, identity)
+
+    draws = _draws(key, b"deepshield-wm")
+    pair_a, pair_b = CARRIER_PAIRS[_below(draws, len(CARRIER_PAIRS))]
+
+    order = list(range(MESSAGE_BITS))
+    for index in range(MESSAGE_BITS - 1, 0, -1):
+        swap = _below(draws, index + 1)
+        order[index], order[swap] = order[swap], order[index]
+
+    permutation = np.array(order, dtype=np.intp)
+    inverse = np.argsort(permutation)
+    permutation.flags.writeable = False
+    inverse.flags.writeable = False
+    return KeyedLayout(pair_a, pair_b, permutation, inverse)
 
 
 class Watermarker(ABC):
@@ -256,8 +377,9 @@ class DctWatermarker(Watermarker):
     name = "dct"
 
     def __init__(self, config: WatermarkConfig | None = None) -> None:
-        """Store watermark configuration."""
+        """Store watermark configuration and the layout its key selects."""
         self.config = config or WatermarkConfig()
+        self.layout = derive_layout(self.config.key)
 
     @property
     def capacity_bits(self) -> int:
@@ -298,15 +420,15 @@ class DctWatermarker(Watermarker):
         )
         return stack, rows, cols
 
-    @staticmethod
-    def _block_differences(blocks: np.ndarray) -> np.ndarray:
+    def _block_differences(self, blocks: np.ndarray) -> np.ndarray:
         """Return the embedded coefficient difference of every block."""
         if blocks.shape[0] == 0:
             return np.zeros(0, dtype=np.float64)
         basis = _dct_matrix(BLOCK_SIZE)
         coefficients = basis @ blocks @ basis.T
-        differences: np.ndarray = coefficients[:, COEFFICIENT_A[0], COEFFICIENT_A[1]] - (
-            coefficients[:, COEFFICIENT_B[0], COEFFICIENT_B[1]]
+        first, second = self.layout.coefficient_a, self.layout.coefficient_b
+        differences: np.ndarray = (
+            coefficients[:, first[0], first[1]] - (coefficients[:, second[0], second[1]])
         )
         return differences
 
@@ -393,6 +515,7 @@ class DctWatermarker(Watermarker):
         ycbcr = np.asarray(Image.fromarray(array).convert("YCbCr"), dtype=np.float64)
         luminance = ycbcr[:, :, 0]
         margin = self.margin
+        first, second = self.layout.coefficient_a, self.layout.coefficient_b
 
         for row in range(rows):
             for col in range(cols):
@@ -401,18 +524,18 @@ class DctWatermarker(Watermarker):
                 coefficients = dct2(block)
 
                 slot = (row % TILE_ROWS) * TILE_COLS + (col % TILE_COLS)
-                bit = int(message[slot])
+                bit = int(message[self.layout.permutation[slot]])
 
-                a = coefficients[COEFFICIENT_A]
-                b = coefficients[COEFFICIENT_B]
+                a = coefficients[first]
+                b = coefficients[second]
                 mean = (a + b) / 2.0
                 half = margin / 2.0
                 if bit == 1:
-                    coefficients[COEFFICIENT_A] = mean + half
-                    coefficients[COEFFICIENT_B] = mean - half
+                    coefficients[first] = mean + half
+                    coefficients[second] = mean - half
                 else:
-                    coefficients[COEFFICIENT_A] = mean - half
-                    coefficients[COEFFICIENT_B] = mean + half
+                    coefficients[first] = mean - half
+                    coefficients[second] = mean + half
 
                 luminance[y0 : y0 + BLOCK_SIZE, x0 : x0 + BLOCK_SIZE] = idct2(coefficients)
 
@@ -639,7 +762,7 @@ class DctWatermarker(Watermarker):
         ratios, agreement = self._agreement(votes, counts)
         confidence = float(np.clip((agreement - 0.5) * 2.0, 0.0, 1.0))
 
-        decoded = self._soft_decode(ratios)
+        decoded = self._soft_decode(ratios[self.layout.inverse])
         if decoded is not None:
             return self._result(decoded, confidence)
 
@@ -693,7 +816,7 @@ class DctWatermarker(Watermarker):
 
             for row_shift in range(TILE_ROWS):
                 for col_shift in range(TILE_COLS):
-                    shifted = phase_shift(ratios, row_shift, col_shift)
+                    shifted = phase_shift(ratios, row_shift, col_shift)[self.layout.inverse]
                     hard = (shifted > 0.5).astype(np.uint8)
                     decoded = (
                         (hard, 0)
@@ -740,7 +863,7 @@ class DctWatermarker(Watermarker):
         votes, counts = self._extract_votes(array)
         with np.errstate(invalid="ignore"):
             ratios = np.divide(votes, counts, out=np.full(MESSAGE_BITS, 0.5), where=counts > 0)
-        recovered = (ratios > 0.5).astype(np.uint8)
+        recovered = (ratios[self.layout.inverse] > 0.5).astype(np.uint8)
         expected = build_message(payload.code(CODE_BITS))
         return float(np.mean(recovered == expected))
 
