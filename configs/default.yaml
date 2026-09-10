@@ -76,6 +76,7 @@ detection:
 protection:
   watermark:
     backend: dct
+    key: null
     strength: 0.16
     payload_bits: 64
     soft_decode_bits: 12

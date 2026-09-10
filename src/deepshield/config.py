@@ -183,6 +183,7 @@ class WatermarkConfig(_Base):
     """Watermark embedding parameters."""
 
     backend: str = "dct"
+    key: str | None = None
     strength: float = Field(default=0.16, gt=0.0, le=1.0)
     payload_bits: int = Field(default=64, gt=0)
     soft_decode_bits: int = Field(default=12, ge=0, le=16)

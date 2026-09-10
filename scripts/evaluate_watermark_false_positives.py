@@ -37,13 +37,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("images", type=Path)
     parser.add_argument("--rotations", type=float, nargs="+", default=[0.0, 5.0])
     parser.add_argument("--output", type=Path, default=Path("data/results"))
+    parser.add_argument(
+        "--key",
+        default=None,
+        help="watermark key to decode with; the default keyless layout is used without it",
+    )
     args = parser.parse_args(argv)
 
     paths = sorted(p for p in args.images.iterdir() if p.suffix.lower() in IMAGE_SUFFIXES)
     if not paths:
         raise SystemExit(f"no images under {args.images}")
     config = load_config()
-    watermarker = build_watermarker(config.protection.watermark)
+    settings = config.protection.watermark.model_copy(update={"key": args.key})
+    watermarker = build_watermarker(settings)
 
     positives: list[dict[str, object]] = []
     seconds: list[float] = []
@@ -70,6 +76,7 @@ def main(argv: list[str] | None = None) -> int:
         "false_positives": len(positives),
         "positives": positives,
         "mean_seconds_per_probe": round(sum(seconds) / len(seconds), 3),
+        "keyed": args.key is not None,
         "search": {
             "resync_enabled": config.protection.watermark.resync_enabled,
             "rotation_enabled": config.protection.watermark.resync_rotation_enabled,
@@ -77,7 +84,10 @@ def main(argv: list[str] | None = None) -> int:
         },
     }
     args.output.mkdir(parents=True, exist_ok=True)
-    destination = args.output / "watermark_false_positives.json"
+    # A keyed run is a different measurement, not a newer one: the keyless file
+    # describes the default configuration and has to survive alongside it.
+    suffix = "_keyed" if args.key else ""
+    destination = args.output / f"watermark_false_positives{suffix}.json"
     destination.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=2))
     print(f"\nwrote {destination}")
