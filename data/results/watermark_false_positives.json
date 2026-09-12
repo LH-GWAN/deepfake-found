@@ -7,7 +7,7 @@
   "probes": 340,
   "false_positives": 0,
   "positives": [],
-  "mean_seconds_per_probe": 0.8,
+  "mean_seconds_per_probe": 2.837,
   "search": {
     "resync_enabled": true,
     "rotation_enabled": true,

@@ -90,6 +90,8 @@ protection:
     resync_rotation_coarse_step: 1.0
     resync_rotation_fine_step: 0.25
     resync_rotation_candidates: 2
+    resync_rotation_scales: [0.9, 0.8, 0.7, 0.6]
+    key: null   # secret for the tile layout; set DEEPSHIELD_WATERMARK_KEY instead of committing one
   fingerprint:
     hash_size: 8
     semantic_embedding: false

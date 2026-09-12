@@ -303,5 +303,57 @@
       "forger_code_read": 1.0,
       "psnr_vs_marked_db": 33.57
     }
-  }
+  },
+  "dct_keyed": {
+    "none": {
+      "n": 60,
+      "detected": 1.0,
+      "owner_code_read": 1.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": null
+    },
+    "equalise_keyless_pair": {
+      "n": 60,
+      "detected": 1.0,
+      "owner_code_read": 1.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 40.61
+    },
+    "equalise_all_pairs": {
+      "n": 60,
+      "detected": 0.0,
+      "owner_code_read": 0.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 36.1
+    },
+    "overwrite_keyless_layout": {
+      "n": 60,
+      "detected": 0.0,
+      "owner_code_read": 0.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 35.24
+    },
+    "overwrite_guessed_key": {
+      "n": 60,
+      "detected": 0.0,
+      "owner_code_read": 0.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 36.28
+    },
+    "equalise_with_key": {
+      "n": 60,
+      "detected": 0.0,
+      "owner_code_read": 0.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 36.1
+    },
+    "overwrite_with_key": {
+      "n": 60,
+      "detected": 1.0,
+      "owner_code_read": 0.0,
+      "forger_code_read": 1.0,
+      "psnr_vs_marked_db": 33.65
+    }
+  },
+  "dct_key_note": "dct_keyed uses DEEPSHIELD_WATERMARK_KEY='deepshield-benchmark-key-2026'; attackers know the algorithm but not the key except in the *_with_key rows"
 }

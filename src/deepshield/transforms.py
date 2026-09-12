@@ -140,6 +140,17 @@ def rotation(
     return _to_array(rotated)
 
 
+@register_transform("rotate_crop")
+def rotate_crop(
+    image: np.ndarray,
+    rng: np.random.Generator | None = None,
+    degrees: float = 5.0,
+    ratio: float = 0.1,
+) -> np.ndarray:
+    """Rotate, then crop a border and restore the size: the combined geometry case."""
+    return crop(rotation(image, rng, degrees=degrees), rng, ratio=ratio)
+
+
 @register_transform("blur")
 def blur(
     image: np.ndarray, rng: np.random.Generator | None = None, sigma: float = 1.0

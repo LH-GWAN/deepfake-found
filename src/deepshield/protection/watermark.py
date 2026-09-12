@@ -73,11 +73,25 @@ apart over a bounded range, scores each by the same vote agreement the crop
 search uses, then refines the best few to a quarter of a degree. The tolerance
 was measured before the steps were chosen: half a degree of error still decodes
 exactly, and three quarters does not, so a one-degree coarse grid always holds
-a candidate that decodes. The sweep is done at unit scale only. Rotation
-combined with a rescaling crop is not covered, and the benchmark says so.
+a candidate that decodes. The sweep runs at unit scale first; when that finds
+nothing, the image is shrunk back by each of a few candidate scales and swept
+again, which covers rotation combined with a magnifying crop at the cost of one
+more sweep per scale.
+
+A key changes what the layout is, not how it is read. Without one, every block
+carries its bit on the same coefficient pair and the tile maps slots to bits in
+raster order, which is why an attacker who has read this file can erase the mark
+by equalising that pair (measured: 100% at 36 dB) or forge a different code
+(100% at 34 dB). With a key, a hash of the secret seeds a permutation of the
+64 bit positions and a choice among five carrier pairs per slot. The decoder
+then has to read each candidate grid under all 64 tile alignments, because the
+alignment decides which pair a block is read on, so the keyed search costs
+about sixty-four times the keyless one on the same budget. The keyless layout
+is the schedule a missing key derives, and every keyless number is unchanged.
 
 Remaining failure modes, all measured by the Phase 13 benchmark rather than
-assumed: rotation beyond the searched range or combined with rescaling; heavy
+assumed: rotation beyond the searched range, or combined with a crop deeper
+than the searched scales; heavy
 downscaling, which destroys the 8x8 structure outright; strong blur, which
 removes the mid-band; and regenerating the image through another model, which
 removes the mark entirely.
@@ -85,8 +99,11 @@ removes the mark entirely.
 
 from __future__ import annotations
 
+import hashlib
 import zlib
 from abc import ABC, abstractmethod
+from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -108,8 +125,20 @@ CRC_BITS = 32
 MESSAGE_BITS = CODE_BITS + CRC_BITS
 TILE_ROWS = 8
 TILE_COLS = 8
-COEFFICIENT_A = (3, 4)
-COEFFICIENT_B = (4, 3)
+TILE_SLOTS = TILE_ROWS * TILE_COLS
+# Transposed mid-band coefficient pairs with similar JPEG quantisation steps
+# (51/56, 57/55, 40/37, 60/49, 58/35 in the standard luminance table). The
+# keyless layout uses the first for every block; a key picks one per tile slot.
+PAIR_CANDIDATES: tuple[tuple[tuple[int, int], tuple[int, int]], ...] = (
+    ((3, 4), (4, 3)),
+    ((2, 5), (5, 2)),
+    ((2, 4), (4, 2)),
+    ((1, 6), (6, 1)),
+    ((1, 5), (5, 1)),
+)
+COEFFICIENT_A, COEFFICIENT_B = PAIR_CANDIDATES[0]
+PAIR_A = np.array([pair[0] for pair in PAIR_CANDIDATES], dtype=np.intp)
+PAIR_B = np.array([pair[1] for pair in PAIR_CANDIDATES], dtype=np.intp)
 MIN_REPETITIONS = 3
 
 
@@ -223,14 +252,18 @@ def message_is_valid(bits: np.ndarray) -> bool:
     return crc32(bits[:CODE_BITS]) == _bits_to_int(bits[CODE_BITS:])
 
 
-def tile_slots(rows: int, cols: int) -> np.ndarray:
-    """Return the message-bit index of every block in a rows-by-cols grid.
+def tile_slots(rows: int, cols: int, row_shift: int = 0, col_shift: int = 0) -> np.ndarray:
+    """Return the tile slot of every block in a rows-by-cols grid.
 
-    The index depends only on a block's position within the repeating tile, so
-    it survives a change of image width. Raster-order indexing would not.
+    The slot depends only on a block's position within the repeating tile, so
+    it survives a change of image width. Raster-order indexing would not. A
+    shift names the tile alignment a crop could have produced: the block the
+    decoder sees at row ``r`` sat at row ``r + row_shift`` of the original tile.
+    Without a key the slot is the message-bit index; with one it is looked up
+    through the :class:`KeySchedule`.
     """
-    row_part = (np.arange(rows) % TILE_ROWS)[:, None] * TILE_COLS
-    col_part = (np.arange(cols) % TILE_COLS)[None, :]
+    row_part = ((np.arange(rows) + row_shift) % TILE_ROWS)[:, None] * TILE_COLS
+    col_part = ((np.arange(cols) + col_shift) % TILE_COLS)[None, :]
     return (row_part + col_part).ravel()
 
 
@@ -245,6 +278,50 @@ def phase_shift(ratios: np.ndarray, row_shift: int, col_shift: int) -> np.ndarra
     return np.roll(np.roll(grid, row_shift, axis=0), col_shift, axis=1).ravel()
 
 
+@dataclass(frozen=True)
+class KeySchedule:
+    """What each of the 64 tile slots carries: which message bit, on which pair.
+
+    ``bit_of_slot`` is a permutation of the message bits and ``pair_of_slot``
+    indexes :data:`PAIR_CANDIDATES`. Without a key both are the fixed keyless
+    layout, so every number the keyless design ever produced is unchanged.
+    """
+
+    bit_of_slot: np.ndarray
+    pair_of_slot: np.ndarray
+    keyed: bool
+
+
+def derive_schedule(key: str | None) -> KeySchedule:
+    """Derive the tile layout from a secret, or return the keyless layout.
+
+    The secret is hashed and the digest seeds a PCG64 generator, whose bit
+    stream numpy keeps stable across versions, so a key always yields the
+    same layout. An attacker who knows the algorithm but not the key faces a
+    64! permutation of bit positions and five carrier pairs per slot: forging
+    a message that passes the checksum under an unknown permutation is not a
+    search, and erasing the mark means flattening every candidate pair in every
+    block rather than one.
+    """
+    if not key:
+        return KeySchedule(
+            bit_of_slot=np.arange(TILE_SLOTS, dtype=np.intp),
+            pair_of_slot=np.zeros(TILE_SLOTS, dtype=np.intp),
+            keyed=False,
+        )
+    digest = hashlib.sha256(key.encode("utf-8")).digest()
+    generator = np.random.default_rng(int.from_bytes(digest[:16], "big"))
+    return KeySchedule(
+        bit_of_slot=generator.permutation(TILE_SLOTS).astype(np.intp),
+        pair_of_slot=generator.integers(0, len(PAIR_CANDIDATES), TILE_SLOTS).astype(np.intp),
+        keyed=True,
+    )
+
+
+PhaseReader = Callable[[int, int], np.ndarray]
+Candidate = tuple[np.ndarray, float, dict[str, Any], PhaseReader]
+
+
 class DctWatermarker(Watermarker):
     """Blind DCT mid-frequency differential watermark with majority-vote decoding.
 
@@ -256,8 +333,9 @@ class DctWatermarker(Watermarker):
     name = "dct"
 
     def __init__(self, config: WatermarkConfig | None = None) -> None:
-        """Store watermark configuration."""
+        """Store watermark configuration and derive the tile layout from its key."""
         self.config = config or WatermarkConfig()
+        self.schedule = derive_schedule(self.config.key)
 
     @property
     def capacity_bits(self) -> int:
@@ -299,33 +377,93 @@ class DctWatermarker(Watermarker):
         return stack, rows, cols
 
     @staticmethod
-    def _block_differences(blocks: np.ndarray) -> np.ndarray:
-        """Return the embedded coefficient difference of every block."""
+    def _coefficients(blocks: np.ndarray) -> np.ndarray:
+        """Return the 2-D DCT of every block in the stack."""
         if blocks.shape[0] == 0:
-            return np.zeros(0, dtype=np.float64)
+            return np.zeros((0, BLOCK_SIZE, BLOCK_SIZE), dtype=np.float64)
         basis = _dct_matrix(BLOCK_SIZE)
-        coefficients = basis @ blocks @ basis.T
-        differences: np.ndarray = coefficients[:, COEFFICIENT_A[0], COEFFICIENT_A[1]] - (
-            coefficients[:, COEFFICIENT_B[0], COEFFICIENT_B[1]]
+        coefficients: np.ndarray = basis @ blocks @ basis.T
+        return coefficients
+
+    def _differences(self, coefficients: np.ndarray, slots: np.ndarray) -> np.ndarray:
+        """Return each block's carrier difference on the pair its slot uses."""
+        pair = self.schedule.pair_of_slot[slots]
+        index = np.arange(coefficients.shape[0])
+        differences: np.ndarray = (
+            coefficients[index, PAIR_A[pair, 0], PAIR_A[pair, 1]]
+            - coefficients[index, PAIR_B[pair, 0], PAIR_B[pair, 1]]
         )
         return differences
 
-    @staticmethod
     def _tally(
-        differences: np.ndarray, rows: int, cols: int, limit: int | None = None
+        self,
+        coefficients: np.ndarray,
+        rows: int,
+        cols: int,
+        phase: tuple[int, int] = (0, 0),
+        limit: int | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Fold per-block observations into per-message-bit vote counts."""
-        if differences.size == 0:
+        """Fold per-block observations into per-message-bit vote counts.
+
+        ``phase`` is the tile alignment assumed while reading. Without a key it
+        does not matter here, because a misaligned read is only a permutation
+        of the bits and the decoder rolls the votes afterwards. With a key the
+        alignment decides which carrier pair each block is read on, so the
+        decoder has to read under every alignment instead.
+        """
+        if coefficients.shape[0] == 0:
             return np.zeros(MESSAGE_BITS), np.zeros(MESSAGE_BITS)
-        slots = tile_slots(rows, cols)[: differences.size]
-        if limit is not None and differences.size > limit:
+        slots = tile_slots(rows, cols, phase[0], phase[1])[: coefficients.shape[0]]
+        if limit is not None and coefficients.shape[0] > limit:
             slots = slots[:limit]
-            differences = differences[:limit]
+            coefficients = coefficients[:limit]
+        differences = self._differences(coefficients, slots)
+        bits = self.schedule.bit_of_slot[slots]
         votes = np.bincount(
-            slots, weights=(differences > 0).astype(np.float64), minlength=MESSAGE_BITS
+            bits, weights=(differences > 0).astype(np.float64), minlength=MESSAGE_BITS
         )
-        counts = np.bincount(slots, minlength=MESSAGE_BITS).astype(np.float64)
+        counts = np.bincount(bits, minlength=MESSAGE_BITS).astype(np.float64)
         return votes[:MESSAGE_BITS], counts[:MESSAGE_BITS]
+
+    def _best_agreement(
+        self, coefficients: np.ndarray, rows: int, cols: int, limit: int | None = None
+    ) -> float:
+        """Return the vote agreement of one grid, over every tile alignment if keyed."""
+        if not self.schedule.keyed:
+            votes, counts = self._tally(coefficients, rows, cols, limit=limit)
+            return self._agreement(votes, counts)[1]
+        best = 0.0
+        for row_shift in range(TILE_ROWS):
+            for col_shift in range(TILE_COLS):
+                votes, counts = self._tally(
+                    coefficients, rows, cols, (row_shift, col_shift), limit=limit
+                )
+                best = max(best, self._agreement(votes, counts)[1])
+        return best
+
+    def _candidate(
+        self, image: np.ndarray, offset: tuple[int, int], grid: dict[str, Any]
+    ) -> Candidate:
+        """Read one candidate grid fully and attach a reader for its tile alignments."""
+        luminance = self._luminance(image)
+        blocks, rows, cols = self._block_stack(luminance, offset[0], offset[1])
+        coefficients = self._coefficients(blocks)
+        votes, counts = self._tally(coefficients, rows, cols)
+        ratios, _ = self._agreement(votes, counts)
+        agreement = self._best_agreement(coefficients, rows, cols)
+
+        if self.schedule.keyed:
+
+            def read(row_shift: int, col_shift: int) -> np.ndarray:
+                votes, counts = self._tally(coefficients, rows, cols, (row_shift, col_shift))
+                return self._agreement(votes, counts)[0]
+
+        else:
+
+            def read(row_shift: int, col_shift: int) -> np.ndarray:
+                return phase_shift(ratios, row_shift, col_shift)
+
+        return ratios, agreement, grid, read
 
     @staticmethod
     def _luminance(image: np.ndarray) -> np.ndarray:
@@ -401,18 +539,19 @@ class DctWatermarker(Watermarker):
                 coefficients = dct2(block)
 
                 slot = (row % TILE_ROWS) * TILE_COLS + (col % TILE_COLS)
-                bit = int(message[slot])
+                bit = int(message[self.schedule.bit_of_slot[slot]])
+                first, second = PAIR_CANDIDATES[self.schedule.pair_of_slot[slot]]
 
-                a = coefficients[COEFFICIENT_A]
-                b = coefficients[COEFFICIENT_B]
+                a = coefficients[first]
+                b = coefficients[second]
                 mean = (a + b) / 2.0
                 half = margin / 2.0
                 if bit == 1:
-                    coefficients[COEFFICIENT_A] = mean + half
-                    coefficients[COEFFICIENT_B] = mean - half
+                    coefficients[first] = mean + half
+                    coefficients[second] = mean - half
                 else:
-                    coefficients[COEFFICIENT_A] = mean - half
-                    coefficients[COEFFICIENT_B] = mean + half
+                    coefficients[first] = mean - half
+                    coefficients[second] = mean + half
 
                 luminance[y0 : y0 + BLOCK_SIZE, x0 : x0 + BLOCK_SIZE] = idct2(coefficients)
 
@@ -426,9 +565,9 @@ class DctWatermarker(Watermarker):
         """Return per-bit vote sums and counts recovered from one candidate grid."""
         luminance = self._luminance(image)
         blocks, rows, cols = self._block_stack(luminance, offset[0], offset[1])
-        return self._tally(self._block_differences(blocks), rows, cols)
+        return self._tally(self._coefficients(blocks), rows, cols)
 
-    def _search_grid(self, image: np.ndarray) -> list[tuple[np.ndarray, float, dict[str, Any]]]:
+    def _search_grid(self, image: np.ndarray) -> list[Candidate]:
         """Rank candidate magnifications and block offsets by vote agreement.
 
         Scoring uses a subsample of blocks so that hundreds of candidate grids
@@ -449,10 +588,9 @@ class DctWatermarker(Watermarker):
                     blocks, rows, cols = self._block_stack(luminance, offset_y, offset_x)
                     if blocks.shape[0] < MESSAGE_BITS * MIN_REPETITIONS:
                         continue
-                    votes, counts = self._tally(
-                        self._block_differences(blocks), rows, cols, limit=budget
+                    agreement = self._best_agreement(
+                        self._coefficients(blocks[:budget]), rows, cols, limit=budget
                     )
-                    _, agreement = self._agreement(votes, counts)
                     ranked.append(
                         (
                             agreement,
@@ -465,12 +603,10 @@ class DctWatermarker(Watermarker):
                     )
 
         ranked.sort(key=lambda item: item[0], reverse=True)
-        candidates: list[tuple[np.ndarray, float, dict[str, Any]]] = []
+        candidates: list[Candidate] = []
         for _, grid in ranked[: self.config.resync_candidates]:
             winner = self._rescaled(image, grid["scale"])
-            votes, counts = self._extract_votes(winner, (grid["offset_y"], grid["offset_x"]))
-            ratios, full_agreement = self._agreement(votes, counts)
-            candidates.append((ratios, full_agreement, grid))
+            candidates.append(self._candidate(winner, (grid["offset_y"], grid["offset_x"]), grid))
         return candidates
 
     def _rank_offsets(self, luminance: np.ndarray) -> list[tuple[float, int, int]]:
@@ -488,10 +624,9 @@ class DctWatermarker(Watermarker):
                 blocks, rows, cols = self._block_stack(luminance, offset_y, offset_x)
                 if blocks.shape[0] < MESSAGE_BITS * MIN_REPETITIONS:
                     continue
-                votes, counts = self._tally(
-                    self._block_differences(blocks), rows, cols, limit=budget
+                agreement = self._best_agreement(
+                    self._coefficients(blocks[:budget]), rows, cols, limit=budget
                 )
-                _, agreement = self._agreement(votes, counts)
                 ranked.append((agreement, offset_y, offset_x))
         ranked.sort(key=lambda item: item[0], reverse=True)
         return ranked
@@ -503,18 +638,17 @@ class DctWatermarker(Watermarker):
             return []
         return self._rank_offsets(luminance)
 
-    def _search_rotation(
-        self, image: np.ndarray
-    ) -> list[tuple[np.ndarray, float, dict[str, Any]]]:
+    def _search_rotation(self, image: np.ndarray, scale: float = 1.0) -> list[Candidate]:
         """Rank candidate rotation angles by vote agreement, coarse then fine.
 
         A one-degree coarse grid is enough to find the peak because half a
         degree of error was measured to decode exactly; the fine pass only
-        sharpens the estimate before the full vote is taken. Every angle is
-        tried at unit scale, so this covers rotation on its own and not rotation
-        combined with a rescaling crop. Each refined angle contributes its best
-        few offsets as separate candidates, for the reason given on
-        :meth:`_rank_offsets`.
+        sharpens the estimate before the full vote is taken. The image is
+        expected to be at the scale named by ``scale`` already; the caller
+        rescales it first, so the same sweep serves rotation on its own and
+        rotation combined with a magnifying crop. Each refined angle
+        contributes its best few offsets as separate candidates, for the
+        reason given on :meth:`_rank_offsets`.
         """
         limit = float(self.config.resync_rotation_max_degrees)
         coarse_step = float(self.config.resync_rotation_coarse_step)
@@ -538,7 +672,7 @@ class DctWatermarker(Watermarker):
             reverse=True,
         )
 
-        candidates: list[tuple[np.ndarray, float, dict[str, Any]]] = []
+        candidates: list[Candidate] = []
         for offsets, angle in ranked[:keep]:
             best_offsets, best_angle = offsets, angle
             fine = np.arange(
@@ -552,20 +686,13 @@ class DctWatermarker(Watermarker):
                     best_offsets, best_angle = scored, float(refined)
             derotated = self._rotated(image, -best_angle)
             for _, offset_y, offset_x in best_offsets[:per_angle]:
-                votes, counts = self._extract_votes(derotated, (offset_y, offset_x))
-                ratios, full_agreement = self._agreement(votes, counts)
-                candidates.append(
-                    (
-                        ratios,
-                        full_agreement,
-                        {
-                            "rotation": round(best_angle, 4),
-                            "scale": 1.0,
-                            "offset_y": offset_y,
-                            "offset_x": offset_x,
-                        },
-                    )
-                )
+                grid = {
+                    "rotation": round(best_angle, 4),
+                    "scale": float(scale),
+                    "offset_y": offset_y,
+                    "offset_x": offset_x,
+                }
+                candidates.append(self._candidate(derotated, (offset_y, offset_x), grid))
         return candidates
 
     def _soft_decode(
@@ -655,6 +782,21 @@ class DctWatermarker(Watermarker):
                 self._search_rotation(array), best_confidence
             )
 
+        if not accepted and self.config.resync_rotation_enabled:
+            # Rotation after a magnifying crop: shrink back by each candidate
+            # scale, then sweep the angle again. Rotation about the centre and
+            # uniform scaling about the centre commute, so the order in which
+            # the attacker applied them does not matter here.
+            for scale in self.config.resync_rotation_scales:
+                shrunk = self._rescaled(array, float(scale))
+                if min(shrunk.shape[:2]) < BLOCK_SIZE * TILE_ROWS * 2:
+                    continue
+                accepted, best_confidence = self._decode_candidates(
+                    self._search_rotation(shrunk, float(scale)), best_confidence
+                )
+                if accepted:
+                    break
+
         if len(accepted) == 1:
             bits, flips, resync_confidence = next(iter(accepted.values()))
             return self._result((bits, flips), resync_confidence)
@@ -671,7 +813,7 @@ class DctWatermarker(Watermarker):
 
     def _decode_candidates(
         self,
-        candidates: list[tuple[np.ndarray, float, dict[str, Any]]],
+        candidates: list[Candidate],
         confidence: float,
     ) -> tuple[dict[int, tuple[np.ndarray, int, float]], float]:
         """Try every tile phase of every candidate grid and collect the valid codes.
@@ -685,7 +827,7 @@ class DctWatermarker(Watermarker):
         accepted: dict[int, tuple[np.ndarray, int, float]] = {}
         best_confidence = confidence
 
-        for ratios, grid_agreement, grid in candidates:
+        for _, grid_agreement, grid, read in candidates:
             resync_confidence = float(np.clip((grid_agreement - 0.5) * 2.0, 0.0, 1.0))
             best_confidence = max(best_confidence, resync_confidence)
             if resync_confidence < self.config.resync_min_confidence:
@@ -693,7 +835,7 @@ class DctWatermarker(Watermarker):
 
             for row_shift in range(TILE_ROWS):
                 for col_shift in range(TILE_COLS):
-                    shifted = phase_shift(ratios, row_shift, col_shift)
+                    shifted = read(row_shift, col_shift)
                     hard = (shifted > 0.5).astype(np.uint8)
                     decoded = (
                         (hard, 0)
