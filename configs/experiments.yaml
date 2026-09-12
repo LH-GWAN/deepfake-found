@@ -13,6 +13,9 @@ transformations:
   rotate_10: { type: rotation, degrees: 10 }
   rotate_15: { type: rotation, degrees: 15 }
   rotate_30: { type: rotation, degrees: 30 }
+  rotate_5_crop_10: { type: rotate_crop, degrees: 5, ratio: 0.10 }
+  rotate_10_crop_10: { type: rotate_crop, degrees: 10, ratio: 0.10 }
+  rotate_5_crop_20: { type: rotate_crop, degrees: 5, ratio: 0.20 }
   blur_1: { type: blur, sigma: 1.0 }
   noise_5: { type: noise, sigma: 5.0 }
   brightness_up: { type: brightness, factor: 1.2 }

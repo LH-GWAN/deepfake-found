@@ -327,3 +327,125 @@ def test_two_valid_codes_from_one_image_are_reported_as_no_detection(
     marked = watermarker.embed(large_photo, PAYLOAD)
     result = watermarker.detect(_transform(marked, "crop", {"ratio": 0.1}))
     assert result.detected is False or result.watermark_code == f"{PAYLOAD.code(CODE_BITS):08x}"
+
+
+# --- keyed layout -----------------------------------------------------------
+
+
+def _equalise_pairs(
+    image: np.ndarray, pairs: list[tuple[tuple[int, int], tuple[int, int]]]
+) -> np.ndarray:
+    """Flatten carrier pairs in every block, as an attacker who knows the algorithm would."""
+    from PIL import Image
+
+    from deepshield.protection.fingerprint import dct2, idct2
+    from deepshield.protection.watermark import BLOCK_SIZE
+
+    ycbcr = np.asarray(Image.fromarray(image).convert("YCbCr"), dtype=np.float64)
+    luminance = ycbcr[:, :, 0]
+    rows, cols = luminance.shape[0] // BLOCK_SIZE, luminance.shape[1] // BLOCK_SIZE
+    for row in range(rows):
+        for col in range(cols):
+            y0, x0 = row * BLOCK_SIZE, col * BLOCK_SIZE
+            block = dct2(luminance[y0 : y0 + BLOCK_SIZE, x0 : x0 + BLOCK_SIZE])
+            for first, second in pairs:
+                mean = (block[first] + block[second]) / 2.0
+                block[first] = mean
+                block[second] = mean
+            luminance[y0 : y0 + BLOCK_SIZE, x0 : x0 + BLOCK_SIZE] = idct2(block)
+    ycbcr[:, :, 0] = np.clip(luminance, 0, 255)
+    return np.asarray(Image.fromarray(ycbcr.astype(np.uint8), mode="YCbCr").convert("RGB"))
+
+
+def test_missing_key_derives_the_keyless_layout() -> None:
+    from deepshield.protection.watermark import derive_schedule
+
+    for key in (None, ""):
+        schedule = derive_schedule(key)
+        assert schedule.keyed is False
+        np.testing.assert_array_equal(schedule.bit_of_slot, np.arange(MESSAGE_BITS))
+        assert not schedule.pair_of_slot.any()
+
+
+def test_key_schedule_is_deterministic_and_distinct_per_key() -> None:
+    from deepshield.protection.watermark import PAIR_CANDIDATES, derive_schedule
+
+    first, again = derive_schedule("alpha"), derive_schedule("alpha")
+    other = derive_schedule("beta")
+    assert first.keyed is True
+    np.testing.assert_array_equal(first.bit_of_slot, again.bit_of_slot)
+    np.testing.assert_array_equal(first.pair_of_slot, again.pair_of_slot)
+    assert sorted(first.bit_of_slot.tolist()) == list(range(MESSAGE_BITS))
+    assert first.pair_of_slot.min() >= 0 and first.pair_of_slot.max() < len(PAIR_CANDIDATES)
+    assert not np.array_equal(first.bit_of_slot, other.bit_of_slot)
+
+
+def test_keyed_embed_then_detect_recovers_the_code(large_photo: np.ndarray) -> None:
+    keyed = DctWatermarker(WatermarkConfig(strength=0.16, key="correct horse battery staple"))
+    marked = keyed.embed(large_photo, PAYLOAD)
+    assert psnr(large_photo, marked) > 30.0
+    result = keyed.detect(marked)
+    assert result.detected is True
+    assert result.watermark_code == f"{PAYLOAD.code(CODE_BITS):08x}"
+
+
+def test_keyed_mark_reads_as_nothing_without_the_key(large_photo: np.ndarray) -> None:
+    keyed = DctWatermarker(WatermarkConfig(strength=0.16, key="correct horse battery staple"))
+    marked = keyed.embed(large_photo, PAYLOAD)
+    for other in (DctWatermarker(WatermarkConfig(strength=0.16)),
+                  DctWatermarker(WatermarkConfig(strength=0.16, key="another key"))):
+        result = other.detect(marked)
+        assert result.detected is False
+        assert result.watermark_code is None
+
+
+def test_keyed_mark_survives_cropping_and_compression(large_photo: np.ndarray) -> None:
+    keyed = DctWatermarker(WatermarkConfig(strength=0.16, key="correct horse battery staple"))
+    marked = keyed.embed(large_photo, PAYLOAD)
+    for kind, params in (("crop", {"ratio": 0.1}), ("jpeg_compression", {"quality": 70})):
+        result = keyed.detect(_transform(marked, kind, params))
+        assert result.detected is True, kind
+        assert result.watermark_code == f"{PAYLOAD.code(CODE_BITS):08x}"
+
+
+def test_keyless_forgery_never_becomes_a_valid_keyed_code(large_photo: np.ndarray) -> None:
+    """An attacker writing the keyless layout over a keyed mark cannot name a code."""
+    keyed = DctWatermarker(WatermarkConfig(strength=0.16, key="correct horse battery staple"))
+    forger = DctWatermarker(WatermarkConfig(strength=0.16))
+    other = WatermarkPayload(
+        version=1, user_token="forger", asset_id="asset-1", distribution_id="x"
+    )
+    marked = keyed.embed(large_photo, PAYLOAD)
+    forged = forger.embed(marked, other)
+    result = keyed.detect(forged)
+    assert result.watermark_code != f"{other.code(CODE_BITS):08x}"
+
+
+def test_keyless_layout_is_a_special_case_of_the_keyed_one(large_photo: np.ndarray) -> None:
+    """With no key the keyed code path must reproduce the keyless watermark exactly."""
+    plain = DctWatermarker(WatermarkConfig(strength=0.16))
+    marked = plain.embed(large_photo, PAYLOAD)
+    slots = tile_slots(TILE_ROWS, TILE_COLS * 2)
+    np.testing.assert_array_equal(slots, tile_slots(TILE_ROWS, TILE_COLS * 2, 0, 0))
+    shifted = tile_slots(TILE_ROWS, TILE_COLS, 1, 0).reshape(TILE_ROWS, TILE_COLS)
+    unshifted = tile_slots(TILE_ROWS, TILE_COLS).reshape(TILE_ROWS, TILE_COLS)
+    np.testing.assert_array_equal(shifted[0], unshifted[1])
+    untouched = plain.detect(_equalise_pairs(marked, []))
+    assert untouched.watermark_code == f"{PAYLOAD.code(CODE_BITS):08x}"
+
+
+def test_rotation_after_a_crop_is_recovered_by_the_combined_search(large_photo: np.ndarray) -> None:
+    """A rotated then magnified image needs the angle and the scale found together."""
+    watermarker = DctWatermarker(WatermarkConfig(strength=0.16))
+    marked = watermarker.embed(large_photo, PAYLOAD)
+    probe = _transform(marked, "rotate_crop", {"degrees": 5.0, "ratio": 0.1})
+    result = watermarker.detect(probe)
+    assert result.detected is True
+    assert result.watermark_code == f"{PAYLOAD.code(CODE_BITS):08x}"
+
+
+def test_combined_search_can_be_disabled_by_an_empty_scale_list(large_photo: np.ndarray) -> None:
+    plain = DctWatermarker(WatermarkConfig(strength=0.16, resync_rotation_scales=[]))
+    marked = plain.embed(large_photo, PAYLOAD)
+    probe = _transform(marked, "rotate_crop", {"degrees": 5.0, "ratio": 0.1})
+    assert plain.detect(probe).detected is False

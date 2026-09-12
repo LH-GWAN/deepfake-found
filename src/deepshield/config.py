@@ -199,6 +199,15 @@ class WatermarkConfig(_Base):
     resync_rotation_coarse_step: float = Field(default=1.0, gt=0.0, le=5.0)
     resync_rotation_fine_step: float = Field(default=0.25, gt=0.0, le=1.0)
     resync_rotation_candidates: int = Field(default=2, gt=0, le=8)
+    resync_rotation_scales: list[float] = Field(default_factory=lambda: [0.9, 0.8, 0.7, 0.6])
+    key: str | None = Field(
+        default=None,
+        description=(
+            "Secret that decides which message bit and which coefficient pair each "
+            "tile slot carries. None keeps the keyless layout. Set it through "
+            "DEEPSHIELD_WATERMARK_KEY rather than a committed file."
+        ),
+    )
 
 
 class FingerprintConfig(_Base):
@@ -388,6 +397,7 @@ ENV_OVERRIDES: dict[str, tuple[str, ...]] = {
     "FACE_EMBEDDER": ("face", "embedder", "backend"),
     "DEEPFAKE_DETECTOR": ("detection", "deepfake", "backend"),
     "WATERMARK_BACKEND": ("protection", "watermark", "backend"),
+    "WATERMARK_KEY": ("protection", "watermark", "key"),
 }
 
 
