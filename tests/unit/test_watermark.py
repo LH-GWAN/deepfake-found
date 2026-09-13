@@ -449,3 +449,85 @@ def test_combined_search_can_be_disabled_by_an_empty_scale_list(large_photo: np.
     marked = plain.embed(large_photo, PAYLOAD)
     probe = _transform(marked, "rotate_crop", {"degrees": 5.0, "ratio": 0.1})
     assert plain.detect(probe).detected is False
+
+
+def _zero_band(image: np.ndarray) -> np.ndarray:
+    """Blank every mid-band coefficient a spread carrier could use, in every block."""
+    from PIL import Image
+
+    from deepshield.protection.fingerprint import dct2, idct2
+    from deepshield.protection.watermark import BLOCK_SIZE, CARRIER_BAND
+
+    ycbcr = np.asarray(Image.fromarray(image).convert("YCbCr"), dtype=np.float64)
+    luminance = ycbcr[:, :, 0]
+    for y0 in range(0, luminance.shape[0] - BLOCK_SIZE + 1, BLOCK_SIZE):
+        for x0 in range(0, luminance.shape[1] - BLOCK_SIZE + 1, BLOCK_SIZE):
+            block = dct2(luminance[y0 : y0 + BLOCK_SIZE, x0 : x0 + BLOCK_SIZE])
+            for position in CARRIER_BAND:
+                block[position] = 0.0
+            luminance[y0 : y0 + BLOCK_SIZE, x0 : x0 + BLOCK_SIZE] = idct2(block)
+    ycbcr[:, :, 0] = np.clip(luminance, 0, 255)
+    return np.asarray(Image.fromarray(ycbcr.astype(np.uint8), mode="YCbCr").convert("RGB"))
+
+
+def test_spread_carrier_schedule_is_keyed_sparse_and_signed() -> None:
+    from deepshield.protection.watermark import CARRIER_BAND, TILE_SLOTS, derive_schedule
+
+    schedule = derive_schedule("alpha", carrier_coefficients := 6)
+    assert schedule.keyed is True and schedule.carrier_size == carrier_coefficients
+    assert schedule.carriers.shape == (TILE_SLOTS, 8, 8)
+    band = np.zeros((8, 8), dtype=bool)
+    for position in CARRIER_BAND:
+        band[position] = True
+    for carrier in schedule.carriers:
+        assert np.count_nonzero(carrier) == carrier_coefficients
+        assert set(np.unique(carrier)) <= {-1.0, 0.0, 1.0}
+        assert not carrier[~band].any()
+    again = derive_schedule("alpha", carrier_coefficients)
+    np.testing.assert_array_equal(schedule.carriers, again.carriers)
+    np.testing.assert_array_equal(schedule.bit_of_slot, derive_schedule("alpha").bit_of_slot)
+    assert not np.array_equal(schedule.carriers, derive_schedule("beta", 6).carriers)
+
+
+def test_missing_key_ignores_the_carrier_size() -> None:
+    from deepshield.protection.watermark import derive_schedule
+
+    plain, spread = derive_schedule(None), derive_schedule(None, 6)
+    np.testing.assert_array_equal(plain.carriers, spread.carriers)
+    assert spread.carrier_size == 2 and spread.keyed is False
+
+
+def test_spread_carrier_needs_a_key_in_the_config() -> None:
+    with pytest.raises(ValueError):
+        WatermarkConfig(carrier_coefficients=6)
+    assert WatermarkConfig(carrier_coefficients=6, key="k").carrier_coefficients == 6
+
+
+def test_spread_carrier_embed_then_detect_recovers_the_code(large_photo: np.ndarray) -> None:
+    spread = DctWatermarker(WatermarkConfig(strength=0.16, key="alpha", carrier_coefficients=6))
+    marked = spread.embed(large_photo, PAYLOAD)
+    assert psnr(large_photo, marked) > 30.0
+    result = spread.detect(marked)
+    assert result.detected is True
+    assert result.watermark_code == f"{PAYLOAD.code(CODE_BITS):08x}"
+    for kind, params in (("crop", {"ratio": 0.1}), ("jpeg_compression", {"quality": 70})):
+        survived = spread.detect(_transform(marked, kind, params))
+        assert survived.watermark_code == f"{PAYLOAD.code(CODE_BITS):08x}", kind
+
+
+def test_spread_carrier_mark_reads_as_nothing_without_the_key(large_photo: np.ndarray) -> None:
+    spread = DctWatermarker(WatermarkConfig(strength=0.16, key="alpha", carrier_coefficients=6))
+    marked = spread.embed(large_photo, PAYLOAD)
+    for other in (
+        DctWatermarker(WatermarkConfig(strength=0.16)),
+        DctWatermarker(WatermarkConfig(strength=0.16, key="alpha")),
+        DctWatermarker(WatermarkConfig(strength=0.16, key="beta", carrier_coefficients=6)),
+    ):
+        assert other.detect(marked).detected is False
+
+
+def test_blanking_the_band_removes_a_spread_mark(large_photo: np.ndarray) -> None:
+    """The attack that works without the key is the one the benchmark prices."""
+    spread = DctWatermarker(WatermarkConfig(strength=0.16, key="alpha", carrier_coefficients=6))
+    marked = spread.embed(large_photo, PAYLOAD)
+    assert spread.detect(_zero_band(marked)).detected is False

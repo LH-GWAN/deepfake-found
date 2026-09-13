@@ -229,12 +229,24 @@ class WatermarkRobustnessExperiment:
         self.config = config
         self.watermarker = build_watermarker(config.protection.watermark)
 
-    def run(self, image_paths: list[Path], pipeline: TransformationPipeline) -> ExperimentResult:
-        """Watermark every image, then measure recovery under each transformation."""
+    def run(
+        self,
+        image_paths: list[Path],
+        pipeline: TransformationPipeline,
+        start_index: int = 0,
+    ) -> ExperimentResult:
+        """Watermark every image, then measure recovery under each transformation.
+
+        The payload of the ``i``-th image is derived from ``start_index + i``,
+        so a run split into contiguous chunks that pass their offsets embeds
+        exactly the codes a single sequential run would. Whether a borderline
+        probe decodes depends on the code it carries, so chunked runs that
+        forget the offset are not comparable image by image.
+        """
         from deepshield.protection.watermark import CODE_BITS, DctWatermarker
 
         rows: list[dict[str, Any]] = []
-        for index, path in enumerate(image_paths):
+        for index, path in enumerate(image_paths, start=start_index):
             original = validate_rgb(load_image(path))
             payload = WatermarkPayload(
                 version=1,

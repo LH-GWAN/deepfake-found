@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from deepshield.exceptions import ConfigurationError
 
@@ -203,11 +203,28 @@ class WatermarkConfig(_Base):
     key: str | None = Field(
         default=None,
         description=(
-            "Secret that decides which message bit and which coefficient pair each "
-            "tile slot carries. None keeps the keyless layout. Set it through "
+            "Secret that decides which message bit and which carrier each tile "
+            "slot carries. None keeps the keyless layout. Set it through "
             "DEEPSHIELD_WATERMARK_KEY rather than a committed file."
         ),
     )
+    carrier_coefficients: int = Field(
+        default=2,
+        ge=2,
+        le=11,
+        description=(
+            "Coefficients per carrier. 2 carries each bit on one coefficient pair; "
+            "more spreads it over a keyed subset of the eleven mid-band "
+            "coefficients with keyed signs, which needs a key."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _spread_carrier_needs_a_key(self) -> WatermarkConfig:
+        """Refuse a spread carrier without a key: known to everyone, it protects nothing."""
+        if self.carrier_coefficients > 2 and not self.key:
+            raise ValueError("carrier_coefficients above 2 requires a watermark key")
+        return self
 
 
 class FingerprintConfig(_Base):

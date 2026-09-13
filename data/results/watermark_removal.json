@@ -282,6 +282,11 @@
     }
   },
   "dct": {
+    "n": 60,
+    "carrier_coefficients": 2,
+    "strength": 0.16,
+    "embed_psnr_db": 36.19,
+    "unmarked_band_blank_psnr_db": 40.57,
     "none": {
       "n": 60,
       "detected": 1.0,
@@ -302,9 +307,42 @@
       "owner_code_read": 0.0,
       "forger_code_read": 1.0,
       "psnr_vs_marked_db": 33.57
+    },
+    "jpeg_50": {
+      "n": 60,
+      "detected": 0.0,
+      "owner_code_read": 0.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 34.25
+    },
+    "jpeg_30": {
+      "n": 60,
+      "detected": 0.0,
+      "owner_code_read": 0.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 32.92
+    },
+    "blur_1.5": {
+      "n": 60,
+      "detected": 0.9833,
+      "owner_code_read": 0.9833,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 30.2
+    },
+    "resize_50_up": {
+      "n": 60,
+      "detected": 0.6833,
+      "owner_code_read": 0.6833,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 33.8
     }
   },
   "dct_keyed": {
+    "n": 60,
+    "carrier_coefficients": 2,
+    "strength": 0.16,
+    "embed_psnr_db": 36.21,
+    "unmarked_band_blank_psnr_db": 40.57,
     "none": {
       "n": 60,
       "detected": 1.0,
@@ -325,6 +363,34 @@
       "owner_code_read": 0.0,
       "forger_code_read": 0.0,
       "psnr_vs_marked_db": 36.1
+    },
+    "blank_band": {
+      "n": 60,
+      "detected": 0.0167,
+      "owner_code_read": 0.0167,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 35.73
+    },
+    "band_noise_10": {
+      "n": 60,
+      "detected": 1.0,
+      "owner_code_read": 1.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 35.31
+    },
+    "band_noise_20": {
+      "n": 60,
+      "detected": 1.0,
+      "owner_code_read": 1.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 29.98
+    },
+    "band_noise_40": {
+      "n": 60,
+      "detected": 1.0,
+      "owner_code_read": 1.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 24.31
     },
     "overwrite_keyless_layout": {
       "n": 60,
@@ -353,7 +419,291 @@
       "owner_code_read": 0.0,
       "forger_code_read": 1.0,
       "psnr_vs_marked_db": 33.65
+    },
+    "jpeg_50": {
+      "n": 60,
+      "detected": 0.0,
+      "owner_code_read": 0.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 34.43
+    },
+    "jpeg_30": {
+      "n": 60,
+      "detected": 0.0,
+      "owner_code_read": 0.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 32.94
+    },
+    "blur_1.5": {
+      "n": 60,
+      "detected": 0.0,
+      "owner_code_read": 0.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 30.2
+    },
+    "resize_50_up": {
+      "n": 60,
+      "detected": 0.8,
+      "owner_code_read": 0.8,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 33.88
     }
   },
-  "dct_key_note": "dct_keyed uses DEEPSHIELD_WATERMARK_KEY='deepshield-benchmark-key-2026'; attackers know the algorithm but not the key except in the *_with_key rows"
+  "dct_key_note": "dct_keyed uses DEEPSHIELD_WATERMARK_KEY='deepshield-benchmark-key-2026'; attackers know the algorithm but not the key except in the *_with_key rows",
+  "dct_spread": {
+    "n": 60,
+    "carrier_coefficients": 6,
+    "strength": 0.16,
+    "embed_psnr_db": 39.23,
+    "unmarked_band_blank_psnr_db": 40.57,
+    "none": {
+      "n": 60,
+      "detected": 1.0,
+      "owner_code_read": 1.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": null
+    },
+    "equalise_keyless_pair": {
+      "n": 60,
+      "detected": 1.0,
+      "owner_code_read": 1.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 42.18
+    },
+    "equalise_all_pairs": {
+      "n": 60,
+      "detected": 1.0,
+      "owner_code_read": 1.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 40.29
+    },
+    "blank_band": {
+      "n": 60,
+      "detected": 0.0167,
+      "owner_code_read": 0.0167,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 38.36
+    },
+    "band_noise_10": {
+      "n": 60,
+      "detected": 1.0,
+      "owner_code_read": 1.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 35.31
+    },
+    "band_noise_20": {
+      "n": 60,
+      "detected": 1.0,
+      "owner_code_read": 1.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 29.99
+    },
+    "band_noise_40": {
+      "n": 60,
+      "detected": 0.0,
+      "owner_code_read": 0.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 24.31
+    },
+    "overwrite_keyless_layout": {
+      "n": 60,
+      "detected": 0.0,
+      "owner_code_read": 0.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 35.87
+    },
+    "overwrite_guessed_key": {
+      "n": 60,
+      "detected": 1.0,
+      "owner_code_read": 1.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 39.29
+    },
+    "overwrite_with_key": {
+      "n": 60,
+      "detected": 1.0,
+      "owner_code_read": 0.0,
+      "forger_code_read": 1.0,
+      "psnr_vs_marked_db": 37.46
+    },
+    "jpeg_50": {
+      "n": 60,
+      "detected": 0.0,
+      "owner_code_read": 0.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 35.98
+    },
+    "jpeg_30": {
+      "n": 60,
+      "detected": 0.0,
+      "owner_code_read": 0.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 34.14
+    },
+    "blur_1.5": {
+      "n": 60,
+      "detected": 0.2667,
+      "owner_code_read": 0.2667,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 30.89
+    },
+    "resize_50_up": {
+      "n": 60,
+      "detected": 0.8833,
+      "owner_code_read": 0.8833,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 35.67
+    }
+  },
+  "dct_spread_matched": {
+    "n": 60,
+    "carrier_coefficients": 6,
+    "strength": 0.28,
+    "embed_psnr_db": 36.11,
+    "unmarked_band_blank_psnr_db": 40.57,
+    "none": {
+      "n": 60,
+      "detected": 1.0,
+      "owner_code_read": 1.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": null
+    },
+    "equalise_keyless_pair": {
+      "n": 60,
+      "detected": 1.0,
+      "owner_code_read": 1.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 41.45
+    },
+    "equalise_all_pairs": {
+      "n": 60,
+      "detected": 1.0,
+      "owner_code_read": 1.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 38.27
+    },
+    "blank_band": {
+      "n": 60,
+      "detected": 0.0,
+      "owner_code_read": 0.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 35.67
+    },
+    "band_noise_10": {
+      "n": 60,
+      "detected": 1.0,
+      "owner_code_read": 1.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 35.3
+    },
+    "band_noise_20": {
+      "n": 60,
+      "detected": 1.0,
+      "owner_code_read": 1.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 29.98
+    },
+    "band_noise_40": {
+      "n": 60,
+      "detected": 1.0,
+      "owner_code_read": 1.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 24.3
+    },
+    "overwrite_keyless_layout": {
+      "n": 60,
+      "detected": 1.0,
+      "owner_code_read": 1.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 35.48
+    },
+    "overwrite_guessed_key": {
+      "n": 60,
+      "detected": 1.0,
+      "owner_code_read": 1.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 39.07
+    },
+    "overwrite_with_key": {
+      "n": 60,
+      "detected": 1.0,
+      "owner_code_read": 0.0,
+      "forger_code_read": 1.0,
+      "psnr_vs_marked_db": 33.61
+    },
+    "jpeg_50": {
+      "n": 60,
+      "detected": 0.0,
+      "owner_code_read": 0.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 34.25
+    },
+    "jpeg_30": {
+      "n": 60,
+      "detected": 0.0,
+      "owner_code_read": 0.0,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 32.9
+    },
+    "blur_1.5": {
+      "n": 60,
+      "detected": 0.6,
+      "owner_code_read": 0.6,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 30.18
+    },
+    "resize_50_up": {
+      "n": 60,
+      "detected": 0.9833,
+      "owner_code_read": 0.9833,
+      "forger_code_read": 0.0,
+      "psnr_vs_marked_db": 33.9
+    }
+  },
+  "dct_band": [
+    [
+      1,
+      5
+    ],
+    [
+      1,
+      6
+    ],
+    [
+      2,
+      4
+    ],
+    [
+      2,
+      5
+    ],
+    [
+      3,
+      3
+    ],
+    [
+      3,
+      4
+    ],
+    [
+      4,
+      2
+    ],
+    [
+      4,
+      3
+    ],
+    [
+      5,
+      1
+    ],
+    [
+      5,
+      2
+    ],
+    [
+      6,
+      1
+    ]
+  ]
 }
