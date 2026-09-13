@@ -7,18 +7,18 @@
   "probes": 340,
   "false_positives": 0,
   "positives": [],
-  "mean_seconds_per_probe": 3.811,
+  "mean_seconds_per_probe": 5.198,
   "search": {
     "resync_enabled": true,
     "rotation_enabled": true,
-    "rotation_max_degrees": 15.0,
+    "rotation_max_degrees": 30.0,
     "rotation_scales": [
       0.9,
       0.8,
       0.7,
       0.6
     ],
-    "keyed": true,
+    "keyed": false,
     "carrier_coefficients": 2
   }
 }

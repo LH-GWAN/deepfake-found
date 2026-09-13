@@ -92,6 +92,7 @@ protection:
     resync_rotation_candidates: 2
     resync_rotation_scales: [0.9, 0.8, 0.7, 0.6]
     key: null   # secret for the tile layout; set DEEPSHIELD_WATERMARK_KEY instead of committing one
+    carrier_coefficients: 2   # 2 = one coefficient pair per bit; 3..11 = keyed spread over the mid band (needs a key)
   fingerprint:
     hash_size: 8
     semantic_embedding: false

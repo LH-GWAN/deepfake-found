@@ -12,6 +12,8 @@ transformations:
   rotate_5: { type: rotation, degrees: 5 }
   rotate_10: { type: rotation, degrees: 10 }
   rotate_15: { type: rotation, degrees: 15 }
+  rotate_20: { type: rotation, degrees: 20 }
+  rotate_25: { type: rotation, degrees: 25 }
   rotate_30: { type: rotation, degrees: 30 }
   rotate_5_crop_10: { type: rotate_crop, degrees: 5, ratio: 0.10 }
   rotate_10_crop_10: { type: rotate_crop, degrees: 10, ratio: 0.10 }

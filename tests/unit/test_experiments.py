@@ -5,7 +5,9 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
+import numpy as np
 import pytest
+from PIL import Image
 
 from deepshield.config import default_config
 from deepshield.experiments import (
@@ -107,3 +109,24 @@ def test_watermark_experiment_tracks_false_attribution(
     clean = next(r for r in result.rows if r["transformation"] == "jpeg_q90")
     assert clean["watermark_detected"] is True
     assert clean["code_correct"] is True
+
+
+def test_watermark_experiment_chunks_reproduce_a_sequential_run(
+    tmp_path: Path, mock_config, large_photo, other_photo
+) -> None:
+    """Splitting the image list must not change which code each image carries."""
+    from deepshield.media import validate_rgb
+
+    second = np.asarray(
+        Image.fromarray(validate_rgb(other_photo)).resize((512, 512), Image.Resampling.BICUBIC)
+    )
+    paths = [save_image(large_photo, tmp_path / "a.png"), save_image(second, tmp_path / "b.png")]
+    pipeline = load_transformations(Path("configs/experiments.yaml"), ["jpeg_q90"])
+    experiment = WatermarkRobustnessExperiment(mock_config)
+    whole = experiment.run(paths, pipeline).rows
+    chunked = experiment.run(paths[:1], pipeline).rows + experiment.run(
+        paths[1:], pipeline, start_index=1
+    ).rows
+    assert [row["recovered_code"] for row in chunked] == [row["recovered_code"] for row in whole]
+    forgotten = experiment.run(paths[1:], pipeline).rows
+    assert forgotten[0]["recovered_code"] != whole[1]["recovered_code"]

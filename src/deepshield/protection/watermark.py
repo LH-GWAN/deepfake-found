@@ -85,9 +85,30 @@ by equalising that pair (measured: 100% at 36 dB) or forge a different code
 (100% at 34 dB). With a key, a hash of the secret seeds a permutation of the
 64 bit positions and a choice among five carrier pairs per slot. The decoder
 then has to read each candidate grid under all 64 tile alignments, because the
-alignment decides which pair a block is read on, so the keyed search costs
-about sixty-four times the keyless one on the same budget. The keyless layout
-is the schedule a missing key derives, and every keyless number is unchanged.
+alignment decides which pair a block is read on. Read one alignment at a time
+that cost sixty-four times the keyless search; folding the blocks by tile cell
+once and gathering every alignment from that 64-by-64 table brings it to about
+a third more, with identical votes. The keyless layout is the schedule a
+missing key derives, and every keyless number is unchanged.
+
+A key can also change what a carrier is. A pair is the smallest carrier: the
+bit is the sign of one coefficient minus another, and an attacker who knows
+the five candidate pairs can flatten all five in every block and be done. With
+``carrier_coefficients`` above two, each tile slot instead carries its bit in
+the sign of a keyed sum of that many mid-band coefficients, each with a keyed
+sign, drawn from the eleven coefficients on the sixth and seventh diagonals.
+The pair is the special case of two coefficients with opposite signs, so the
+decoder is the same projection-and-vote in both cases. What the attacker loses
+is the ability to aim: without the key there is no pair to equalise, only a
+band to blank or to drown in noise. The removal benchmark measured what that
+buys, and it is less than it sounds: flattening the five candidate pairs no
+longer removes the mark, but blanking the eleven-coefficient band still does,
+at about the PSNR the mark itself cost, because the band holds only about a
+third of the mark's energy in natural content (measured: blanking it in an
+unmarked 250-pixel portrait costs 40.6 dB, the mark 36.2 dB). A spread carrier also needs a larger
+strength for the same JPEG survival (its change per coefficient is smaller),
+which returns it to the pair's PSNR. Removal cost is bounded by the mark's
+energy plus what the band held already, and no carrier choice moves that.
 
 Remaining failure modes, all measured by the Phase 13 benchmark rather than
 assumed: rotation beyond the searched range, or combined with a crop deeper
@@ -137,8 +158,11 @@ PAIR_CANDIDATES: tuple[tuple[tuple[int, int], tuple[int, int]], ...] = (
     ((1, 5), (5, 1)),
 )
 COEFFICIENT_A, COEFFICIENT_B = PAIR_CANDIDATES[0]
-PAIR_A = np.array([pair[0] for pair in PAIR_CANDIDATES], dtype=np.intp)
-PAIR_B = np.array([pair[1] for pair in PAIR_CANDIDATES], dtype=np.intp)
+# The band a keyed spread carrier draws from: every coefficient on the sixth
+# and seventh anti-diagonals, which is where the candidate pairs live.
+CARRIER_BAND: tuple[tuple[int, int], ...] = tuple(
+    (i, j) for i in range(1, 7) for j in range(1, 7) if i + j in (6, 7)
+)
 MIN_REPETITIONS = 3
 
 
@@ -278,43 +302,113 @@ def phase_shift(ratios: np.ndarray, row_shift: int, col_shift: int) -> np.ndarra
     return np.roll(np.roll(grid, row_shift, axis=0), col_shift, axis=1).ravel()
 
 
+def _phase_slot_table() -> np.ndarray:
+    """Return, for every tile alignment, the slot each tile cell is read as.
+
+    Row ``p`` is the alignment ``(p // TILE_COLS, p % TILE_COLS)`` and column
+    ``c`` is a block's own cell in the tile; the entry is the slot that block
+    is read as under that alignment. Every row is a permutation of the cells,
+    which is what lets the decoder tally all 64 alignments in one pass.
+    """
+    table = np.zeros((TILE_SLOTS, TILE_SLOTS), dtype=np.intp)
+    for row_shift in range(TILE_ROWS):
+        for col_shift in range(TILE_COLS):
+            table[row_shift * TILE_COLS + col_shift] = tile_slots(
+                TILE_ROWS, TILE_COLS, row_shift, col_shift
+            )
+    return table
+
+
+PHASE_SLOT = _phase_slot_table()
+
+
+def _pair_carrier(pair: tuple[tuple[int, int], tuple[int, int]]) -> np.ndarray:
+    """Return a coefficient pair as a carrier: +1 on the first, -1 on the second."""
+    carrier = np.zeros((BLOCK_SIZE, BLOCK_SIZE), dtype=np.float64)
+    carrier[pair[0]] = 1.0
+    carrier[pair[1]] = -1.0
+    return carrier
+
+
 @dataclass(frozen=True)
 class KeySchedule:
-    """What each of the 64 tile slots carries: which message bit, on which pair.
+    """What each of the 64 tile slots carries: which message bit, on which carrier.
 
-    ``bit_of_slot`` is a permutation of the message bits and ``pair_of_slot``
-    indexes :data:`PAIR_CANDIDATES`. Without a key both are the fixed keyless
-    layout, so every number the keyless design ever produced is unchanged.
+    ``bit_of_slot`` is a permutation of the message bits. ``carriers`` holds
+    every distinct carrier as an 8x8 pattern of +1, -1 and 0 over the DCT
+    coefficients, and ``carrier_of_slot`` says which one a slot reads on; a
+    block's bit is the sign of the sum of its coefficients weighted by the
+    pattern. ``pair_of_slot`` indexes :data:`PAIR_CANDIDATES` when the
+    carriers are pairs and is all zeros otherwise. Without a key everything is
+    the fixed keyless layout, so every number the keyless design ever produced
+    is unchanged.
     """
 
     bit_of_slot: np.ndarray
     pair_of_slot: np.ndarray
+    carriers: np.ndarray
+    carrier_of_slot: np.ndarray
     keyed: bool
+    carrier_size: int
 
 
-def derive_schedule(key: str | None) -> KeySchedule:
+def derive_schedule(key: str | None, carrier_size: int = 2) -> KeySchedule:
     """Derive the tile layout from a secret, or return the keyless layout.
 
     The secret is hashed and the digest seeds a PCG64 generator, whose bit
     stream numpy keeps stable across versions, so a key always yields the
     same layout. An attacker who knows the algorithm but not the key faces a
-    64! permutation of bit positions and five carrier pairs per slot: forging
-    a message that passes the checksum under an unknown permutation is not a
-    search, and erasing the mark means flattening every candidate pair in every
-    block rather than one.
+    64! permutation of bit positions and, with pairs, five carrier pairs per
+    slot: forging a message that passes the checksum under an unknown
+    permutation is not a search, and erasing the mark means flattening every
+    candidate pair in every block rather than one.
+
+    ``carrier_size`` above two replaces the pair with a keyed spread carrier:
+    that many coefficients of :data:`CARRIER_BAND`, each with a keyed sign,
+    chosen per slot. The bit-position permutation is drawn first, so a key
+    maps the same bits to the same slots whichever carrier size it is used
+    with. Without a key the carrier size is ignored: a spread carrier that
+    everyone knows would only be a more expensive pair.
     """
     if not key:
         return KeySchedule(
             bit_of_slot=np.arange(TILE_SLOTS, dtype=np.intp),
             pair_of_slot=np.zeros(TILE_SLOTS, dtype=np.intp),
+            carriers=_pair_carrier(PAIR_CANDIDATES[0])[None],
+            carrier_of_slot=np.zeros(TILE_SLOTS, dtype=np.intp),
             keyed=False,
+            carrier_size=2,
         )
     digest = hashlib.sha256(key.encode("utf-8")).digest()
     generator = np.random.default_rng(int.from_bytes(digest[:16], "big"))
+    bit_of_slot = generator.permutation(TILE_SLOTS).astype(np.intp)
+    if carrier_size <= 2:
+        pair_of_slot = generator.integers(0, len(PAIR_CANDIDATES), TILE_SLOTS).astype(np.intp)
+        return KeySchedule(
+            bit_of_slot=bit_of_slot,
+            pair_of_slot=pair_of_slot,
+            carriers=np.stack([_pair_carrier(pair) for pair in PAIR_CANDIDATES]),
+            carrier_of_slot=pair_of_slot,
+            keyed=True,
+            carrier_size=2,
+        )
+    if carrier_size > len(CARRIER_BAND):
+        raise WatermarkError(
+            f"carrier size {carrier_size} exceeds the {len(CARRIER_BAND)}-coefficient band"
+        )
+    carriers = np.zeros((TILE_SLOTS, BLOCK_SIZE, BLOCK_SIZE), dtype=np.float64)
+    for slot in range(TILE_SLOTS):
+        chosen = generator.choice(len(CARRIER_BAND), carrier_size, replace=False)
+        signs = generator.integers(0, 2, carrier_size) * 2 - 1
+        for index, sign in zip(chosen, signs, strict=True):
+            carriers[slot][CARRIER_BAND[int(index)]] = float(sign)
     return KeySchedule(
-        bit_of_slot=generator.permutation(TILE_SLOTS).astype(np.intp),
-        pair_of_slot=generator.integers(0, len(PAIR_CANDIDATES), TILE_SLOTS).astype(np.intp),
+        bit_of_slot=bit_of_slot,
+        pair_of_slot=np.zeros(TILE_SLOTS, dtype=np.intp),
+        carriers=carriers,
+        carrier_of_slot=np.arange(TILE_SLOTS, dtype=np.intp),
         keyed=True,
+        carrier_size=int(carrier_size),
     )
 
 
@@ -335,7 +429,7 @@ class DctWatermarker(Watermarker):
     def __init__(self, config: WatermarkConfig | None = None) -> None:
         """Store watermark configuration and derive the tile layout from its key."""
         self.config = config or WatermarkConfig()
-        self.schedule = derive_schedule(self.config.key)
+        self.schedule = derive_schedule(self.config.key, self.config.carrier_coefficients)
 
     @property
     def capacity_bits(self) -> int:
@@ -385,15 +479,19 @@ class DctWatermarker(Watermarker):
         coefficients: np.ndarray = basis @ blocks @ basis.T
         return coefficients
 
-    def _differences(self, coefficients: np.ndarray, slots: np.ndarray) -> np.ndarray:
-        """Return each block's carrier difference on the pair its slot uses."""
-        pair = self.schedule.pair_of_slot[slots]
-        index = np.arange(coefficients.shape[0])
-        differences: np.ndarray = (
-            coefficients[index, PAIR_A[pair, 0], PAIR_A[pair, 1]]
-            - coefficients[index, PAIR_B[pair, 0], PAIR_B[pair, 1]]
-        )
-        return differences
+    def _positive(self, coefficients: np.ndarray) -> np.ndarray:
+        """Return whether each block reads as a one on each distinct carrier.
+
+        A block's reading on a carrier is the sum of its coefficients weighted
+        by the carrier pattern; for a pair that is exactly the difference of
+        the two coefficients. Every distinct carrier is projected at once, so
+        the tally under any tile alignment is a gather rather than a re-read.
+        """
+        flat = coefficients.reshape(coefficients.shape[0], BLOCK_SIZE * BLOCK_SIZE)
+        carriers = self.schedule.carriers.reshape(-1, BLOCK_SIZE * BLOCK_SIZE)
+        projections: np.ndarray = flat @ carriers.T
+        positive: np.ndarray = (projections > 0).astype(np.float64)
+        return positive
 
     def _tally(
         self,
@@ -408,8 +506,9 @@ class DctWatermarker(Watermarker):
         ``phase`` is the tile alignment assumed while reading. Without a key it
         does not matter here, because a misaligned read is only a permutation
         of the bits and the decoder rolls the votes afterwards. With a key the
-        alignment decides which carrier pair each block is read on, so the
-        decoder has to read under every alignment instead.
+        alignment decides which carrier each block is read on, so the decoder
+        has to read under every alignment instead; :meth:`_tally_phases` does
+        that in one pass.
         """
         if coefficients.shape[0] == 0:
             return np.zeros(MESSAGE_BITS), np.zeros(MESSAGE_BITS)
@@ -417,13 +516,57 @@ class DctWatermarker(Watermarker):
         if limit is not None and coefficients.shape[0] > limit:
             slots = slots[:limit]
             coefficients = coefficients[:limit]
-        differences = self._differences(coefficients, slots)
+        positive = self._positive(coefficients)
+        ones = positive[np.arange(positive.shape[0]), self.schedule.carrier_of_slot[slots]]
         bits = self.schedule.bit_of_slot[slots]
-        votes = np.bincount(
-            bits, weights=(differences > 0).astype(np.float64), minlength=MESSAGE_BITS
-        )
+        votes = np.bincount(bits, weights=ones, minlength=MESSAGE_BITS)
         counts = np.bincount(bits, minlength=MESSAGE_BITS).astype(np.float64)
         return votes[:MESSAGE_BITS], counts[:MESSAGE_BITS]
+
+    def _tally_phases(
+        self, coefficients: np.ndarray, rows: int, cols: int, limit: int | None = None
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Return per-bit votes and counts under every tile alignment, phases by bits.
+
+        Blocks are first folded by their own tile cell, giving the number of
+        ones each cell would contribute on each carrier. Under an alignment
+        every cell is read as one slot, so the tally for that alignment is a
+        gather from that table rather than another pass over the blocks. The
+        sums are of whole numbers, so the result is identical to tallying each
+        alignment on its own.
+        """
+        count = coefficients.shape[0]
+        if count == 0:
+            return np.zeros((TILE_SLOTS, MESSAGE_BITS)), np.zeros((TILE_SLOTS, MESSAGE_BITS))
+        cells = tile_slots(rows, cols)[:count]
+        if limit is not None and count > limit:
+            cells = cells[:limit]
+            coefficients = coefficients[:limit]
+            count = limit
+        membership = np.zeros((count, TILE_SLOTS), dtype=np.float64)
+        membership[np.arange(count), cells] = 1.0
+        ones_by_cell = membership.T @ self._positive(coefficients)
+        blocks_by_cell = membership.sum(axis=0)
+
+        read_as = PHASE_SLOT
+        gathered = ones_by_cell[
+            np.arange(TILE_SLOTS)[None, :], self.schedule.carrier_of_slot[read_as]
+        ]
+        bits = self.schedule.bit_of_slot[read_as]
+        phase_index = np.arange(TILE_SLOTS)[:, None]
+        votes = np.zeros((TILE_SLOTS, MESSAGE_BITS), dtype=np.float64)
+        counts = np.zeros((TILE_SLOTS, MESSAGE_BITS), dtype=np.float64)
+        votes[phase_index, bits] = gathered
+        counts[phase_index, bits] = blocks_by_cell[None, :]
+        return votes, counts
+
+    def _ratios_by_phase(self, votes: np.ndarray, counts: np.ndarray) -> np.ndarray:
+        """Return per-bit vote ratios for every alignment, phases by bits."""
+        with np.errstate(invalid="ignore"):
+            ratios: np.ndarray = np.divide(
+                votes, counts, out=np.full(votes.shape, 0.5), where=counts > 0
+            )
+        return ratios
 
     def _best_agreement(
         self, coefficients: np.ndarray, rows: int, cols: int, limit: int | None = None
@@ -432,14 +575,8 @@ class DctWatermarker(Watermarker):
         if not self.schedule.keyed:
             votes, counts = self._tally(coefficients, rows, cols, limit=limit)
             return self._agreement(votes, counts)[1]
-        best = 0.0
-        for row_shift in range(TILE_ROWS):
-            for col_shift in range(TILE_COLS):
-                votes, counts = self._tally(
-                    coefficients, rows, cols, (row_shift, col_shift), limit=limit
-                )
-                best = max(best, self._agreement(votes, counts)[1])
-        return best
+        ratios = self._ratios_by_phase(*self._tally_phases(coefficients, rows, cols, limit))
+        return float(np.max(np.mean(np.maximum(ratios, 1.0 - ratios), axis=1)))
 
     def _candidate(
         self, image: np.ndarray, offset: tuple[int, int], grid: dict[str, Any]
@@ -450,15 +587,17 @@ class DctWatermarker(Watermarker):
         coefficients = self._coefficients(blocks)
         votes, counts = self._tally(coefficients, rows, cols)
         ratios, _ = self._agreement(votes, counts)
-        agreement = self._best_agreement(coefficients, rows, cols)
 
         if self.schedule.keyed:
+            by_phase = self._ratios_by_phase(*self._tally_phases(coefficients, rows, cols))
+            agreement = float(np.max(np.mean(np.maximum(by_phase, 1.0 - by_phase), axis=1)))
 
             def read(row_shift: int, col_shift: int) -> np.ndarray:
-                votes, counts = self._tally(coefficients, rows, cols, (row_shift, col_shift))
-                return self._agreement(votes, counts)[0]
+                row: np.ndarray = by_phase[row_shift * TILE_COLS + col_shift]
+                return row
 
         else:
+            agreement = self._best_agreement(coefficients, rows, cols)
 
             def read(row_shift: int, col_shift: int) -> np.ndarray:
                 return phase_shift(ratios, row_shift, col_shift)
@@ -540,18 +679,26 @@ class DctWatermarker(Watermarker):
 
                 slot = (row % TILE_ROWS) * TILE_COLS + (col % TILE_COLS)
                 bit = int(message[self.schedule.bit_of_slot[slot]])
-                first, second = PAIR_CANDIDATES[self.schedule.pair_of_slot[slot]]
 
-                a = coefficients[first]
-                b = coefficients[second]
-                mean = (a + b) / 2.0
-                half = margin / 2.0
-                if bit == 1:
-                    coefficients[first] = mean + half
-                    coefficients[second] = mean - half
+                if self.schedule.carrier_size == 2:
+                    first, second = PAIR_CANDIDATES[self.schedule.pair_of_slot[slot]]
+                    a = coefficients[first]
+                    b = coefficients[second]
+                    mean = (a + b) / 2.0
+                    half = margin / 2.0
+                    if bit == 1:
+                        coefficients[first] = mean + half
+                        coefficients[second] = mean - half
+                    else:
+                        coefficients[first] = mean - half
+                        coefficients[second] = mean + half
                 else:
-                    coefficients[first] = mean - half
-                    coefficients[second] = mean + half
+                    # Move the block the shortest distance that puts its reading
+                    # on the carrier at exactly +/- margin: along the carrier.
+                    carrier = self.schedule.carriers[self.schedule.carrier_of_slot[slot]]
+                    reading = float(np.sum(carrier * coefficients))
+                    target = margin if bit == 1 else -margin
+                    coefficients += (target - reading) / float(self.schedule.carrier_size) * carrier
 
                 luminance[y0 : y0 + BLOCK_SIZE, x0 : x0 + BLOCK_SIZE] = idct2(coefficients)
 
