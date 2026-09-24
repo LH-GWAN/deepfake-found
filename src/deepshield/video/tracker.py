@@ -83,14 +83,19 @@ class FaceTracker(ABC):
         self,
         detections_per_frame: list[list[DetectedFace]],
         frames: list[np.ndarray] | None = None,
+        descriptors: list[list[np.ndarray | None]] | None = None,
     ) -> list[FaceTrack]:
-        """Group detections from consecutive sampled frames into tracks."""
+        """Group detections from consecutive sampled frames into tracks.
+
+        ``descriptors`` supplies each detection's appearance descriptor
+        directly, for callers that keep face crops instead of whole frames.
+        """
 
     @abstractmethod
     def select_representative(
         self, track: FaceTrack, frames: dict[int, np.ndarray] | None = None
     ) -> FaceTrack:
-        """Choose the frame of a track that will be embedded and scored."""
+        """Choose the frame of a track that best represents it in the report."""
 
 
 def crop_of(image: np.ndarray, box: BoundingBox) -> np.ndarray:
@@ -108,7 +113,7 @@ def appearance_descriptor(crop: np.ndarray) -> np.ndarray:
 
     Deliberately crude: it must be cheap enough to run on every detection, and it
     only has to separate different people filmed in similar framing, not identify
-    anyone. Identity comparison is the embedder's job, on one frame per track.
+    anyone. Identity comparison is the embedder's job, on every sampled face.
 
     The histogram is computed per grid cell rather than over the whole crop.
     A global histogram is nearly blind to layout, so two portraits with similar
@@ -188,12 +193,15 @@ class IouFaceTracker(FaceTracker):
         self,
         detections_per_frame: list[list[DetectedFace]],
         frames: list[np.ndarray] | None = None,
+        descriptors: list[list[np.ndarray | None]] | None = None,
     ) -> list[FaceTrack]:
         """Associate detections across frames using geometry and appearance.
 
         Args:
             detections_per_frame: Detections for each sampled frame, in order.
-            frames: The sampled frames. Without them the appearance check is
+            frames: The sampled frames, from which appearance is computed.
+            descriptors: Precomputed appearance per detection, used instead of
+                ``frames`` when given. With neither, the appearance check is
                 skipped and association falls back to IoU alone.
 
         """
@@ -202,11 +210,14 @@ class IouFaceTracker(FaceTracker):
         next_id = 0
 
         for step, detections in enumerate(detections_per_frame):
-            image = frames[step] if frames is not None and step < len(frames) else None
-            descriptors = [
-                appearance_descriptor(crop_of(image, face.bbox)) if image is not None else None
-                for face in detections
-            ]
+            if descriptors is not None and step < len(descriptors):
+                appearance = descriptors[step]
+            else:
+                image = frames[step] if frames is not None and step < len(frames) else None
+                appearance = [
+                    appearance_descriptor(crop_of(image, face.bbox)) if image is not None else None
+                    for face in detections
+                ]
             open_tracks = [
                 track
                 for track in open_tracks
@@ -222,7 +233,7 @@ class IouFaceTracker(FaceTracker):
                     (
                         index,
                         last_box.iou(detections[index].bbox),
-                        appearance_similarity(track.last_appearance, descriptors[index]),
+                        appearance_similarity(track.last_appearance, appearance[index]),
                     )
                     for index in unmatched
                 ]
@@ -239,7 +250,7 @@ class IouFaceTracker(FaceTracker):
                 track.faces.append(detections[index])
                 track.frame_indices.append(step)
                 track.last_seen = step
-                track.last_appearance = descriptors[index]
+                track.last_appearance = appearance[index]
 
             for index in unmatched:
                 track = FaceTrack(
@@ -247,7 +258,7 @@ class IouFaceTracker(FaceTracker):
                     faces=[detections[index]],
                     frame_indices=[step],
                     last_seen=step,
-                    last_appearance=descriptors[index],
+                    last_appearance=appearance[index],
                 )
                 next_id += 1
                 tracks.append(track)

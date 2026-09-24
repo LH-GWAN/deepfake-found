@@ -179,3 +179,36 @@ def test_track_dict_is_serialisable() -> None:
     payload = IouFaceTracker().track([[face(0)]])[0].to_dict()
     assert payload["length"] == 1
     assert payload["track_id"] == 0
+
+
+def test_a_face_crop_keeps_the_face_at_the_same_pixels() -> None:
+    from deepshield.video.processor import face_crop
+
+    rng = np.random.default_rng(3)
+    frame = rng.integers(0, 256, size=(400, 600, 3), dtype=np.uint8)
+    landmarks = np.array([[220, 120], [260, 120], [240, 140], [225, 160], [255, 160]], np.float32)
+    detected = DetectedFace(BoundingBox(200, 100, 280, 180), 0.9, landmarks=landmarks)
+    cut = face_crop(frame, detected)
+    assert cut.image.shape[:2] == (160, 160)
+    assert np.array_equal(crop_of(cut.image, cut.face.bbox), crop_of(frame, detected.bbox))
+    assert np.allclose(cut.face.landmarks - landmarks, [-160, -60])
+
+
+def test_a_face_crop_is_clamped_and_bounded() -> None:
+    from deepshield.video.processor import MAX_CROP_SIDE, face_crop
+
+    frame = np.zeros((1080, 1920, 3), dtype=np.uint8)
+    corner = face_crop(frame, DetectedFace(BoundingBox(-20, -20, 60, 60), 0.9))
+    assert corner.face.bbox.x1 == -20
+    huge = face_crop(frame, DetectedFace(BoundingBox(600, 200, 1200, 800), 0.9))
+    assert max(huge.image.shape[:2]) <= MAX_CROP_SIDE
+    assert huge.face.bbox.width == pytest.approx(600 * MAX_CROP_SIDE / 1200, rel=0.02)
+
+
+def test_precomputed_descriptors_replace_frames() -> None:
+    same = appearance_descriptor(np.full((50, 50, 3), 200, dtype=np.uint8))
+    other = appearance_descriptor(np.full((50, 50, 3), 20, dtype=np.uint8))
+    detections = [[face(0)], [face(2)]]
+    tracker = IouFaceTracker(VideoTrackingConfig(appearance_threshold=0.5))
+    assert len(tracker.track(detections, descriptors=[[same], [same]])) == 1
+    assert len(tracker.track(detections, descriptors=[[same], [other]])) == 2

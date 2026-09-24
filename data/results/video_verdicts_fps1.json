@@ -3,7 +3,7 @@
   "clip": "sample_clip.mp4",
   "clip_frames": 150,
   "clip_fps": 25.0,
-  "sampling_fps": 2.0,
+  "sampling_fps": 1.0,
   "identities": 30,
   "frames_the_swapper_could_not_process": 0,
   "situations": {
@@ -15,7 +15,7 @@
         "unrelated": 30
       },
       "swapped_frames_sampled": 0,
-      "mean_seconds": 0.614
+      "mean_seconds": 0.306
     },
     "full": {
       "expected": "identity_match",
@@ -24,8 +24,8 @@
       "verdicts": {
         "identity_match": 30
       },
-      "swapped_frames_sampled": 13,
-      "mean_seconds": 0.642
+      "swapped_frames_sampled": 6,
+      "mean_seconds": 0.312
     },
     "second_scene": {
       "expected": "identity_match",
@@ -34,8 +34,8 @@
       "verdicts": {
         "identity_match": 30
       },
-      "swapped_frames_sampled": 6,
-      "mean_seconds": 0.636
+      "swapped_frames_sampled": 3,
+      "mean_seconds": 0.311
     },
     "partial_2s": {
       "expected": "identity_match",
@@ -44,8 +44,8 @@
       "verdicts": {
         "identity_match": 30
       },
-      "swapped_frames_sampled": 5,
-      "mean_seconds": 0.633
+      "swapped_frames_sampled": 2,
+      "mean_seconds": 0.311
     },
     "partial_1s": {
       "expected": "identity_match",
@@ -54,18 +54,18 @@
       "verdicts": {
         "identity_match": 30
       },
-      "swapped_frames_sampled": 2,
-      "mean_seconds": 0.645
+      "swapped_frames_sampled": 1,
+      "mean_seconds": 0.313
     },
     "partial_half_s": {
       "expected": "identity_match",
       "cases": 30,
-      "as_expected": 30,
+      "as_expected": 0,
       "verdicts": {
-        "identity_match": 30
+        "unrelated": 30
       },
-      "swapped_frames_sampled": 1,
-      "mean_seconds": 0.626
+      "swapped_frames_sampled": 0,
+      "mean_seconds": 0.306
     },
     "full_crf35": {
       "expected": "identity_match",
@@ -74,8 +74,8 @@
       "verdicts": {
         "identity_match": 30
       },
-      "swapped_frames_sampled": 13,
-      "mean_seconds": 0.644
+      "swapped_frames_sampled": 6,
+      "mean_seconds": 0.307
     }
   },
   "environment": {
@@ -92,6 +92,6 @@
     "deepfake_detector": "spectral",
     "watermark_backend": "dct",
     "watermark_strength": 0.16,
-    "recorded_at": "2026-09-24T12:21:37.735123+00:00"
+    "recorded_at": "2026-09-24T12:24:35.547512+00:00"
   }
 }

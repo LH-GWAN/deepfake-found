@@ -105,7 +105,7 @@ protection:
 video:
   sampling:
     strategy: uniform_fps
-    fps: 1.0
+    fps: 2.0
     max_frames: 600
   tracking:
     backend: mock

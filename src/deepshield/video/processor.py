@@ -25,24 +25,72 @@ is far more likely to be a detector error than a finding.
 
 from __future__ import annotations
 
+import math
 import time
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
+
+import numpy as np
 
 from deepshield.config import DeepShieldConfig
 from deepshield.detection.deepfake_backends import aggregate_frame_scores
 from deepshield.exceptions import InvalidMediaError
+from deepshield.face.detector import FaceDetector
 from deepshield.logging_utils import get_logger
 from deepshield.media import sha256_file
 from deepshield.risk.scorer import build_risk_scorer
-from deepshield.types import EvidenceRecord, MediaType, RiskEvidence, SimilarityResult
-from deepshield.video.sampler import FrameSampler, SampledFrame, build_sampler
-from deepshield.video.tracker import FaceTracker, build_tracker
+from deepshield.types import (
+    DetectedFace,
+    EvidenceRecord,
+    MediaType,
+    RiskEvidence,
+    SimilarityResult,
+)
+from deepshield.video.sampler import FrameSampler, build_sampler
+from deepshield.video.tracker import FaceTracker, appearance_descriptor, build_tracker, crop_of
 
 logger = get_logger(__name__)
 
 MAX_DEEPFAKE_FRAMES_PER_TRACK = 8
+CROP_PADDING = 0.5
+MAX_CROP_SIDE = 384
+
+
+@dataclass(frozen=True)
+class FaceCrop:
+    """The pixels around one detection, kept in place of the whole frame.
+
+    ``face`` is the same detection in the crop's own coordinates, so the
+    aligner and the synthetic-media crop work on it exactly as they would on
+    the frame.
+    """
+
+    image: np.ndarray
+    face: DetectedFace
+
+
+def face_crop(image: np.ndarray, face: DetectedFace) -> FaceCrop:
+    """Cut a detection out of its frame with room for alignment and blending seams.
+
+    The padding covers the aligner's margin and the synthetic-media detector's
+    wider one. Crops larger than ``MAX_CROP_SIDE`` are downscaled: both
+    consumers resample to at most a few hundred pixels anyway.
+    """
+    height, width = image.shape[:2]
+    box = face.bbox
+    pad_x, pad_y = box.width * CROP_PADDING, box.height * CROP_PADDING
+    x1 = int(max(0, min(width - 1, math.floor(box.x1 - pad_x))))
+    y1 = int(max(0, min(height - 1, math.floor(box.y1 - pad_y))))
+    x2 = int(max(x1 + 1, min(width, math.ceil(box.x2 + pad_x))))
+    y2 = int(max(y1 + 1, min(height, math.ceil(box.y2 + pad_y))))
+    region = np.ascontiguousarray(image[y1:y2, x1:x2])
+    local = FaceDetector.shift_face(face, -x1, -y1)
+    region, scale = FaceDetector.downscale_for_detection(region, MAX_CROP_SIDE)
+    if scale != 1.0:
+        local = FaceDetector.rescale_face(local, 1.0 / scale)
+    return FaceCrop(image=np.ascontiguousarray(region), face=local)
 
 
 class VideoProcessor(ABC):
@@ -74,24 +122,41 @@ class DefaultVideoProcessor(VideoProcessor):
         )
         self.scorer = build_risk_scorer(config.thresholds)
 
-    def _detect_all(self, frames: list[SampledFrame]) -> list[list[Any]]:
-        """Detect faces in every sampled frame, tagging each with its position."""
-        from dataclasses import replace
+    def _scan(
+        self, path: Path
+    ) -> tuple[list[float], list[list[DetectedFace]], dict[int, FaceCrop], list[list[Any]]]:
+        """Detect faces frame by frame, keeping only a crop of each.
 
-        per_frame = []
-        for frame in frames:
-            faces = self.analysis.detector.detect(frame.image)
-            per_frame.append(
-                [
-                    replace(
-                        face,
-                        frame_index=frame.frame_number,
-                        timestamp_seconds=frame.timestamp_seconds,
-                    )
-                    for face in faces
-                ]
-            )
-        return per_frame
+        A frame is released as soon as its faces are cut out, so memory grows
+        with the number of faces found rather than with the number of frames
+        sampled times their resolution.
+
+        Returns the sampled timestamps, the detections per frame in frame
+        coordinates, each detection's crop keyed by ``id`` of the detection,
+        and each detection's appearance descriptor for the tracker.
+        """
+        timestamps: list[float] = []
+        detections: list[list[DetectedFace]] = []
+        crops: dict[int, FaceCrop] = {}
+        descriptors: list[list[Any]] = []
+        for frame in self.sampler.iterate(path):
+            faces = [
+                replace(
+                    face,
+                    frame_index=frame.frame_number,
+                    timestamp_seconds=frame.timestamp_seconds,
+                )
+                for face in self.analysis.detector.detect(frame.image)
+            ]
+            frame_descriptors = []
+            for face in faces:
+                cut = face_crop(frame.image, face)
+                crops[id(face)] = cut
+                frame_descriptors.append(appearance_descriptor(crop_of(cut.image, cut.face.bbox)))
+            timestamps.append(frame.timestamp_seconds)
+            detections.append(faces)
+            descriptors.append(frame_descriptors)
+        return timestamps, detections, crops, descriptors
 
     def analyze(self, video_path: Path, user_id: str | None = None) -> EvidenceRecord:
         """Analyse a video and return one aggregated evidence record.
@@ -103,13 +168,11 @@ class DefaultVideoProcessor(VideoProcessor):
         started = time.perf_counter()
         path = Path(video_path)
         metadata = self.sampler.probe(path)
-        frames = self.sampler.sample(path)
-        if not frames:
+        timestamps, detections, crops, descriptors = self._scan(path)
+        if not timestamps:
             raise InvalidMediaError(f"no frames sampled from {path}")
 
-        frame_lookup = {index: frame.image for index, frame in enumerate(frames)}
-        detections = self._detect_all(frames)
-        tracks = self.tracker.track(detections, [frame.image for frame in frames])
+        tracks = self.tracker.track(detections, descriptors=descriptors)
         profiles = self.analysis._profiles(user_id)
 
         track_records: list[dict[str, Any]] = []
@@ -140,7 +203,8 @@ class DefaultVideoProcessor(VideoProcessor):
 
             per_face: list[tuple[int, Any, list[SimilarityResult]]] = []
             for step, detected in zip(track.frame_indices, track.faces, strict=False):
-                aligned = self.analysis.aligner.align(frame_lookup[step], detected)
+                cut = crops[id(detected)]
+                aligned = self.analysis.aligner.align(cut.image, cut.face)
                 embedding = self.analysis.embedder.embed(aligned.image)
                 comparable = [
                     p for p in profiles if p.embedding_dimension == embedding.dimension
@@ -179,11 +243,13 @@ class DefaultVideoProcessor(VideoProcessor):
                 matching = [item for item in per_face if item[2][0].is_candidate]
                 others = [item for item in per_face if not item[2][0].is_candidate]
                 chosen = (matching + others)[:MAX_DEEPFAKE_FRAMES_PER_TRACK]
-                crops = [
-                    crop_with_margin(frame_lookup[step], detected, DEEPFAKE_CROP_MARGIN)
-                    for step, detected, _ in chosen
+                seams = [
+                    crop_with_margin(
+                        crops[id(detected)].image, crops[id(detected)].face, DEEPFAKE_CROP_MARGIN
+                    )
+                    for _, detected, _ in chosen
                 ]
-                outcome = self.analysis.deepfake_detector.predict_video(crops)
+                outcome = self.analysis.deepfake_detector.predict_video(seams)
                 entry["deepfake_score"] = round(outcome.score, 6)
                 subject_scores.setdefault(result.matched_user_id, []).extend(
                     outcome.per_frame_scores or [outcome.score]
@@ -232,10 +298,10 @@ class DefaultVideoProcessor(VideoProcessor):
 
         limitations = list(risk.limitations)
         interval = (
-            frames[1].timestamp_seconds - frames[0].timestamp_seconds if len(frames) > 1 else None
+            timestamps[1] - timestamps[0] if len(timestamps) > 1 else None
         )
         limitations.append(
-            f"Only {len(frames)} frames were sampled from {metadata.get('frame_count')} total"
+            f"Only {len(timestamps)} frames were sampled from {metadata.get('frame_count')} total"
             + (
                 f", one every {interval:.2f} s; a face shown for less than that can fall "
                 "between samples and go unexamined."
@@ -244,10 +310,10 @@ class DefaultVideoProcessor(VideoProcessor):
             )
         )
         duration = metadata.get("duration_seconds")
-        covered = frames[-1].timestamp_seconds + (interval or 0.0)
+        covered = timestamps[-1] + (interval or 0.0)
         if duration and covered < duration:
             limitations.append(
-                f"Sampling stopped at {frames[-1].timestamp_seconds:.1f} s of a {duration:.1f} s "
+                f"Sampling stopped at {timestamps[-1]:.1f} s of a {duration:.1f} s "
                 "video because the frame budget ran out; everything after that was not examined."
             )
         if gated_tracks:
@@ -293,7 +359,7 @@ class DefaultVideoProcessor(VideoProcessor):
         logger.info(
             "analysed %s: %d frames, %d tracks, best similarity %s",
             path.name,
-            len(frames),
+            len(timestamps),
             len(tracks),
             "none" if best_result is None else f"{best_result.similarity:.3f}",
         )
