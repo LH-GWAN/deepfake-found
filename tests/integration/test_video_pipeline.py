@@ -145,7 +145,7 @@ def test_a_swap_inside_a_genuine_track_is_found(config, tmp_path: Path) -> None:
             ]
 
     class OneTrack(FaceTracker):
-        def track(self, detections_per_frame, frames=None) -> list[FaceTrack]:
+        def track(self, detections_per_frame, frames=None, descriptors=None) -> list[FaceTrack]:
             faces = [face for per_frame in detections_per_frame for face in per_frame]
             return [
                 FaceTrack(

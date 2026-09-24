@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import math
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -73,6 +74,15 @@ class FrameSampler(ABC):
     @abstractmethod
     def probe(self, video_path: Path) -> dict[str, Any]:
         """Return container metadata: duration, fps, resolution and frame count."""
+
+    def iterate(self, video_path: Path) -> Iterator[SampledFrame]:
+        """Yield the selected frames one at a time.
+
+        Callers that keep only what they extract from each frame should use this
+        instead of :meth:`sample`, which holds every selected frame at full
+        resolution at once.
+        """
+        yield from self.sample(video_path)
 
 
 def _open_capture(video_path: Path) -> tuple[Any, Any]:
@@ -135,8 +145,17 @@ class OpenCvFrameSampler(FrameSampler):
             InvalidMediaError: If the file cannot be opened or holds no frames.
 
         """
+        return list(self.iterate(video_path))
+
+    def iterate(self, video_path: Path) -> Iterator[SampledFrame]:
+        """Decode a video and yield the frames the policy selects, one at a time.
+
+        Raises:
+            InvalidMediaError: If the file cannot be opened or holds no frames.
+
+        """
         cv2, capture = _open_capture(video_path)
-        sampled: list[SampledFrame] = []
+        kept = 0
         try:
             source_fps = float(capture.get(cv2.CAP_PROP_FPS)) or 0.0
             if source_fps <= 0:
@@ -159,7 +178,7 @@ class OpenCvFrameSampler(FrameSampler):
 
             previous: np.ndarray | None = None
             index = 0
-            while len(sampled) < self.config.max_frames:
+            while kept < self.config.max_frames:
                 ok, frame = capture.read()
                 if not ok:
                     break
@@ -179,27 +198,24 @@ class OpenCvFrameSampler(FrameSampler):
                     keep = index % stride == 0
 
                 if keep:
-                    rgb = np.ascontiguousarray(frame[:, :, ::-1])
-                    sampled.append(
-                        SampledFrame(
-                            image=rgb,
-                            frame_number=index,
-                            timestamp_seconds=index / source_fps,
-                        )
+                    kept += 1
+                    yield SampledFrame(
+                        image=np.ascontiguousarray(frame[:, :, ::-1]),
+                        frame_number=index,
+                        timestamp_seconds=index / source_fps,
                     )
                 index += 1
         finally:
             capture.release()
 
-        if not sampled:
+        if not kept:
             raise InvalidMediaError(f"no frames could be decoded from {video_path}")
         logger.info(
             "sampled %d frames from %s using %s",
-            len(sampled),
+            kept,
             Path(video_path).name,
             self.config.strategy,
         )
-        return sampled
 
 
 def build_sampler(config: VideoSamplingConfig) -> FrameSampler:

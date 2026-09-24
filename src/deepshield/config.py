@@ -255,7 +255,7 @@ class VideoSamplingConfig(_Base):
     """Frame sampling policy; full-frame decoding is never the default."""
 
     strategy: Literal["uniform_fps", "scene_change", "adaptive"] = "uniform_fps"
-    fps: float = Field(default=1.0, gt=0.0)
+    fps: float = Field(default=2.0, gt=0.0)
     max_frames: int = Field(default=600, gt=0)
 
 

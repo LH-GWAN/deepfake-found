@@ -25,9 +25,11 @@ from a failure to recognise a frame that was sampled.
 Swapped frames are cached under ``--workdir`` so repeated runs, for example
 before and after a pipeline change, analyse byte-identical clips.
 
-The sample clip is a slideshow of two still portraits with slow zooms, not
+The default clip is a slideshow of two still portraits with slow zooms, not
 footage with motion, lighting change or occlusion. It exercises sampling,
-tracking and identity; it does not stand in for real video.
+tracking and identity; it does not stand in for real video. ``--clip`` takes
+any other video; a clip that is one continuous shot skips ``second_scene`` and
+places the partial swaps around its middle.
 
 Usage:
     python scripts/evaluate_video_verdicts.py --identities 10
@@ -60,6 +62,7 @@ from deepshield.pipeline.analysis_pipeline import DefaultAnalysisPipeline
 from deepshield.video.processor import DefaultVideoProcessor
 
 EXPECTED_UNRELATED = {"original"}
+SCENE_CUT_DIFFERENCE = 30.0
 
 
 def read_frames(path: Path) -> tuple[list[np.ndarray], float]:
@@ -99,12 +102,14 @@ def encode(frames: list[np.ndarray], fps: float, destination: Path, crf: int) ->
     return destination
 
 
-def scene_cut(frames: list[np.ndarray]) -> int:
-    """Return the index of the first frame after the largest content jump."""
+def scene_cut(frames: list[np.ndarray]) -> int | None:
+    """Return the first frame after the largest content jump, or ``None`` for one shot."""
     differences = [
         float(np.abs(frames[i].astype(np.int16) - frames[i - 1].astype(np.int16)).mean())
         for i in range(1, len(frames))
     ]
+    if max(differences) < SCENE_CUT_DIFFERENCE:
+        return None
     return int(np.argmax(differences)) + 1
 
 
@@ -131,7 +136,7 @@ def situations(
 ) -> dict[str, tuple[list[np.ndarray], tuple[int, int] | None, int]]:
     """Return each situation's frames, its swapped span and its encoding quality."""
     cut = scene_cut(frames)
-    middle = cut // 2
+    middle = (cut if cut is not None else len(frames)) // 2
 
     def splice(start: int, stop: int) -> list[np.ndarray]:
         return [swapped[i] if start <= i < stop else frames[i] for i in range(len(frames))]
@@ -142,13 +147,15 @@ def situations(
 
     spans = {name: span(seconds) for name, seconds in
              (("partial_2s", 2.0), ("partial_1s", 1.0), ("partial_half_s", 0.5))}
-    return {
+    built: dict[str, tuple[list[np.ndarray], tuple[int, int] | None, int]] = {
         "original": (frames, None, 20),
         "full": (swapped, (0, len(frames)), 20),
-        "second_scene": (splice(cut, len(frames)), (cut, len(frames)), 20),
-        **{name: (splice(*bounds), bounds, 20) for name, bounds in spans.items()},
-        "full_crf35": (swapped, (0, len(frames)), 35),
     }
+    if cut is not None:
+        built["second_scene"] = (splice(cut, len(frames)), (cut, len(frames)), 20)
+    built.update({name: (splice(*bounds), bounds, 20) for name, bounds in spans.items()})
+    built["full_crf35"] = (swapped, (0, len(frames)), 35)
+    return built
 
 
 def sampled_in(span: tuple[int, int] | None, fps: float, sample_fps: float) -> int:
@@ -237,7 +244,7 @@ def main(argv: list[str] | None = None) -> int:
         }
     report = {
         "question": "does the video pipeline find the user's face swapped into a clip?",
-        "clip": str(args.clip),
+        "clip": args.clip.name,
         "clip_frames": len(frames),
         "clip_fps": fps,
         "sampling_fps": sample_fps,
