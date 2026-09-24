@@ -48,6 +48,10 @@ class BlockedSourceError(SourceError):
     """Raised when a fetch is refused by policy: robots.txt, host or address rules."""
 
 
+class NotMediaError(SourceError):
+    """Raised when a URL that looked like media serves something else, such as a page."""
+
+
 class NotImplementedInPhaseError(DeepShieldError):
     """Raised by interfaces whose concrete implementation belongs to a later phase.
 

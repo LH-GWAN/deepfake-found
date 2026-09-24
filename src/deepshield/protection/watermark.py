@@ -430,6 +430,10 @@ class DctWatermarker(Watermarker):
         """Store watermark configuration and derive the tile layout from its key."""
         self.config = config or WatermarkConfig()
         self.schedule = derive_schedule(self.config.key, self.config.carrier_coefficients)
+        basis = _dct_matrix(BLOCK_SIZE)
+        self._pixel_carriers = (basis.T @ self.schedule.carriers @ basis).reshape(
+            -1, BLOCK_SIZE * BLOCK_SIZE
+        )
 
     @property
     def capacity_bits(self) -> int:
@@ -447,55 +451,52 @@ class DctWatermarker(Watermarker):
 
     @staticmethod
     def _block_stack(
-        luminance: np.ndarray, offset_y: int, offset_x: int
+        luminance: np.ndarray, offset_y: int, offset_x: int, limit: int | None = None
     ) -> tuple[np.ndarray, int, int]:
-        """Return every whole 8x8 block from a grid anchored at an offset.
+        """Return the whole 8x8 blocks of a grid anchored at an offset, in raster order.
 
-        Reshaping once and transforming the whole stack with two matrix products
+        Reshaping once and projecting the whole stack with one matrix product
         replaces a Python loop over thousands of blocks, which is what makes the
-        grid search affordable.
+        grid search affordable. With ``limit``, only the leading rows that hold
+        that many blocks are copied, since the search scores a prefix of the
+        grid; ``rows`` and ``cols`` still describe the whole grid.
         """
         height, width = luminance.shape
         rows = (height - offset_y) // BLOCK_SIZE
         cols = (width - offset_x) // BLOCK_SIZE
         if rows <= 0 or cols <= 0:
             return np.zeros((0, BLOCK_SIZE, BLOCK_SIZE), dtype=np.float64), 0, 0
+        stacked_rows = rows if limit is None else min(rows, -(-limit // cols))
         region = luminance[
-            offset_y : offset_y + rows * BLOCK_SIZE, offset_x : offset_x + cols * BLOCK_SIZE
+            offset_y : offset_y + stacked_rows * BLOCK_SIZE,
+            offset_x : offset_x + cols * BLOCK_SIZE,
         ]
         stack = (
-            region.reshape(rows, BLOCK_SIZE, cols, BLOCK_SIZE)
+            region.reshape(stacked_rows, BLOCK_SIZE, cols, BLOCK_SIZE)
             .transpose(0, 2, 1, 3)
-            .reshape(rows * cols, BLOCK_SIZE, BLOCK_SIZE)
+            .reshape(stacked_rows * cols, BLOCK_SIZE, BLOCK_SIZE)
         )
         return stack, rows, cols
 
-    @staticmethod
-    def _coefficients(blocks: np.ndarray) -> np.ndarray:
-        """Return the 2-D DCT of every block in the stack."""
-        if blocks.shape[0] == 0:
-            return np.zeros((0, BLOCK_SIZE, BLOCK_SIZE), dtype=np.float64)
-        basis = _dct_matrix(BLOCK_SIZE)
-        coefficients: np.ndarray = basis @ blocks @ basis.T
-        return coefficients
-
-    def _positive(self, coefficients: np.ndarray) -> np.ndarray:
+    def _positive(self, blocks: np.ndarray) -> np.ndarray:
         """Return whether each block reads as a one on each distinct carrier.
 
-        A block's reading on a carrier is the sum of its coefficients weighted
-        by the carrier pattern; for a pair that is exactly the difference of
-        the two coefficients. Every distinct carrier is projected at once, so
-        the tally under any tile alignment is a gather rather than a re-read.
+        A block's reading on a carrier is the sum of its DCT coefficients
+        weighted by the carrier pattern. The DCT is linear, so that equals the
+        sum of its pixels weighted by the carrier taken back to the pixel
+        domain, ``basis.T @ carrier @ basis``; projecting pixels onto those
+        patterns gives the same readings without transforming a single block.
+        Every distinct carrier is projected at once, so the tally under any
+        tile alignment is a gather rather than a re-read.
         """
-        flat = coefficients.reshape(coefficients.shape[0], BLOCK_SIZE * BLOCK_SIZE)
-        carriers = self.schedule.carriers.reshape(-1, BLOCK_SIZE * BLOCK_SIZE)
-        projections: np.ndarray = flat @ carriers.T
+        flat = blocks.reshape(blocks.shape[0], BLOCK_SIZE * BLOCK_SIZE)
+        projections: np.ndarray = flat @ self._pixel_carriers.T
         positive: np.ndarray = (projections > 0).astype(np.float64)
         return positive
 
     def _tally(
         self,
-        coefficients: np.ndarray,
+        blocks: np.ndarray,
         rows: int,
         cols: int,
         phase: tuple[int, int] = (0, 0),
@@ -510,13 +511,13 @@ class DctWatermarker(Watermarker):
         has to read under every alignment instead; :meth:`_tally_phases` does
         that in one pass.
         """
-        if coefficients.shape[0] == 0:
+        if blocks.shape[0] == 0:
             return np.zeros(MESSAGE_BITS), np.zeros(MESSAGE_BITS)
-        slots = tile_slots(rows, cols, phase[0], phase[1])[: coefficients.shape[0]]
-        if limit is not None and coefficients.shape[0] > limit:
+        slots = tile_slots(rows, cols, phase[0], phase[1])[: blocks.shape[0]]
+        if limit is not None and blocks.shape[0] > limit:
             slots = slots[:limit]
-            coefficients = coefficients[:limit]
-        positive = self._positive(coefficients)
+            blocks = blocks[:limit]
+        positive = self._positive(blocks)
         ones = positive[np.arange(positive.shape[0]), self.schedule.carrier_of_slot[slots]]
         bits = self.schedule.bit_of_slot[slots]
         votes = np.bincount(bits, weights=ones, minlength=MESSAGE_BITS)
@@ -524,7 +525,7 @@ class DctWatermarker(Watermarker):
         return votes[:MESSAGE_BITS], counts[:MESSAGE_BITS]
 
     def _tally_phases(
-        self, coefficients: np.ndarray, rows: int, cols: int, limit: int | None = None
+        self, blocks: np.ndarray, rows: int, cols: int, limit: int | None = None
     ) -> tuple[np.ndarray, np.ndarray]:
         """Return per-bit votes and counts under every tile alignment, phases by bits.
 
@@ -535,17 +536,17 @@ class DctWatermarker(Watermarker):
         sums are of whole numbers, so the result is identical to tallying each
         alignment on its own.
         """
-        count = coefficients.shape[0]
+        count = blocks.shape[0]
         if count == 0:
             return np.zeros((TILE_SLOTS, MESSAGE_BITS)), np.zeros((TILE_SLOTS, MESSAGE_BITS))
         cells = tile_slots(rows, cols)[:count]
         if limit is not None and count > limit:
             cells = cells[:limit]
-            coefficients = coefficients[:limit]
+            blocks = blocks[:limit]
             count = limit
         membership = np.zeros((count, TILE_SLOTS), dtype=np.float64)
         membership[np.arange(count), cells] = 1.0
-        ones_by_cell = membership.T @ self._positive(coefficients)
+        ones_by_cell = membership.T @ self._positive(blocks)
         blocks_by_cell = membership.sum(axis=0)
 
         read_as = PHASE_SLOT
@@ -569,13 +570,13 @@ class DctWatermarker(Watermarker):
         return ratios
 
     def _best_agreement(
-        self, coefficients: np.ndarray, rows: int, cols: int, limit: int | None = None
+        self, blocks: np.ndarray, rows: int, cols: int, limit: int | None = None
     ) -> float:
         """Return the vote agreement of one grid, over every tile alignment if keyed."""
         if not self.schedule.keyed:
-            votes, counts = self._tally(coefficients, rows, cols, limit=limit)
+            votes, counts = self._tally(blocks, rows, cols, limit=limit)
             return self._agreement(votes, counts)[1]
-        ratios = self._ratios_by_phase(*self._tally_phases(coefficients, rows, cols, limit))
+        ratios = self._ratios_by_phase(*self._tally_phases(blocks, rows, cols, limit))
         return float(np.max(np.mean(np.maximum(ratios, 1.0 - ratios), axis=1)))
 
     def _candidate(
@@ -584,12 +585,11 @@ class DctWatermarker(Watermarker):
         """Read one candidate grid fully and attach a reader for its tile alignments."""
         luminance = self._luminance(image)
         blocks, rows, cols = self._block_stack(luminance, offset[0], offset[1])
-        coefficients = self._coefficients(blocks)
-        votes, counts = self._tally(coefficients, rows, cols)
+        votes, counts = self._tally(blocks, rows, cols)
         ratios, _ = self._agreement(votes, counts)
 
         if self.schedule.keyed:
-            by_phase = self._ratios_by_phase(*self._tally_phases(coefficients, rows, cols))
+            by_phase = self._ratios_by_phase(*self._tally_phases(blocks, rows, cols))
             agreement = float(np.max(np.mean(np.maximum(by_phase, 1.0 - by_phase), axis=1)))
 
             def read(row_shift: int, col_shift: int) -> np.ndarray:
@@ -597,7 +597,7 @@ class DctWatermarker(Watermarker):
                 return row
 
         else:
-            agreement = self._best_agreement(coefficients, rows, cols)
+            agreement = self._best_agreement(blocks, rows, cols)
 
             def read(row_shift: int, col_shift: int) -> np.ndarray:
                 return phase_shift(ratios, row_shift, col_shift)
@@ -712,7 +712,7 @@ class DctWatermarker(Watermarker):
         """Return per-bit vote sums and counts recovered from one candidate grid."""
         luminance = self._luminance(image)
         blocks, rows, cols = self._block_stack(luminance, offset[0], offset[1])
-        return self._tally(self._coefficients(blocks), rows, cols)
+        return self._tally(blocks, rows, cols)
 
     def _search_grid(self, image: np.ndarray) -> list[Candidate]:
         """Rank candidate magnifications and block offsets by vote agreement.
@@ -732,11 +732,13 @@ class DctWatermarker(Watermarker):
                 continue
             for offset_y in range(BLOCK_SIZE):
                 for offset_x in range(BLOCK_SIZE):
-                    blocks, rows, cols = self._block_stack(luminance, offset_y, offset_x)
-                    if blocks.shape[0] < MESSAGE_BITS * MIN_REPETITIONS:
+                    blocks, rows, cols = self._block_stack(
+                        luminance, offset_y, offset_x, limit=budget
+                    )
+                    if rows * cols < MESSAGE_BITS * MIN_REPETITIONS:
                         continue
                     agreement = self._best_agreement(
-                        self._coefficients(blocks[:budget]), rows, cols, limit=budget
+                        blocks[:budget], rows, cols, limit=budget
                     )
                     ranked.append(
                         (
@@ -768,11 +770,11 @@ class DctWatermarker(Watermarker):
         ranked: list[tuple[float, int, int]] = []
         for offset_y in range(BLOCK_SIZE):
             for offset_x in range(BLOCK_SIZE):
-                blocks, rows, cols = self._block_stack(luminance, offset_y, offset_x)
-                if blocks.shape[0] < MESSAGE_BITS * MIN_REPETITIONS:
+                blocks, rows, cols = self._block_stack(luminance, offset_y, offset_x, limit=budget)
+                if rows * cols < MESSAGE_BITS * MIN_REPETITIONS:
                     continue
                 agreement = self._best_agreement(
-                    self._coefficients(blocks[:budget]), rows, cols, limit=budget
+                    blocks[:budget], rows, cols, limit=budget
                 )
                 ranked.append((agreement, offset_y, offset_x))
         ranked.sort(key=lambda item: item[0], reverse=True)

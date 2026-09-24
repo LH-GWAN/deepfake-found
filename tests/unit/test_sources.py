@@ -19,7 +19,7 @@ import pytest
 from PIL import Image
 
 from deepshield.config import SourcesConfig
-from deepshield.exceptions import BlockedSourceError, SourceError
+from deepshield.exceptions import BlockedSourceError, NotMediaError, SourceError
 from deepshield.sources import ContentItem, ContentKind, FolderSource, HttpFetcher, WebSource
 from deepshield.sources.web import extract_links, media_type, normalise
 
@@ -150,6 +150,41 @@ def test_links_and_media_are_extracted_from_html() -> None:
     assert found["https://site.test/gallery/poster.jpg"] is ContentKind.IMAGE
     assert found["https://site.test/gallery/b.webp"] is ContentKind.IMAGE
     assert not any(url.startswith("data:") for url in found)
+    assert "https://site.test/gallery/a-small.png" not in found
+    assert "https://site.test/gallery/a.png" not in found
+
+
+def test_each_image_contributes_its_largest_rendition_once() -> None:
+    html = """
+      <img src="w.jpg" srcset="w-250.jpg 250w, w-960.jpg 960w, w-500.jpg 500w">
+      <img src="d.jpg" srcset="d-15.jpg 1.5x, d-2.jpg 2x">
+      <img src="plain.jpg">
+      <picture>
+        <source srcset="p-small.webp 1x, p-big.webp 2x" type="image/webp">
+        <img src="p.jpg">
+      </picture>
+    """
+    _, media = extract_links(html, "https://site.test/")
+    assert [url.rsplit("/", 1)[1] for url, _ in media] == [
+        "w-960.jpg", "d-2.jpg", "plain.jpg", "p-big.webp",
+    ]
+
+
+def test_icons_and_vector_art_are_not_media() -> None:
+    html = """
+      <img src="logo.svg"><img src="favicon.ico">
+      <img src="vote.png" width="20" height="20">
+      <picture><source srcset="tiny.webp"><img src="tiny.png" width="16"></picture>
+      <img src="face.jpg" width="220">
+    """
+    _, media = extract_links(html, "https://site.test/")
+    assert [url.rsplit("/", 1)[1] for url, _ in media] == ["face.jpg"]
+
+
+def test_shown_media_comes_before_linked_media() -> None:
+    html = '<a href="/wiki/File:a.jpg">a</a><a href="b.jpg">b</a><img src="b.jpg"><img src="c.jpg">'
+    _, media = extract_links(html, "https://site.test/")
+    assert [url.rsplit("/", 1)[1] for url, _ in media] == ["b.jpg", "c.jpg", "File:a.jpg"]
 
 
 def test_a_page_yields_its_media_without_following_links(site: Site) -> None:
@@ -256,7 +291,7 @@ def test_oversized_downloads_are_refused(site: Site) -> None:
 def test_a_non_media_response_is_refused(site: Site) -> None:
     site.routes["/fake.jpg"] = (200, {"Content-Type": "text/html"}, b"<html></html>")
     item = ContentItem(uri=f"{site.base}/fake.jpg", kind=ContentKind.IMAGE, source="web")
-    with pytest.raises(SourceError, match="not a supported image or video"):
+    with pytest.raises(NotMediaError, match="not a supported image or video"):
         WebSource(local_config()).fetch(item, site.root.parent / "out")
 
 

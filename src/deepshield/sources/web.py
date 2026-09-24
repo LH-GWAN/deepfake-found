@@ -48,7 +48,7 @@ from urllib.parse import urldefrag, urljoin, urlsplit
 from urllib.robotparser import RobotFileParser
 
 from deepshield.config import SourcesConfig
-from deepshield.exceptions import BlockedSourceError, SourceError
+from deepshield.exceptions import BlockedSourceError, NotMediaError, SourceError
 from deepshield.logging_utils import get_logger
 from deepshield.media import IMAGE_SUFFIXES, VIDEO_SUFFIXES
 from deepshield.sources.base import ContentItem, ContentKind, ContentSource, FetchedContent
@@ -60,6 +60,10 @@ MAX_PAGE_BYTES = 5 * 1024 * 1024
 MAX_ROBOTS_BYTES = 512 * 1024
 CHUNK_BYTES = 1 << 16
 WEB_IMAGE_SUFFIXES = IMAGE_SUFFIXES | {".gif"}
+# Vector art and icons: never a photograph, and not decodable by the pipeline.
+NON_MEDIA_SUFFIXES = frozenset({".svg", ".svgz", ".ico"})
+# An image declared smaller than this cannot hold a face the detector would find.
+MIN_DECLARED_SIDE = 48
 MEDIA_TYPES: dict[str, tuple[ContentKind, str]] = {
     "image/jpeg": (ContentKind.IMAGE, ".jpg"),
     "image/png": (ContentKind.IMAGE, ".png"),
@@ -344,8 +348,9 @@ class HttpFetcher:
         """Stream a media URL to ``directory`` and return the file, response and kind.
 
         Raises:
-            SourceError: If the response is not a supported image or video.
+            NotMediaError: If the response is not a supported image or video.
             BlockedSourceError: If policy forbids the request.
+            SourceError: If the download fails or exceeds the size limit.
 
         """
         delay = self.check_allowed(url)
@@ -354,7 +359,7 @@ class HttpFetcher:
             content_type = response.headers.get("Content-Type")
             detected = media_type(content_type, final_url)
             if detected is None:
-                raise SourceError(f"{url} is not a supported image or video ({content_type})")
+                raise NotMediaError(f"{url} is not a supported image or video ({content_type})")
             kind, suffix = detected
             directory.mkdir(parents=True, exist_ok=True)
             destination = directory / f"{stem}{suffix}"
@@ -374,14 +379,56 @@ class HttpFetcher:
         return destination, Response(final_url, content_type, b""), kind
 
 
+def _largest_candidate(src: str | None, srcset: str | None) -> str | None:
+    """Return the highest-resolution URL an image offers: srcset's largest, else src.
+
+    Width descriptors (``500w``) outrank density ones (``2x``), since a width
+    says how large the file is; ``src`` counts as ``1x``.
+    """
+    widths: list[tuple[float, str]] = []
+    densities: list[tuple[float, str]] = [(1.0, src)] if src else []
+    for candidate in (srcset or "").split(","):
+        parts = candidate.strip().split()
+        if not parts:
+            continue
+        descriptor = parts[1].lower() if len(parts) > 1 else "1x"
+        try:
+            value = float(descriptor[:-1])
+        except ValueError:
+            continue
+        if descriptor.endswith("w"):
+            widths.append((value, parts[0]))
+        elif descriptor.endswith("x"):
+            densities.append((value, parts[0]))
+    best = max(widths or densities, default=None, key=lambda pair: pair[0])
+    return best[1] if best else None
+
+
+def _too_small(values: dict[str, str | None]) -> bool:
+    """Return whether an element declares a side too small to hold a face."""
+    declared = [
+        int(value) for value in (values.get("width"), values.get("height"))
+        if value and value.strip().isdigit()
+    ]
+    return bool(declared) and min(declared) < MIN_DECLARED_SIDE
+
+
 class _LinkParser(HTMLParser):
-    """Collects followable page links and embedded media from one HTML document."""
+    """Collects followable page links and embedded media from one HTML document.
+
+    Each image element contributes one URL, its largest rendition, so a photo
+    offered at several sizes is fetched once. Media a page only links to comes
+    after media it shows, since such links often lead to a description page.
+    """
 
     def __init__(self, base: str) -> None:
         super().__init__(convert_charrefs=True)
         self.base = base
         self.pages: list[str] = []
         self.media: list[tuple[str, ContentKind]] = []
+        self.linked: list[tuple[str, ContentKind]] = []
+        self._picture: list[str] | None = None
+        self._picture_too_small = False
 
     def _absolute(self, value: str | None) -> str | None:
         if not value or value.strip().lower().startswith(("javascript:", "data:", "mailto:")):
@@ -391,17 +438,17 @@ class _LinkParser(HTMLParser):
 
     def _add_media(self, value: str | None, default: ContentKind | None) -> None:
         url = self._absolute(value)
-        if url is None:
+        if url is None or PurePosixPath(urlsplit(url).path).suffix.lower() in NON_MEDIA_SUFFIXES:
             return
         kind = kind_from_suffix(url) or default
         if kind is not None:
             self.media.append((url, kind))
 
-    def _add_srcset(self, value: str | None, default: ContentKind) -> None:
-        for candidate in (value or "").split(","):
-            parts = candidate.strip().split()
-            if parts:
-                self._add_media(parts[0], default)
+    def _close_picture(self) -> None:
+        if self._picture is not None and not self._picture_too_small:
+            self._add_media(_largest_candidate(None, ", ".join(self._picture)), ContentKind.IMAGE)
+        self._picture = None
+        self._picture_too_small = False
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         values = {name.lower(): value for name, value in attrs}
@@ -417,22 +464,33 @@ class _LinkParser(HTMLParser):
             if kind is None:
                 self.pages.append(url)
             else:
-                self.media.append((url, kind))
+                self.linked.append((url, kind))
+        elif tag == "picture":
+            self._close_picture()
+            self._picture = []
         elif tag == "img":
-            self._add_media(values.get("src") or values.get("data-src"), ContentKind.IMAGE)
-            self._add_srcset(values.get("srcset"), ContentKind.IMAGE)
+            src = values.get("src") or values.get("data-src")
+            srcset = values.get("srcset") or values.get("data-srcset")
+            if self._picture is not None:
+                self._picture_too_small |= _too_small(values)
+                self._picture.extend(part for part in (srcset, f"{src} 1x" if src else "") if part)
+            elif not _too_small(values):
+                self._add_media(_largest_candidate(src, srcset), ContentKind.IMAGE)
         elif tag == "video":
             self._add_media(values.get("src"), ContentKind.VIDEO)
             self._add_media(values.get("poster"), ContentKind.IMAGE)
         elif tag == "source":
             declared = (values.get("type") or "").lower()
+            if self._picture is not None:
+                if values.get("srcset"):
+                    self._picture.append(values["srcset"] or "")
+                return
             default = (
                 ContentKind.VIDEO if declared.startswith("video/")
                 else ContentKind.IMAGE if declared.startswith("image/")
                 else None
             )
             self._add_media(values.get("src"), default)
-            self._add_srcset(values.get("srcset"), default or ContentKind.IMAGE)
         elif tag == "meta":
             key = (values.get("property") or values.get("name") or "").lower()
             if key in MEDIA_META:
@@ -443,13 +501,26 @@ class _LinkParser(HTMLParser):
         elif tag == "link" and (values.get("rel") or "").lower() == "image_src":
             self._add_media(values.get("href"), ContentKind.IMAGE)
 
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "picture":
+            self._close_picture()
+
+    def close(self) -> None:
+        super().close()
+        self._close_picture()
+
 
 def extract_links(html: str, base: str) -> tuple[list[str], list[tuple[str, ContentKind]]]:
-    """Return the page links and the media URLs found in an HTML document."""
+    """Return the page links and the media URLs found in an HTML document.
+
+    Media the page shows comes first, then media it only links to.
+    """
     parser = _LinkParser(base)
     parser.feed(html)
     parser.close()
-    return parser.pages, parser.media
+    shown = {url for url, _ in parser.media}
+    linked = [(url, kind) for url, kind in parser.linked if url not in shown]
+    return parser.pages, parser.media + linked
 
 
 class WebSource(ContentSource):

@@ -273,3 +273,80 @@ def test_faces_that_could_not_be_compared_are_inconclusive(
     record = analyse(pipeline, synthetic_photo(seed=5, size=512), tmp_path / "probe.png")
     assert record.faces
     assert record.risk.verdict is Verdict.INCONCLUSIVE
+
+
+def shrink(image: np.ndarray, scale: float) -> np.ndarray:
+    height, width = image.shape[:2]
+    size = (int(round(width * scale)), int(round(height * scale)))
+    return np.asarray(Image.fromarray(image).resize(size, Image.Resampling.LANCZOS))
+
+
+def test_a_shrunken_repost_is_read_at_its_registered_size(
+    pipeline, protected, tmp_path: Path
+) -> None:
+    """A phone upload is smaller than the original; restoring the size restores the grid."""
+    path, report = protected
+    small = jpeg(shrink(load_image(path), 0.7), 90)
+    assert not pipeline.watermarker.detect(small).detected
+    record = analyse(pipeline, small, tmp_path / "upload.png")
+    assert record.watermark_code == report["watermark"]["code"]
+    assert record.risk.verdict is Verdict.OWN_COPY
+    assert any("resized copy" in line for line in record.limitations)
+
+
+def write_video(frames: list[np.ndarray], path: Path, crf: int = 18) -> Path:
+    import shutil
+    import subprocess
+
+    if shutil.which("ffmpeg") is None:
+        pytest.skip("ffmpeg is needed to encode a test video")
+    height, width = frames[0].shape[:2]
+    subprocess.run(
+        [
+            "ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
+            "-s", f"{width}x{height}", "-r", "10", "-i", "-", "-c:v", "libx264",
+            "-crf", str(crf), "-pix_fmt", "yuv420p", str(path),
+        ],
+        input=b"".join(np.ascontiguousarray(frame).tobytes() for frame in frames),
+        check=True,
+    )
+    return path
+
+
+def letterboxed(image: np.ndarray, width: int, height: int, scale: float) -> np.ndarray:
+    photo = shrink(image, scale)
+    frame = np.zeros((height, width, 3), dtype=np.uint8)
+    top, left = (height - photo.shape[0]) // 2, (width - photo.shape[1]) // 2
+    frame[top : top + photo.shape[0], left : left + photo.shape[1]] = photo
+    return frame
+
+
+def test_a_registered_photo_shown_in_a_video_is_found_by_its_watermark(
+    pipeline, config, protected, tmp_path: Path
+) -> None:
+    from deepshield.video.processor import DefaultVideoProcessor
+
+    path, report = protected
+    # The mock detector boxes the centre of the whole frame, so the frame fits
+    # the photo closely; a real detector finds the face wherever it is.
+    still = letterboxed(load_image(path), 362, 362, 0.7)
+    video = write_video([still] * 20, tmp_path / "slideshow.mp4")
+    record = DefaultVideoProcessor(config, analysis=pipeline).analyze(video, "u1")
+    assert record.matched_asset_id == report["asset_id"]
+    assert record.watermark_code == report["watermark"]["code"]
+    assert record.risk.signals["asset_match_basis"] == "watermark code"
+    assert record.risk.verdict is Verdict.OWN_COPY
+    assert record.summary.startswith("This video shows a photograph registered by 'u1'.")
+    assert any("resembles registered asset" in line for line in record.limitations)
+
+
+def test_a_video_without_a_registered_photo_says_what_was_checked(
+    pipeline, config, protected, tmp_path: Path
+) -> None:
+    from deepshield.video.processor import DefaultVideoProcessor
+
+    other = letterboxed(synthetic_photo(seed=91, size=512), 640, 400, 0.7)
+    video = write_video([other] * 20, tmp_path / "other.mp4")
+    record = DefaultVideoProcessor(config, analysis=pipeline).analyze(video, "u1")
+    assert record.matched_asset_id is None
+    assert any("No sampled frame resembled" in line for line in record.limitations)

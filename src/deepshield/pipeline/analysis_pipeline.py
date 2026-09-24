@@ -53,7 +53,14 @@ from deepshield.face.detector import FaceDetector, build_detector
 from deepshield.face.embedder import FaceEmbedder, build_embedder
 from deepshield.face.matcher import FaceMatcher, build_matcher
 from deepshield.logging_utils import get_logger, safe_embedding_repr
-from deepshield.media import is_video_path, load_image, sha256_file, validate_rgb
+from deepshield.media import (
+    image_size,
+    is_video_path,
+    load_image,
+    resize_image,
+    sha256_file,
+    validate_rgb,
+)
 from deepshield.protection.fingerprint import DefaultFingerprinter, hash_similarity
 from deepshield.protection.watermark import Watermarker, build_watermarker
 from deepshield.provenance.c2pa_adapter import build_c2pa_adapter
@@ -68,6 +75,7 @@ from deepshield.storage.repository import (
     build_provenance_store,
 )
 from deepshield.types import (
+    AssetFingerprint,
     AssetRecord,
     DetectedFace,
     EvidenceRecord,
@@ -76,6 +84,7 @@ from deepshield.types import (
     RiskEvidence,
     SimilarityResult,
     Verdict,
+    WatermarkDetectionResult,
 )
 
 logger = get_logger(__name__)
@@ -85,6 +94,23 @@ EXACT_MATCH_PROVENANCE_CONFIDENCE = 1.0
 WATERMARK_PROVENANCE_CONFIDENCE = 0.8
 PERCEPTUAL_PROVENANCE_CONFIDENCE = 0.4
 DECISION_RANK = {"high_confidence": 3, "candidate": 2, "ambiguous": 1, "no_match": 0}
+# A copy within this fraction of the registered size is read as it is; the
+# grid search already covers that much. Aspect ratios further apart than
+# ASPECT_TOLERANCE mean a crop, which restoring the size would only distort.
+SIZE_TOLERANCE = 0.01
+ASPECT_TOLERANCE = 0.02
+MAX_RESTORED_SIZES = 3
+
+
+def _restorable(copy: tuple[int, int], original: tuple[int, int]) -> bool:
+    """Return whether ``copy`` looks like ``original`` scaled, and not already at its size."""
+    (width, height), (target_width, target_height) = copy, original
+    same = (
+        abs(width - target_width) <= SIZE_TOLERANCE * target_width
+        and abs(height - target_height) <= SIZE_TOLERANCE * target_height
+    )
+    aspect, target_aspect = width / height, target_width / target_height
+    return not same and abs(aspect - target_aspect) <= ASPECT_TOLERANCE * target_aspect
 
 
 def subject_result(
@@ -332,13 +358,65 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
             return True
         return None
 
+    def registered_size(self, asset: AssetRecord) -> tuple[int, int] | None:
+        """Return the ``(width, height)`` a registered asset was protected at, if known."""
+        fingerprint = asset.fingerprint
+        if fingerprint.width and fingerprint.height:
+            return fingerprint.width, fingerprint.height
+        return image_size(asset.protected_path) if asset.protected_path else None
+
+    def resembling(
+        self, phash: str, registered: list[AssetRecord]
+    ) -> list[tuple[float, AssetRecord]]:
+        """Return registered assets at or above the perceptual evidence floor, closest first."""
+        floor = self.config.thresholds.fingerprint.evidence_similarity_threshold
+        scored = [
+            (hash_similarity(asset.fingerprint.phash, phash), asset)
+            for asset in registered
+            if len(asset.fingerprint.phash) == len(phash)
+        ]
+        return sorted(
+            (item for item in scored if item[0] >= floor), key=lambda item: item[0], reverse=True
+        )
+
+    def read_watermark(
+        self, image: np.ndarray, candidates: list[AssetRecord]
+    ) -> tuple[WatermarkDetectionResult, tuple[int, int] | None]:
+        """Detect the watermark, first at the size of each registered photo the image resembles.
+
+        A copy that was scaled down keeps its watermark but not the 8x8 grid it
+        is read on, and the grid search only undoes enlargement. Restoring the
+        copy to the size its registered original was protected at puts the grid
+        back: a 70% copy, the size a phone upload or a vertical video frame
+        gets, then decodes, while at 50% the mark is too weakened either way.
+        The checksum still decides; a restoration that is wrong yields no code,
+        not a wrong one.
+
+        Returns the detection and the ``(width, height)`` it was read at when a
+        restoration was what found it.
+        """
+        height, width = image.shape[:2]
+        tried: set[tuple[int, int]] = set()
+        for asset in candidates:
+            size = self.registered_size(asset)
+            if size is None or size in tried or not _restorable((width, height), size):
+                continue
+            if len(tried) >= MAX_RESTORED_SIZES:
+                break
+            tried.add(size)
+            restored = self.watermarker.detect(resize_image(image, *size))
+            if restored.detected:
+                return restored, size
+        return self.watermarker.detect(image), None
+
     def _source_attribution(
-        self, image: np.ndarray, file_digest: str, watermark_code: str | None
+        self,
+        fingerprint: AssetFingerprint,
+        registered: list[AssetRecord],
+        file_digest: str,
+        watermark_code: str | None,
     ) -> dict[str, Any]:
         """Match the file against registered assets by hash, watermark and pHash."""
-        fingerprint = self.fingerprinter.fingerprint_image(image, "probe")
-        registered = self.assets.list_assets()
-
         exact = next(
             (a for a in registered if a.fingerprint.sha256 == file_digest), None
         )
@@ -401,8 +479,14 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
         file_digest = sha256_file(path)
         profiles = self._profiles(user_id)
 
-        watermark = self.watermarker.detect(image)
-        attribution = self._source_attribution(image, file_digest, watermark.watermark_code)
+        fingerprint = self.fingerprinter.fingerprint_image(image, "probe")
+        registered = self.assets.list_assets()
+        watermark, restored_size = self.read_watermark(
+            image, [asset for _, asset in self.resembling(fingerprint.phash, registered)]
+        )
+        attribution = self._source_attribution(
+            fingerprint, registered, file_digest, watermark.watermark_code
+        )
         credentials = self.c2pa.verify(path)
         face_records, best_result, best_face, face_matches = self._analyse_faces(
             image, profiles
@@ -472,6 +556,12 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
 
         limitations = list(risk.limitations)
         limitations.append(describe_credentials(credentials))
+        if restored_size is not None:
+            limitations.append(
+                f"This {image.shape[1]}x{image.shape[0]} file is a resized copy; its watermark "
+                f"was read after restoring it to the {restored_size[0]}x{restored_size[1]} "
+                "size the registered original was protected at."
+            )
         if attribution["perceptual_similarity"] is not None and asset is None:
             limitations.append(
                 f"The closest registered asset matched at "
@@ -564,6 +654,20 @@ def verdict_headline(record: EvidenceRecord) -> str | None:
         return None
     subject = record.risk.subject_user_id
     who = f"'{subject}'" if subject else "an enrolled identity"
+    if record.media_type is MediaType.VIDEO:
+        shown = {
+            Verdict.OWN_COPY: f"This video shows a photograph registered by {who}.",
+            Verdict.OWN_ALTERED: (
+                f"This video shows a photograph registered by {who} with a face that no "
+                "longer matches theirs."
+            ),
+            Verdict.OWN_UNVERIFIED: (
+                f"This video shows a photograph registered by {who}, but their face could not "
+                "be confirmed in it."
+            ),
+        }
+        if record.risk.verdict in shown:
+            return shown[record.risk.verdict]
     headlines = {
         Verdict.OWN_COPY: f"This is a copy of a photograph registered by {who}.",
         Verdict.OWN_ALTERED: (

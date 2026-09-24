@@ -349,6 +349,8 @@ class FileAssetRepository:
                     phash=fingerprint["phash"],
                     dhash=fingerprint["dhash"],
                     created_at=fingerprint.get("created_at", payload["created_at"]),
+                    width=fingerprint.get("width"),
+                    height=fingerprint.get("height"),
                 ),
                 watermark_code=payload.get("watermark_code"),
                 distribution_id=payload.get("distribution_id"),

@@ -95,10 +95,10 @@ def test_detector_is_gated_without_an_identity(config, two_scene_clip: Path) -> 
     assert all(track["deepfake_score"] is None for track in record.faces)
 
 
-def test_watermark_scope_is_stated_for_video(config, two_scene_clip: Path) -> None:
+def test_no_watermark_is_read_without_a_registered_photo(config, two_scene_clip: Path) -> None:
     record = DefaultVideoProcessor(config).analyze(two_scene_clip)
     assert record.watermark_detected is None
-    assert any("not run per frame on video" in line for line in record.limitations)
+    assert record.matched_asset_id is None
 
 
 def test_corrupt_video_is_rejected(config, tmp_path: Path) -> None:
