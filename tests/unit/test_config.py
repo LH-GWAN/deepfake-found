@@ -154,3 +154,21 @@ def test_config_round_trips_through_dict() -> None:
     config = default_config()
     restored = DeepShieldConfig.model_validate(config.model_dump())
     assert restored == config
+
+
+def test_a_retired_risk_section_is_ignored_with_a_warning(
+    project_root: Path, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    old = tmp_path / "thresholds.yaml"
+    old.write_text(
+        "risk:\n  weights:\n    identity_similarity: 0.35\n  levels:\n    high: 75\n"
+        "face_similarity:\n  high_confidence_threshold: 0.5\n"
+    )
+    with caplog.at_level("WARNING", logger="deepshield.config"):
+        config = load_config(
+            config_path=project_root / "configs" / "default.yaml",
+            thresholds_path=old,
+            environ={},
+        )
+    assert config.thresholds.face_similarity.high_confidence_threshold == 0.5
+    assert "retired thresholds.risk" in caplog.text

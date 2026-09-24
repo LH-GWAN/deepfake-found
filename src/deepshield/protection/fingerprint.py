@@ -173,6 +173,8 @@ class DefaultFingerprinter(Fingerprinter):
             phash=perceptual_hash(array, self.hash_size),
             dhash=difference_hash(array, self.hash_size),
             semantic_embedding=self._semantic(array),
+            width=int(array.shape[1]),
+            height=int(array.shape[0]),
         )
 
     def fingerprint_file(self, path: Path, asset_id: str) -> AssetFingerprint:
@@ -187,6 +189,8 @@ class DefaultFingerprinter(Fingerprinter):
             phash=perceptual_hash(image, self.hash_size),
             dhash=difference_hash(image, self.hash_size),
             semantic_embedding=self._semantic(image),
+            width=int(image.shape[1]),
+            height=int(image.shape[0]),
         )
 
     def compare(self, left: AssetFingerprint, right: AssetFingerprint) -> dict[str, float]:

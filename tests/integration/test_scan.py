@@ -105,7 +105,8 @@ def test_flagged_findings_come_first_by_urgency(config, folder: Path) -> None:
     flagged = report.to_dict()["flagged"]
     assert [f["verdict"] for f in flagged] == ["own_altered", "identity_match"]
     assert report.to_dict()["counts"] == {
-        "discovered": 6, "analysed": 4, "duplicates": 1, "flagged": 2, "failures": 1,
+        "discovered": 6, "analysed": 4, "duplicates": 1, "not_media": 0, "flagged": 2,
+        "failures": 1,
     }
 
 
@@ -219,3 +220,35 @@ def test_skips_are_reported_once_when_a_source_serves_several_targets(config) ->
         [(source, "a"), (source, "b")], "u1"
     )
     assert [f["uri"] for f in report.failures] == ["a/page", "b/page"]
+
+
+def test_a_link_that_serves_a_page_is_counted_not_failed(config, tmp_path: Path) -> None:
+    import threading
+    from functools import partial
+    from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+
+    root = tmp_path / "www"
+    root.mkdir()
+    (root / "wiki").mkdir()
+    (root / "wiki" / "File:photo.jpg").write_text("<html>a description page</html>")
+    (root / "index.html").write_text('<a href="/wiki/File:photo.jpg">photo</a>')
+
+    class HtmlEverywhere(SimpleHTTPRequestHandler):
+        def guess_type(self, path: str | Path) -> str:
+            return "text/html"
+
+        def log_message(self, *args: object) -> None:
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), partial(HtmlEverywhere, directory=str(root)))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{server.server_address[1]}/index.html"
+        report = ScanRunner(config, analysis=ScriptedAnalysis()).run(
+            [(WebSource(config.sources, max_depth=0), url)], "u1"
+        )
+    finally:
+        server.shutdown()
+        server.server_close()
+    counts = report.to_dict()["counts"]
+    assert (counts["discovered"], counts["not_media"], counts["failures"]) == (1, 1, 0)

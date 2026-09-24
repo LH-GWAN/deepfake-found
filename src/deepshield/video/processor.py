@@ -21,6 +21,14 @@ person appearing in one second of a ten-minute video is exactly the case the
 user cares about and any averaging would bury it. Frame-level deepfake scores
 are combined with a trimmed mean instead, because there a single outlier frame
 is far more likely to be a detector error than a finding.
+
+Registered photographs are looked for in every sampled frame. The black bars a
+photo is padded with are trimmed and the rest is compared with every registered
+asset by perceptual hash, which costs milliseconds per frame. Only the frame
+that resembles an asset most is kept, and only there is the watermark read,
+restored first to the size the photo was protected at: a still shown at 70% of
+its size, as a vertical video shows it, keeps a readable mark through H.264,
+while one shrunk to half its size does not.
 """
 
 from __future__ import annotations
@@ -39,9 +47,11 @@ from deepshield.detection.deepfake_backends import aggregate_frame_scores
 from deepshield.exceptions import InvalidMediaError
 from deepshield.face.detector import FaceDetector
 from deepshield.logging_utils import get_logger
-from deepshield.media import sha256_file
+from deepshield.media import content_region, sha256_file
+from deepshield.protection.fingerprint import perceptual_hash
 from deepshield.risk.scorer import build_risk_scorer
 from deepshield.types import (
+    AssetRecord,
     DetectedFace,
     EvidenceRecord,
     MediaType,
@@ -56,6 +66,19 @@ logger = get_logger(__name__)
 MAX_DEEPFAKE_FRAMES_PER_TRACK = 8
 CROP_PADDING = 0.5
 MAX_CROP_SIDE = 384
+# A padded region smaller than this is a thumbnail or a sliver, not a photo on screen.
+MIN_STILL_SIDE = 64
+MAX_ASSETS_READ = 3
+
+
+@dataclass
+class StillSighting:
+    """The sampled frame that looked most like one registered photograph."""
+
+    asset: AssetRecord
+    similarity: float
+    timestamp_seconds: float
+    region: np.ndarray
 
 
 @dataclass(frozen=True)
@@ -123,23 +146,44 @@ class DefaultVideoProcessor(VideoProcessor):
         self.scorer = build_risk_scorer(config.thresholds)
 
     def _scan(
-        self, path: Path
-    ) -> tuple[list[float], list[list[DetectedFace]], dict[int, FaceCrop], list[list[Any]]]:
+        self, path: Path, registered: list[AssetRecord]
+    ) -> tuple[
+        list[float],
+        list[list[DetectedFace]],
+        dict[int, FaceCrop],
+        list[list[Any]],
+        dict[str, StillSighting],
+    ]:
         """Detect faces frame by frame, keeping only a crop of each.
 
         A frame is released as soon as its faces are cut out, so memory grows
         with the number of faces found rather than with the number of frames
-        sampled times their resolution.
+        sampled times their resolution. The same pass compares each frame with
+        the registered photographs and keeps, per photograph, the one frame
+        region that resembled it most.
 
         Returns the sampled timestamps, the detections per frame in frame
         coordinates, each detection's crop keyed by ``id`` of the detection,
-        and each detection's appearance descriptor for the tracker.
+        each detection's appearance descriptor for the tracker, and the
+        sightings of registered photographs keyed by asset id.
         """
         timestamps: list[float] = []
         detections: list[list[DetectedFace]] = []
         crops: dict[int, FaceCrop] = {}
         descriptors: list[list[Any]] = []
+        sightings: dict[str, StillSighting] = {}
+        hash_size = self.analysis.fingerprinter.hash_size
         for frame in self.sampler.iterate(path):
+            if registered:
+                region = content_region(frame.image)
+                if min(region.shape[:2]) >= MIN_STILL_SIDE:
+                    phash = perceptual_hash(region, hash_size)
+                    for similarity, asset in self.analysis.resembling(phash, registered):
+                        seen = sightings.get(asset.asset_id)
+                        if seen is None or similarity > seen.similarity:
+                            sightings[asset.asset_id] = StillSighting(
+                                asset, similarity, frame.timestamp_seconds, region.copy()
+                            )
             faces = [
                 replace(
                     face,
@@ -156,7 +200,37 @@ class DefaultVideoProcessor(VideoProcessor):
             timestamps.append(frame.timestamp_seconds)
             detections.append(faces)
             descriptors.append(frame_descriptors)
-        return timestamps, detections, crops, descriptors
+        return timestamps, detections, crops, descriptors, sightings
+
+    def _still_evidence(
+        self, sightings: dict[str, StillSighting], registered: list[AssetRecord]
+    ) -> tuple[StillSighting | None, AssetRecord | None, str | None, Any]:
+        """Read the watermark where a registered photograph was seen and pick the asset.
+
+        Returns the sighting used, the asset the video is attributed to, the
+        basis of that attribution, and the watermark detection (``None`` when
+        no registered photograph was seen). A watermark code outranks the
+        perceptual match, and names its own asset, which may be a different
+        copy of the same photograph than the closest hash.
+        """
+        ranked = sorted(sightings.values(), key=lambda seen: seen.similarity, reverse=True)
+        if not ranked:
+            return None, None, None, None
+        best_detection = None
+        for seen in ranked[:MAX_ASSETS_READ]:
+            detection, _ = self.analysis.read_watermark(seen.region, [seen.asset])
+            if best_detection is None or (detection.detected, detection.confidence) > (
+                best_detection.detected,
+                best_detection.confidence,
+            ):
+                best_detection = detection
+            if detection.detected:
+                marked = next(
+                    (a for a in registered if a.watermark_code == detection.watermark_code), None
+                )
+                if marked is not None:
+                    return seen, marked, "watermark code", detection
+        return ranked[0], ranked[0].asset, "perceptual hash", best_detection
 
     def analyze(self, video_path: Path, user_id: str | None = None) -> EvidenceRecord:
         """Analyse a video and return one aggregated evidence record.
@@ -168,9 +242,11 @@ class DefaultVideoProcessor(VideoProcessor):
         started = time.perf_counter()
         path = Path(video_path)
         metadata = self.sampler.probe(path)
-        timestamps, detections, crops, descriptors = self._scan(path)
+        registered = self.analysis.assets.list_assets()
+        timestamps, detections, crops, descriptors, sightings = self._scan(path, registered)
         if not timestamps:
             raise InvalidMediaError(f"no frames sampled from {path}")
+        still, asset, asset_basis, watermark = self._still_evidence(sightings, registered)
 
         tracks = self.tracker.track(detections, descriptors=descriptors)
         profiles = self.analysis._profiles(user_id)
@@ -259,17 +335,32 @@ class DefaultVideoProcessor(VideoProcessor):
 
             track_records.append(entry)
 
-        from deepshield.pipeline.analysis_pipeline import subject_result
+        from deepshield.pipeline.analysis_pipeline import (
+            PERCEPTUAL_PROVENANCE_CONFIDENCE,
+            WATERMARK_PROVENANCE_CONFIDENCE,
+            subject_result,
+        )
 
-        subject = user_id or (
-            best_result.matched_user_id
-            if best_result is not None and best_result.decision != "no_match"
-            else None
+        subject = (
+            user_id
+            or (asset.user_id if asset is not None else None)
+            or (
+                best_result.matched_user_id
+                if best_result is not None and best_result.decision != "no_match"
+                else None
+            )
         )
         subject_match = subject_result(track_matches, subject) if subject else None
         compared = (
             any(profile.user_id == subject for profile in profiles) if subject else bool(profiles)
         ) and (bool(track_matches) or not tracks)
+        owner_face_in_original: bool | None = None
+        if (
+            asset is not None
+            and asset.user_id == subject
+            and (subject_match is None or subject_match.decision != "high_confidence")
+        ):
+            owner_face_in_original = self.analysis._owner_face_in_original(asset)
         deepfake_scores = subject_scores.get(subject, []) if subject else []
         video_deepfake = (
             aggregate_frame_scores(
@@ -291,6 +382,11 @@ class DefaultVideoProcessor(VideoProcessor):
                 identity_similarity=(
                     subject_match.similarity if subject_match is not None else None
                 ),
+                asset_id=asset.asset_id if asset is not None else None,
+                asset_owner=asset.user_id if asset is not None else None,
+                asset_match_basis=asset_basis,
+                distribution_id=asset.distribution_id if asset is not None else None,
+                owner_face_in_original=owner_face_in_original,
                 deepfake_score=video_deepfake,
                 deepfake_calibrated=self.config.thresholds.deepfake.calibrated,
             )
@@ -321,10 +417,19 @@ class DefaultVideoProcessor(VideoProcessor):
                 f"{gated_tracks} of {len(tracks)} tracks did not reach the identity "
                 "candidate threshold, so no synthetic-media scoring was run on them."
             )
-        limitations.append(
-            "Watermark extraction is not run per frame on video; re-encoding a video "
-            "destroys frame-level marks and the cost would not be justified."
-        )
+        if still is not None:
+            limitations.append(
+                f"A frame at {still.timestamp_seconds:.1f} s resembles registered asset "
+                f"{still.asset.asset_id} (perceptual similarity {still.similarity:.3f}); the "
+                "watermark was read only in the closest such frame per registered photograph."
+            )
+        elif registered:
+            limitations.append(
+                "No sampled frame resembled a registered photograph. Frames are compared "
+                "whole, after trimming black bars, so a photograph shown cropped, zoomed or "
+                "inside a larger composition is not recognised, and a photograph shown at "
+                "half its size or less keeps no readable watermark."
+            )
 
         record = EvidenceRecord(
             source_id=path.name,
@@ -340,8 +445,18 @@ class DefaultVideoProcessor(VideoProcessor):
             identity_decision=best_result.decision if best_result else "no_match",
             identity_margin=best_result.margin if best_result else None,
             deepfake_score=video_deepfake,
-            watermark_detected=None,
-            watermark_confidence=None,
+            watermark_detected=watermark.detected if watermark is not None else None,
+            watermark_confidence=watermark.confidence if watermark is not None else None,
+            watermark_code=watermark.watermark_code if watermark is not None else None,
+            perceptual_similarity=still.similarity if still is not None else None,
+            matched_asset_id=asset.asset_id if asset is not None else None,
+            provenance_confidence=(
+                None
+                if asset is None
+                else WATERMARK_PROVENANCE_CONFIDENCE
+                if asset_basis == "watermark code"
+                else PERCEPTUAL_PROVENANCE_CONFIDENCE
+            ),
             risk=risk,
             faces=track_records,
             detector_versions={

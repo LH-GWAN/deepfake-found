@@ -16,7 +16,8 @@ The same bytes are analysed once
     every URL it was found at.
 A failing item does not end the scan
     Blocked, unreachable, oversized or undecodable items are listed with their
-    reason, and the scan continues.
+    reason, and the scan continues. A link that looked like media but served a
+    page is only counted: following it was a guess, not a failure.
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from deepshield.config import DeepShieldConfig
-from deepshield.exceptions import InvalidMediaError, SourceError
+from deepshield.exceptions import InvalidMediaError, NotMediaError, SourceError
 from deepshield.logging_utils import get_logger
 from deepshield.sources.base import ContentKind, ContentSource, FetchedContent
 from deepshield.storage import build_evidence_repository
@@ -94,6 +95,7 @@ class ScanReport:
     finished_at: str | None = None
     discovered: int = 0
     duplicates: int = 0
+    not_media: int = 0
     findings: list[ScanFinding] = field(default_factory=list)
     failures: list[dict[str, str]] = field(default_factory=list)
 
@@ -117,6 +119,7 @@ class ScanReport:
                 "discovered": self.discovered,
                 "analysed": len(self.findings),
                 "duplicates": self.duplicates,
+                "not_media": self.not_media,
                 "flagged": len(flagged),
                 "failures": len(self.failures),
             },
@@ -199,6 +202,9 @@ class ScanRunner:
                 for item in items:
                     try:
                         fetched = source.fetch(item, workspace)
+                    except NotMediaError:
+                        report.not_media += 1
+                        continue
                     except SourceError as exc:
                         report.failures.append({"uri": item.uri, "error": str(exc)})
                         continue

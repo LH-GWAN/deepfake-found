@@ -22,6 +22,7 @@ Precedence, lowest to highest:
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import Any, Literal
@@ -34,6 +35,14 @@ from deepshield.exceptions import ConfigurationError
 DEFAULT_CONFIG_PATH = Path("configs/default.yaml")
 DEFAULT_THRESHOLDS_PATH = Path("configs/thresholds.yaml")
 ENV_PREFIX = "DEEPSHIELD_"
+# Threshold sections that no longer mean anything. A file written before they
+# were retired still loads; the section is dropped with a warning instead of
+# failing validation.
+RETIRED_THRESHOLD_SECTIONS = {
+    "risk": "the weighted risk score was replaced by verdicts, which take no weights",
+}
+
+logger = logging.getLogger(__name__)
 
 
 class _Base(BaseModel):
@@ -498,6 +507,11 @@ def load_config(
     if overrides:
         data = deep_merge(data, overrides)
     data = deep_merge(data, _env_overrides(env))
+    thresholds = data.get("thresholds")
+    if isinstance(thresholds, dict):
+        for section, reason in RETIRED_THRESHOLD_SECTIONS.items():
+            if thresholds.pop(section, None) is not None:
+                logger.warning("ignoring retired thresholds.%s section: %s", section, reason)
 
     try:
         return DeepShieldConfig.model_validate(data)

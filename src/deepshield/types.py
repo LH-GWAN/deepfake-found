@@ -326,7 +326,10 @@ class AssetFingerprint:
 
     ``sha256`` answers exact file identity, the perceptual hashes answer
     "is this a re-encoded or lightly edited copy", and the semantic embedding
-    answers "does this depict the same scene".
+    answers "does this depict the same scene". ``width`` and ``height`` are the
+    pixel size of the fingerprinted image, which a resized copy has to be
+    restored to before its watermark grid lines up again; records written
+    before they were kept have ``None``.
     """
 
     asset_id: str
@@ -335,6 +338,8 @@ class AssetFingerprint:
     dhash: str
     semantic_embedding: np.ndarray | None = None
     created_at: str = field(default_factory=utc_now)
+    width: int | None = None
+    height: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serialisable mapping without the raw semantic vector."""
@@ -344,6 +349,8 @@ class AssetFingerprint:
             "phash": self.phash,
             "dhash": self.dhash,
             "has_semantic_embedding": self.semantic_embedding is not None,
+            "width": self.width,
+            "height": self.height,
             "created_at": self.created_at,
         }
 

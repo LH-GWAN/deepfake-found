@@ -140,3 +140,39 @@ def sha256_array(image: np.ndarray) -> str:
     digest.update(str(array.shape).encode("utf-8"))
     digest.update(array.tobytes())
     return digest.hexdigest()
+
+
+def resize_image(image: np.ndarray, width: int, height: int) -> np.ndarray:
+    """Return the image resampled to exactly ``width`` x ``height`` with Lanczos."""
+    array = validate_rgb(image)
+    if array.shape[1] == width and array.shape[0] == height:
+        return array
+    resized = Image.fromarray(array).resize((int(width), int(height)), Image.Resampling.LANCZOS)
+    return np.asarray(resized, dtype=np.uint8)
+
+
+def image_size(path: Path | str) -> tuple[int, int] | None:
+    """Return an image file's ``(width, height)`` from its header, or ``None``."""
+    try:
+        with Image.open(Path(path)) as image:
+            width, height = image.size
+            return int(width), int(height)
+    except (OSError, UnidentifiedImageError):
+        return None
+
+
+def content_region(image: np.ndarray, floor: int = 16) -> np.ndarray:
+    """Return the image without the near-black bars a frame was padded with.
+
+    A photograph placed in a video is scaled to fit and padded with black on
+    the sides or top and bottom. Rows and columns whose every pixel stays
+    below ``floor`` are trimmed from the edges; the interior is left alone, so
+    a dark photograph keeps its dark parts. An entirely dark image is returned
+    unchanged.
+    """
+    array = validate_rgb(image)
+    lit = array.max(axis=2) > floor
+    rows, cols = np.flatnonzero(lit.any(axis=1)), np.flatnonzero(lit.any(axis=0))
+    if rows.size == 0 or cols.size == 0:
+        return array
+    return array[rows[0] : rows[-1] + 1, cols[0] : cols[-1] + 1]
