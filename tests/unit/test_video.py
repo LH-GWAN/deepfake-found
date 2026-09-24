@@ -66,6 +66,15 @@ def test_max_frames_caps_the_job(tmp_path: Path) -> None:
     assert len(frames) == 3
 
 
+def test_a_capped_sample_still_spans_the_whole_video(tmp_path: Path) -> None:
+    """Stopping at the cap would examine only the start; the interval widens instead."""
+    path = write_video(tmp_path / "long.mp4", frames=200)
+    frames = OpenCvFrameSampler(VideoSamplingConfig(fps=1.0, max_frames=3)).sample(path)
+    assert len(frames) == 3
+    stride = frames[1].frame_number - frames[0].frame_number
+    assert frames[-1].frame_number + stride >= 200
+
+
 def test_scene_change_strategy_runs(tmp_path: Path) -> None:
     path = write_video(tmp_path / "clip.mp4", frames=40, fps=25.0)
     frames = OpenCvFrameSampler(

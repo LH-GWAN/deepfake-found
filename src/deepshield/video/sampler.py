@@ -18,11 +18,17 @@ Two strategies are implemented:
     video actually changes, at the price of an unpredictable frame count.
 
 Both respect ``max_frames`` so that a long video cannot silently turn into an
-unbounded job.
+unbounded job. For ``uniform_fps`` the cap widens the interval instead of
+cutting the video short: stopping at the cap would examine only the first
+``max_frames / fps`` seconds, and a face that appears later would never be
+seen. When the container does not report a frame count the interval cannot be
+planned, and sampling stops at the cap; the processor reports how much of the
+video the samples cover either way.
 """
 
 from __future__ import annotations
 
+import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -137,6 +143,19 @@ class OpenCvFrameSampler(FrameSampler):
                 logger.warning("video reports no frame rate; assuming 25 fps for sampling")
                 source_fps = 25.0
             stride = max(1, int(round(source_fps / self.config.fps)))
+            total = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+            if total > 0 and math.ceil(total / stride) > self.config.max_frames:
+                widened = math.ceil(total / self.config.max_frames)
+                logger.info(
+                    "%s is too long for %d frames at %.2f fps; sampling every %d frames "
+                    "instead of %d so the whole video is covered",
+                    Path(video_path).name,
+                    self.config.max_frames,
+                    self.config.fps,
+                    widened,
+                    stride,
+                )
+                stride = widened
 
             previous: np.ndarray | None = None
             index = 0

@@ -4,10 +4,17 @@ Chains the video-specific stages onto the same detection components the image
 pipeline uses, so a change to the face model or the risk engine applies to both
 media types automatically.
 
-Order: sample frames, detect faces in each, group them into tracks, pick one
-representative frame per track, embed and match only those, then run the
-expensive detector only on tracks whose identity similarity cleared the
-candidate threshold.
+Order: sample frames, detect faces in each, group them into tracks, embed and
+match every sampled face of every track, then run the expensive detector only
+on tracks where some face cleared the candidate threshold, on those faces first.
+
+Every sampled face is embedded rather than one representative per track,
+because a track follows a position and an appearance, not an identity. A
+spliced deepfake keeps the head, the framing and the colours of the genuine
+frames around it, so the tracker joins the swapped span to the genuine track;
+with one embedding per track, a genuine frame was picked as the representative
+and the swapped span was never compared. Sampling already bounds the work, so
+embedding each sampled face costs a constant factor, not a new scaling.
 
 Aggregation across tracks takes the maximum identity similarity, because a
 person appearing in one second of a ten-minute video is exactly the case the
@@ -122,6 +129,7 @@ class DefaultVideoProcessor(VideoProcessor):
                 "representative_frame": None if face is None else face.frame_index,
                 "detection_confidence": None if face is None else face.detection_confidence,
                 "similarity": None,
+                "identity_frame": None,
                 "matched_user_id": None,
                 "candidate": False,
                 "deepfake_score": None,
@@ -130,24 +138,28 @@ class DefaultVideoProcessor(VideoProcessor):
                 track_records.append(entry)
                 continue
 
-            step = track.frame_indices[track.representative_index or 0]
-            image = frame_lookup[step]
-            aligned = self.analysis.aligner.align(image, face)
-            embedding = self.analysis.embedder.embed(aligned.image)
-
-            comparable = [
-                p for p in profiles if p.embedding_dimension == embedding.dimension
-            ]
-            if not comparable:
+            per_face: list[tuple[int, Any, list[SimilarityResult]]] = []
+            for step, detected in zip(track.frame_indices, track.faces, strict=False):
+                aligned = self.analysis.aligner.align(frame_lookup[step], detected)
+                embedding = self.analysis.embedder.embed(aligned.image)
+                comparable = [
+                    p for p in profiles if p.embedding_dimension == embedding.dimension
+                ]
+                if not comparable:
+                    continue
+                ranked = self.analysis.matcher.match_many(embedding.vector, comparable)
+                track_matches.append(ranked)
+                per_face.append((step, detected, ranked))
+            if not per_face:
                 track_records.append(entry)
                 continue
 
-            ranked = self.analysis.matcher.match_many(embedding.vector, comparable)
-            track_matches.append(ranked)
-            result = ranked[0]
+            _, strongest_face, strongest = max(per_face, key=lambda item: item[2][0].similarity)
+            result = strongest[0]
             entry.update(
                 {
                     "similarity": round(result.similarity, 6),
+                    "identity_frame": strongest_face.frame_index,
                     "matched_user_id": result.matched_user_id,
                     "candidate": result.is_candidate,
                     "decision": result.decision,
@@ -156,7 +168,7 @@ class DefaultVideoProcessor(VideoProcessor):
 
             if best_result is None or result.similarity > best_result.similarity:
                 best_result = result
-                best_confidence = face.detection_confidence
+                best_confidence = strongest_face.detection_confidence
 
             if result.is_candidate:
                 from deepshield.pipeline.analysis_pipeline import (
@@ -164,10 +176,12 @@ class DefaultVideoProcessor(VideoProcessor):
                     crop_with_margin,
                 )
 
-                chosen = track.frame_indices[:MAX_DEEPFAKE_FRAMES_PER_TRACK]
+                matching = [item for item in per_face if item[2][0].is_candidate]
+                others = [item for item in per_face if not item[2][0].is_candidate]
+                chosen = (matching + others)[:MAX_DEEPFAKE_FRAMES_PER_TRACK]
                 crops = [
-                    crop_with_margin(frame_lookup[i], f, DEEPFAKE_CROP_MARGIN)
-                    for i, f in zip(chosen, track.faces, strict=False)
+                    crop_with_margin(frame_lookup[step], detected, DEEPFAKE_CROP_MARGIN)
+                    for step, detected, _ in chosen
                 ]
                 outcome = self.analysis.deepfake_detector.predict_video(crops)
                 entry["deepfake_score"] = round(outcome.score, 6)
@@ -217,10 +231,25 @@ class DefaultVideoProcessor(VideoProcessor):
         )
 
         limitations = list(risk.limitations)
-        limitations.append(
-            f"Only {len(frames)} frames were sampled at {self.config.video.sampling.fps} fps "
-            f"from {metadata.get('frame_count')} total; content between samples was not examined."
+        interval = (
+            frames[1].timestamp_seconds - frames[0].timestamp_seconds if len(frames) > 1 else None
         )
+        limitations.append(
+            f"Only {len(frames)} frames were sampled from {metadata.get('frame_count')} total"
+            + (
+                f", one every {interval:.2f} s; a face shown for less than that can fall "
+                "between samples and go unexamined."
+                if interval
+                else "; content between samples was not examined."
+            )
+        )
+        duration = metadata.get("duration_seconds")
+        covered = frames[-1].timestamp_seconds + (interval or 0.0)
+        if duration and covered < duration:
+            limitations.append(
+                f"Sampling stopped at {frames[-1].timestamp_seconds:.1f} s of a {duration:.1f} s "
+                "video because the frame budget ran out; everything after that was not examined."
+            )
         if gated_tracks:
             limitations.append(
                 f"{gated_tracks} of {len(tracks)} tracks did not reach the identity "
