@@ -150,3 +150,22 @@ def test_analyze_for_unknown_user_is_404(client) -> None:
         files={"file": ("a.png", png_bytes(), "image/png")},
     )
     assert response.status_code == 404
+
+
+def test_analyze_url_refuses_private_addresses_by_default(client) -> None:
+    response = client.post("/analyze/url", data={"url": "http://127.0.0.1:9/photo.jpg"})
+    assert response.status_code == 403
+    assert "non-public address" in response.json()["error"]
+
+
+def test_analyze_url_refuses_other_schemes(client) -> None:
+    response = client.post("/analyze/url", data={"url": "file:///etc/passwd"})
+    assert response.status_code == 403
+
+
+def test_scan_reports_unreachable_targets_without_failing(client) -> None:
+    response = client.post("/scan", json={"urls": ["http://127.0.0.1:9/index.html"]})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["counts"]["analysed"] == 0
+    assert "non-public address" in payload["failures"][0]["error"]

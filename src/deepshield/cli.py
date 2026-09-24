@@ -71,6 +71,7 @@ IMPLEMENTED_COMMANDS = (
     "provenance",
     "report",
     "robustness-test",
+    "scan",
     "serve",
 )
 
@@ -155,6 +156,31 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_rep = sub.add_parser("report", help="render a stored evidence record")
     p_rep.add_argument("analysis_id")
+
+    p_scan = sub.add_parser(
+        "scan",
+        help="fetch and analyse every image and video in folders or at URLs",
+        description=(
+            "Each target is a directory or an http(s) URL. A URL naming a media file is "
+            "analysed directly; a page URL is read for its images and videos, and with "
+            "--crawl or --depth its same-site links are followed too. robots.txt is always "
+            "honoured and only flagged items are kept."
+        ),
+    )
+    p_scan.add_argument("targets", nargs="+", help="directories or http(s) URLs")
+    p_scan.add_argument("--user-id", default=None)
+    p_scan.add_argument(
+        "--crawl", action="store_true", help="follow links to the configured depth"
+    )
+    p_scan.add_argument("--depth", type=int, default=None, help="link depth to follow")
+    p_scan.add_argument("--max-pages", type=int, default=None)
+    p_scan.add_argument("--max-media", type=int, default=None)
+    p_scan.add_argument(
+        "--all-hosts", action="store_true", help="also follow links to other sites"
+    )
+    p_scan.add_argument(
+        "--no-keep", action="store_true", help="do not keep copies of flagged media"
+    )
 
     p_serve = sub.add_parser("serve", help="run the REST API")
     p_serve.add_argument("--host", default=None)
@@ -657,6 +683,70 @@ def command_robustness(config: DeepShieldConfig, args: Any, as_json: bool) -> in
     return EXIT_OK
 
 
+def scan_targets(config: DeepShieldConfig, args: Any) -> list[tuple[Any, str]]:
+    """Resolve each command-line target to the source that can read it.
+
+    Raises:
+        InvalidMediaError: If a target is neither a directory nor an http(s) URL.
+
+    """
+    from deepshield.sources import FolderSource, WebSource
+
+    depth = args.depth if args.depth is not None else (None if args.crawl else 0)
+    web = WebSource(
+        config.sources,
+        max_depth=depth,
+        max_pages=args.max_pages,
+        max_media=args.max_media,
+        same_host=False if args.all_hosts else None,
+    )
+    folder = FolderSource()
+    resolved: list[tuple[Any, str]] = []
+    for target in args.targets:
+        if target.lower().startswith(("http://", "https://")):
+            resolved.append((web, target))
+        elif Path(target).is_dir():
+            resolved.append((folder, target))
+        else:
+            raise InvalidMediaError(
+                f"scan target is neither a directory nor an http(s) URL: {target}"
+            )
+    return resolved
+
+
+def command_scan(config: DeepShieldConfig, args: Any, as_json: bool) -> int:
+    """Scan folders and URLs and print the flagged findings, most urgent first."""
+    from deepshield.pipeline.scan_pipeline import SCAN_SUBDIR, ScanRunner
+
+    targets = scan_targets(config, args)
+    report = ScanRunner(config).run(targets, args.user_id, keep_flagged=not args.no_keep)
+    payload = report.to_dict()
+    counts = payload["counts"]
+    lines = [
+        f"scan {report.scan_id}: {counts['discovered']} discovered, {counts['analysed']} "
+        f"analysed, {counts['duplicates']} duplicates, {counts['failures']} failures",
+        "",
+        f"flagged ({counts['flagged']}):",
+    ]
+    for finding in payload["flagged"]:
+        similarity = finding["face_similarity"]
+        lines.append(
+            f"  {finding['risk_level']:8s} {finding['verdict']:20s} {finding['uri']}"
+            + ("" if similarity is None else f"  similarity {similarity:.3f}")
+        )
+    if not payload["flagged"]:
+        lines.append("  none")
+    if payload["failures"]:
+        lines += ["", "not analysed:"]
+        lines += [f"  {f['uri']}: {f['error']}" for f in payload["failures"]]
+    lines += [
+        "",
+        f"report: {Path(config.runtime.results_dir) / SCAN_SUBDIR / (report.scan_id + '.json')}",
+    ]
+    _emit(payload, as_json, lines)
+    return EXIT_OK
+
+
 def command_serve(config: DeepShieldConfig, args: Any) -> int:
     """Run the REST API with uvicorn."""
     try:
@@ -713,6 +803,8 @@ def _dispatch(config: DeepShieldConfig, args: Any) -> int:
         return command_report(config, args, as_json)
     if command == "robustness-test":
         return command_robustness(config, args, as_json)
+    if command == "scan":
+        return command_scan(config, args, as_json)
     if command == "serve":
         return command_serve(config, args)
     return command_not_implemented(command)

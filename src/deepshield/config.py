@@ -360,6 +360,26 @@ class ProvenanceConfig(_Base):
     c2pa_backend: str = "auto"
 
 
+class SourcesConfig(_Base):
+    """How content is fetched from folders, URLs and crawled pages.
+
+    robots.txt is always honoured and is deliberately not a setting. Private,
+    loopback and link-local addresses are refused unless explicitly allowed,
+    because a URL supplied through the API would otherwise let a caller make
+    this server request its own internal network.
+    """
+
+    user_agent: str = "DeepShield/0.1 (personal identity protection; honours robots.txt)"
+    timeout_seconds: float = Field(default=20.0, gt=0.0)
+    max_download_mb: int = Field(default=50, gt=0)
+    allow_private_networks: bool = False
+    crawl_max_pages: int = Field(default=30, gt=0)
+    crawl_max_depth: int = Field(default=1, ge=0)
+    crawl_max_media: int = Field(default=200, gt=0)
+    crawl_same_host: bool = True
+    crawl_delay_seconds: float = Field(default=1.0, ge=0.0)
+
+
 class DeepShieldConfig(_Base):
     """Root configuration object handed to every pipeline and component factory."""
 
@@ -374,6 +394,7 @@ class DeepShieldConfig(_Base):
     storage: StorageConfig = StorageConfig()
     provenance: ProvenanceConfig = ProvenanceConfig()
     api: ApiConfig = ApiConfig()
+    sources: SourcesConfig = SourcesConfig()
     experiments: ExperimentsConfig = ExperimentsConfig()
     thresholds: Thresholds = Thresholds()
 

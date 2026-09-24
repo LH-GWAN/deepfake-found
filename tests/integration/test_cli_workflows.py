@@ -166,3 +166,21 @@ def test_robustness_rejects_an_empty_selection(workspace, capsys) -> None:
     (root / "empty").mkdir()
     assert run(config_path, "robustness-test", str(root / "empty")) == EXIT_ERROR
     assert "no images found" in capsys.readouterr().err
+
+
+def test_scan_reads_a_folder_and_reports_counts(workspace, capsys) -> None:
+    config_path, root = workspace
+    make_images(root / "inbox", 2)
+    (root / "inbox" / "notes.txt").write_text("ignored")
+    assert run(config_path, "scan", str(root / "inbox")) == EXIT_OK
+    report = read_json(capsys)
+    assert report["counts"]["discovered"] == 2
+    assert report["counts"]["duplicates"] == 1
+    assert report["counts"]["analysed"] == 1
+    assert report["flagged"] == []
+
+
+def test_scan_rejects_a_target_that_is_neither_folder_nor_url(workspace, capsys) -> None:
+    config_path, root = workspace
+    assert run(config_path, "scan", str(root / "missing")) == EXIT_ERROR
+    assert "neither a directory nor an http(s) URL" in capsys.readouterr().err

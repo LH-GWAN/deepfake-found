@@ -128,6 +128,17 @@ api:
   port: 8000
   max_upload_mb: 50
 
+sources:
+  user_agent: "DeepShield/0.1 (personal identity protection; honours robots.txt)"
+  timeout_seconds: 20
+  max_download_mb: 50
+  allow_private_networks: false   # refuse loopback, private and link-local hosts
+  crawl_max_pages: 30
+  crawl_max_depth: 1              # 0 = only the given pages
+  crawl_max_media: 200
+  crawl_same_host: true
+  crawl_delay_seconds: 1.0        # a longer robots.txt Crawl-delay wins
+
 experiments:
   output_dir: data/results
   format: csv
