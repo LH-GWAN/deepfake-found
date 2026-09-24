@@ -288,9 +288,8 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
 
             aligned = self.aligner.align(image, face)
             embedding = self.embedder.embed(aligned.image)
-            quality = face_quality_score(
-                min(face.bbox.width, face.bbox.height), aligned.image
-            )
+            face_pixels = float(min(face.bbox.width, face.bbox.height))
+            quality = face_quality_score(face_pixels, aligned.image)
             entry["probe_quality"] = round(quality, 4)
             logger.debug(
                 "probe embedding %s", safe_embedding_repr(embedding.vector.tolist())
@@ -308,7 +307,10 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
                 records.append(entry)
                 continue
 
-            ranked = self.matcher.match_many(embedding.vector, comparable, quality)
+            ranked = [
+                replace(result, probe_face_pixels=face_pixels)
+                for result in self.matcher.match_many(embedding.vector, comparable, quality)
+            ]
             face_matches.append(ranked)
             result = ranked[0]
             entry.update(
@@ -524,6 +526,12 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
             and (subject_match is None or subject_match.decision != "high_confidence")
         ):
             owner_face_in_original = self._owner_face_in_original(asset)
+        registered_at = self.registered_size(asset) if asset is not None else None
+        copy_scale = (
+            round(min(image.shape[1] / registered_at[0], image.shape[0] / registered_at[1]), 4)
+            if registered_at
+            else None
+        )
 
         risk = self.scorer.assess(
             RiskEvidence(
@@ -538,6 +546,13 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
                 identity_similarity=(
                     subject_match.similarity if subject_match is not None else None
                 ),
+                probe_quality=(
+                    subject_match.probe_quality if subject_match is not None else None
+                ),
+                probe_face_pixels=(
+                    subject_match.probe_face_pixels if subject_match is not None else None
+                ),
+                copy_scale=copy_scale,
                 asset_id=asset.asset_id if asset is not None else None,
                 asset_owner=asset.user_id if asset is not None else None,
                 asset_match_basis=(
@@ -589,16 +604,16 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
                 f"{best_result.runner_up_similarity:.3f} against another enrolled identity. "
                 "That margin is too small to identify either of them."
             )
-        if (
-            best_result is not None
-            and best_result.probe_quality is not None
-            and best_result.probe_quality < 0.5
-        ):
-            limitations.append(
-                f"Probe face quality was {best_result.probe_quality:.2f} of the reference "
-                "resolution and sharpness, so the similarity threshold was raised for this "
-                "comparison."
+        if best_result is not None and best_result.probe_quality is not None:
+            raised = self.config.thresholds.face_similarity.low_quality_penalty * max(
+                0.0, 1.0 - best_result.probe_quality
             )
+            if raised >= 0.001:
+                limitations.append(
+                    f"Probe face quality was {best_result.probe_quality:.2f} of the reference "
+                    "resolution and sharpness, so both similarity thresholds were raised by "
+                    f"{raised:.3f} for this comparison."
+                )
         if not profiles:
             limitations.append(
                 "No identity is enrolled, so no identity comparison was possible."

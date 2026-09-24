@@ -126,6 +126,7 @@ class VariantResult:
     probe_detection_failures: int
     seconds_per_image: float
     operating_points: dict[str, dict[str, float]] = field(default_factory=dict)
+    genuine_bands: dict[str, int] = field(default_factory=dict)
 
     def to_row(self) -> dict[str, Any]:
         """Flatten to one CSV row."""
@@ -143,6 +144,8 @@ class VariantResult:
             "probe_detection_failures": self.probe_detection_failures,
             "seconds_per_image": round(self.seconds_per_image, 4),
         }
+        for band, count in self.genuine_bands.items():
+            row[f"genuine_{band}"] = count
         for name, point in self.operating_points.items():
             row[f"{name}_threshold"] = round(point["threshold"], 6)
             row[f"{name}_precision"] = round(point["precision"], 6)
@@ -290,6 +293,8 @@ def evaluate_variant(
                 continue
             curve = roc_curve(scores, labels)
             threshold, point = threshold_for_precision(scores, labels, target_precision)
+            limits = variant_config.thresholds.face_similarity
+            genuine_scores = scores[labels == 1]
             results.append(
                 VariantResult(
                     variant=variant.label,
@@ -307,6 +312,20 @@ def evaluate_variant(
                     operating_points={
                         f"p{int(target_precision * 100)}": point,
                         "eer": precision_recall_at(scores, labels, curve.eer_threshold),
+                    },
+                    genuine_bands={
+                        "high_confidence": int(
+                            (genuine_scores >= limits.high_confidence_threshold).sum()
+                        ),
+                        "review": int(
+                            (
+                                (genuine_scores >= limits.candidate_threshold)
+                                & (genuine_scores < limits.high_confidence_threshold)
+                            ).sum()
+                        ),
+                        "below_candidate": int(
+                            (genuine_scores < limits.candidate_threshold).sum()
+                        ),
                     },
                 )
             )

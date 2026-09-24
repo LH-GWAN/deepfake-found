@@ -14,17 +14,21 @@ real GAN swapper, and each is analysed through the full pipeline for that user:
 
 repost              the protected file itself
 recompressed        the protected file re-encoded as JPEG quality 70
+shrunk_repost       the protected file shrunk to 0.55 and re-encoded as H.264 crf 35
 genuine             the held-out genuine photograph of the user
 gan_source          the user's face swapped onto another identity's photograph
 gan_target          another identity's face swapped onto the user's protected photograph
 gan_target_orphan   the same, with the protected file removed from disk first
 unrelated           another identity's genuine photograph
 
-The expected verdicts are own_copy, own_copy, identity_match, identity_match,
-own_altered, own_unverified and unrelated. ``genuine`` and ``gan_source`` are
-expected to be indistinguishable: without a calibrated synthetic-media detector
-the engine is designed to say so rather than guess, and the table shows whether
-it does.
+The expected verdicts are own_copy, own_copy, own_copy or own_unverified,
+identity_match, identity_match, own_altered, own_unverified and unrelated.
+``genuine`` and ``gan_source`` are expected to be indistinguishable: without a
+calibrated synthetic-media detector the engine is designed to say so rather than
+guess, and the table shows whether it does. ``shrunk_repost`` is the user's own
+photograph at the face size and compression of a video frame; its face can fail
+to match, and the one verdict it must never receive is own_altered, which would
+tell the user that someone replaced a face nobody touched.
 
 Everything is written under a temporary directory; the repository's own data
 directory is not touched.
@@ -37,6 +41,7 @@ it means the table describes the verdict rules, not the enrollment gate.
 Usage:
     python scripts/evaluate_verdicts.py
     python scripts/evaluate_verdicts.py --identities 10
+    python scripts/evaluate_verdicts.py --situations repost shrunk_repost   # no swapper
 """
 
 from __future__ import annotations
@@ -59,17 +64,21 @@ from deepshield.experiments import environment
 from deepshield.media import load_image, save_image
 from deepshield.pipeline.analysis_pipeline import DefaultAnalysisPipeline
 from deepshield.pipeline.protection_pipeline import DefaultProtectionPipeline
+from deepshield.transforms import Transformation
 from deepshield.types import IdentityProfile
 
-EXPECTED = {
-    "repost": "own_copy",
-    "recompressed": "own_copy",
-    "genuine": "identity_match",
-    "gan_source": "identity_match",
-    "gan_target": "own_altered",
-    "gan_target_orphan": "own_unverified",
-    "unrelated": "unrelated",
+EXPECTED: dict[str, tuple[str, ...]] = {
+    "repost": ("own_copy",),
+    "recompressed": ("own_copy",),
+    "shrunk_repost": ("own_copy", "own_unverified"),
+    "genuine": ("identity_match",),
+    "gan_source": ("identity_match",),
+    "gan_target": ("own_altered",),
+    "gan_target_orphan": ("own_unverified",),
+    "unrelated": ("unrelated",),
 }
+SWAPPED = {"gan_source", "gan_target", "gan_target_orphan"}
+SHRUNK = Transformation("shrunk_repost", "video_compression", {"scale": 0.55, "crf": 35})
 
 
 class GanSwapper:
@@ -166,10 +175,13 @@ def scenarios(
     own: list[Path],
     other: Path,
     protected: Path,
-    swapper: GanSwapper,
+    swapper: GanSwapper | None,
     workspace: Path,
 ) -> dict[str, Path | None]:
-    """Build every situation's image for one user; ``None`` when a swap fails."""
+    """Build every situation's image for one user; ``None`` when a swap fails.
+
+    Without a swapper the swapped situations are left out rather than failed.
+    """
     from PIL import Image
 
     held_out, other_image = load_image(own[-2]), load_image(other)
@@ -180,14 +192,17 @@ def scenarios(
     def written(image: np.ndarray | None, name: str) -> Path | None:
         return None if image is None else save_image(image, workspace / f"{user}_{name}.png")
 
-    return {
+    built: dict[str, Path | None] = {
         "repost": protected,
         "recompressed": recompressed,
+        "shrunk_repost": written(SHRUNK.apply(protected_image), "shrunk_repost"),
         "genuine": own[-2],
-        "gan_source": written(swapper(held_out, other_image), "gan_source"),
-        "gan_target": written(swapper(other_image, protected_image), "gan_target"),
         "unrelated": other,
     }
+    if swapper is not None:
+        built["gan_source"] = written(swapper(held_out, other_image), "gan_source")
+        built["gan_target"] = written(swapper(other_image, protected_image), "gan_target")
+    return built
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -199,17 +214,26 @@ def main(argv: list[str] | None = None) -> int:
         "--inswapper", type=Path, default=Path("models/inswapper/inswapper_128.onnx")
     )
     parser.add_argument("--identities", type=int, default=None)
+    parser.add_argument(
+        "--situations",
+        nargs="+",
+        choices=sorted(EXPECTED),
+        default=list(EXPECTED),
+        help="situations to run; the swapper is loaded only when a swapped one is asked for",
+    )
     parser.add_argument("--output", type=Path, default=Path("data/results"))
     args = parser.parse_args(argv)
+    wanted = [situation for situation in EXPECTED if situation in args.situations]
 
     grouped = photographs(args.faces)
     names = sorted(grouped)[: args.identities] if args.identities else sorted(grouped)
     if len(names) < 2:
         raise SystemExit(f"need at least two identities with three photographs in {args.faces}")
 
-    swapper = GanSwapper(args.models, args.inswapper)
+    swapper = GanSwapper(args.models, args.inswapper) if SWAPPED & set(wanted) else None
     outcomes: dict[str, Counter[str]] = defaultdict(Counter)
     levels: dict[str, Counter[str]] = defaultdict(Counter)
+    decisions: dict[str, Counter[str]] = defaultdict(Counter)
     failures: Counter[str] = Counter()
 
     with tempfile.TemporaryDirectory() as scratch:
@@ -236,24 +260,28 @@ def main(argv: list[str] | None = None) -> int:
                 assert risk is not None
                 outcomes[situation][risk.verdict.value] += 1
                 levels[situation][risk.risk_level.value] += 1
+                decisions[situation][str(risk.signals.get("identity_decision"))] += 1
 
             for situation, path in built.items():
-                judge(situation, path)
-            stash = protected.with_suffix(".moved")
-            protected.rename(stash)
-            judge("gan_target_orphan", built["gan_target"])
-            stash.rename(protected)
+                if situation in wanted:
+                    judge(situation, path)
+            if "gan_target_orphan" in wanted:
+                stash = protected.with_suffix(".moved")
+                protected.rename(stash)
+                judge("gan_target_orphan", built["gan_target"])
+                stash.rename(protected)
             print(f"{index + 1}/{len(names)} {user}", flush=True)
 
     table = {
         situation: {
-            "expected": expected,
+            "expected": list(EXPECTED[situation]),
             "cases": sum(outcomes[situation].values()),
-            "as_expected": outcomes[situation][expected],
+            "as_expected": sum(outcomes[situation][verdict] for verdict in EXPECTED[situation]),
             "verdicts": dict(outcomes[situation]),
             "levels": dict(levels[situation]),
+            "identity_decisions": dict(decisions[situation]),
         }
-        for situation, expected in EXPECTED.items()
+        for situation in wanted
     }
     report_payload = {
         "question": "which verdict does each real-world situation receive?",
@@ -263,13 +291,14 @@ def main(argv: list[str] | None = None) -> int:
         "environment": environment(load_config()),
     }
     args.output.mkdir(parents=True, exist_ok=True)
-    destination = args.output / "verdicts.json"
+    suffix = "" if wanted == list(EXPECTED) else "_" + "_".join(wanted)
+    destination = args.output / f"verdicts{suffix}.json"
     destination.write_text(json.dumps(report_payload, indent=2) + "\n", encoding="utf-8")
 
-    print(f"\n{'situation':20s} {'expected':16s} {'as expected':>12s}   verdicts")
+    print(f"\n{'situation':20s} {'expected':30s} {'as expected':>12s}   verdicts")
     for situation, row in table.items():
         print(
-            f"{situation:20s} {row['expected']:16s} "
+            f"{situation:20s} {'/'.join(row['expected']):30s} "
             f"{row['as_expected']:>5d}/{row['cases']:<6d}   {row['verdicts']}"
         )
     print(f"\nwrote {destination}")

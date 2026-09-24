@@ -127,6 +127,52 @@ def test_a_copy_with_no_detectable_face_is_not_called_an_alteration() -> None:
     assert any("cropped out" in line for line in result.explanation)
 
 
+@pytest.mark.parametrize(("pixels", "scale"), [(54.0, 0.55), (79.0, 0.85), (54.0, None)])
+def test_a_shrunk_face_on_the_users_copy_is_not_called_an_alteration(
+    pixels: float, scale: float | None
+) -> None:
+    """A shrunk, recompressed repost can miss its owner without anyone swapping the face."""
+    result = assess(
+        own_asset(
+            identity_decision="no_match",
+            owner_face_in_original=True,
+            probe_quality=0.33,
+            probe_face_pixels=pixels,
+            copy_scale=scale,
+        )
+    )
+    assert result.verdict is Verdict.OWN_UNVERIFIED
+    assert result.risk_level is RiskLevel.MEDIUM
+    assert any("too small" in line for line in result.explanation)
+
+
+def test_a_small_face_at_the_registered_size_is_still_an_alteration() -> None:
+    """The face was this small in the original, where it matched; now it does not."""
+    result = assess(
+        own_asset(
+            identity_decision="no_match",
+            owner_face_in_original=True,
+            probe_face_pixels=70.0,
+            copy_scale=1.0,
+        )
+    )
+    assert result.verdict is Verdict.OWN_ALTERED
+
+
+@pytest.mark.parametrize("quality", [0.9, 0.3])
+def test_a_full_size_face_that_does_not_match_is_still_an_alteration(quality: float) -> None:
+    """A swapped face is softer than the photograph around it; softness excuses nothing."""
+    result = assess(
+        own_asset(
+            identity_decision="no_match",
+            owner_face_in_original=True,
+            probe_quality=quality,
+            probe_face_pixels=96.0,
+        )
+    )
+    assert result.verdict is Verdict.OWN_ALTERED
+
+
 def test_a_byte_identical_copy_is_a_copy_whatever_the_faces() -> None:
     result = assess(
         evidence(
@@ -177,6 +223,35 @@ def test_borderline_identity_is_a_review(decision: str) -> None:
 
 def test_no_resemblance_is_unrelated() -> None:
     assert assess(evidence(identity_decision="no_match")).verdict is Verdict.UNRELATED
+
+
+def test_a_miss_on_a_small_face_does_not_rule_the_user_out() -> None:
+    """Heavy compression drops a small genuine face below the review threshold."""
+    result = assess(
+        evidence(
+            identity_decision="no_match",
+            identity_similarity=0.30,
+            probe_quality=0.33,
+            probe_face_pixels=54.0,
+        )
+    )
+    assert result.verdict is Verdict.UNRELATED
+    assert not any(line.startswith("No face resembles you") for line in result.explanation)
+    assert any("rule you out" in line for line in result.explanation)
+    assert any("80 pixels" in line for line in result.limitations)
+
+
+def test_a_miss_on_a_full_size_face_is_stated_plainly() -> None:
+    result = assess(
+        evidence(
+            identity_decision="no_match",
+            identity_similarity=0.05,
+            probe_quality=0.3,
+            probe_face_pixels=140.0,
+        )
+    )
+    assert any(line.startswith("No face resembles you") for line in result.explanation)
+    assert not any("80 pixels" in line for line in result.limitations)
 
 
 def test_no_face_is_unrelated_and_says_so() -> None:

@@ -208,6 +208,70 @@ def test_borderline_similarity_is_not_reported_as_a_match(config, tmp_path: Path
     assert record.deepfake_score is not None
 
 
+def _with_face_thresholds(config: DeepShieldConfig, **values: float) -> DeepShieldConfig:
+    return config.model_copy(
+        update={
+            "thresholds": config.thresholds.model_copy(
+                update={
+                    "face_similarity": config.thresholds.face_similarity.model_copy(
+                        update=values
+                    )
+                }
+            )
+        }
+    )
+
+
+def _enroll_u1(config: DeepShieldConfig, tmp_path: Path) -> None:
+    from deepshield.face.enrollment import DefaultIdentityEnroller
+    from tests.conftest import synthetic_photo
+
+    directory = tmp_path / "refs"
+    directory.mkdir()
+    paths = [
+        save_image(synthetic_photo(seed=5, size=300), directory / f"r{i}.png") for i in range(3)
+    ]
+    build_identity_repository(config).save(
+        DefaultIdentityEnroller(config).enroll("u1", paths).profile
+    )
+
+
+def test_a_small_face_that_misses_is_not_ruled_out(config, tmp_path: Path) -> None:
+    """A face under 80 pixels that finds no match is not called someone else's face."""
+    from deepshield.types import Verdict
+    from tests.conftest import synthetic_photo
+
+    unreachable = _with_face_thresholds(
+        config, candidate_threshold=1.5, high_confidence_threshold=1.6
+    )
+    _enroll_u1(unreachable, tmp_path)
+    probe = save_image(synthetic_photo(seed=9, size=120), tmp_path / "small.png")
+    record = DefaultAnalysisPipeline(unreachable).analyze_image(probe, "u1")
+
+    assert record.risk is not None
+    assert record.risk.verdict is Verdict.UNRELATED
+    assert any("rule you out" in line for line in record.risk.explanation)
+    assert not any("thresholds were raised" in line for line in record.limitations)
+
+
+def test_thresholds_are_said_to_rise_only_when_a_penalty_raises_them(
+    config, tmp_path: Path
+) -> None:
+    """The quality note once claimed a raised threshold while the penalty was zero."""
+    from tests.conftest import synthetic_photo
+
+    _enroll_u1(config, tmp_path)
+    probe = save_image(synthetic_photo(seed=9, size=120), tmp_path / "small.png")
+
+    plain = DefaultAnalysisPipeline(config).analyze_image(probe, "u1")
+    assert plain.faces[0]["probe_quality"] < 1.0
+    assert not any("thresholds were raised" in line for line in plain.limitations)
+
+    penalised = _with_face_thresholds(config, low_quality_penalty=0.2)
+    raised = DefaultAnalysisPipeline(penalised).analyze_image(probe, "u1")
+    assert any("thresholds were raised" in line for line in raised.limitations)
+
+
 def test_probe_quality_is_recorded_per_face(config, source_image: Path) -> None:
     record = DefaultAnalysisPipeline(config).analyze_image(source_image)
     assert record.faces

@@ -49,6 +49,7 @@ from deepshield.face.detector import FaceDetector
 from deepshield.logging_utils import get_logger
 from deepshield.media import content_region, sha256_file
 from deepshield.protection.fingerprint import perceptual_hash
+from deepshield.quality import face_quality_score
 from deepshield.risk.scorer import build_risk_scorer
 from deepshield.types import (
     AssetRecord,
@@ -287,7 +288,14 @@ class DefaultVideoProcessor(VideoProcessor):
                 ]
                 if not comparable:
                     continue
-                ranked = self.analysis.matcher.match_many(embedding.vector, comparable)
+                face_pixels = float(min(cut.face.bbox.width, cut.face.bbox.height))
+                quality = face_quality_score(face_pixels, aligned.image)
+                ranked = [
+                    replace(result, probe_face_pixels=face_pixels)
+                    for result in self.analysis.matcher.match_many(
+                        embedding.vector, comparable, quality
+                    )
+                ]
                 track_matches.append(ranked)
                 per_face.append((step, detected, ranked))
             if not per_face:
@@ -303,6 +311,10 @@ class DefaultVideoProcessor(VideoProcessor):
                     "matched_user_id": result.matched_user_id,
                     "candidate": result.is_candidate,
                     "decision": result.decision,
+                    "probe_quality": (
+                        None if result.probe_quality is None else round(result.probe_quality, 4)
+                    ),
+                    "face_pixels": result.probe_face_pixels,
                 }
             )
 
@@ -381,6 +393,12 @@ class DefaultVideoProcessor(VideoProcessor):
                 ),
                 identity_similarity=(
                     subject_match.similarity if subject_match is not None else None
+                ),
+                probe_quality=(
+                    subject_match.probe_quality if subject_match is not None else None
+                ),
+                probe_face_pixels=(
+                    subject_match.probe_face_pixels if subject_match is not None else None
                 ),
                 asset_id=asset.asset_id if asset is not None else None,
                 asset_owner=asset.user_id if asset is not None else None,

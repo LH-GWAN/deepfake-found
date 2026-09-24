@@ -81,6 +81,15 @@ def test_blur_lowers_face_quality(photo: np.ndarray) -> None:
     assert face_quality_score(200, blurred) < face_quality_score(200, photo)
 
 
+@pytest.mark.parametrize(
+    ("pixels", "small"), [(None, False), (54.0, True), (79.9, True), (80.0, False), (140.0, False)]
+)
+def test_a_face_under_eighty_pixels_is_small(pixels: float | None, small: bool) -> None:
+    from deepshield.quality import is_small_probe_face
+
+    assert is_small_probe_face(pixels) is small
+
+
 def test_face_quality_takes_the_worse_of_the_two_factors(photo: np.ndarray) -> None:
     """Either a tiny face or a blurred one ruins the embedding on its own."""
     from deepshield.quality import face_quality_score
