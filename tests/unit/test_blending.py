@@ -132,7 +132,7 @@ def test_shipped_model_records_that_it_is_not_usable() -> None:
 
 
 def test_deepfake_threshold_is_not_calibrated(project_root: Path) -> None:
-    """The chance-level result must keep the signal out of the risk score."""
+    """The chance-level result must keep the signal from changing any verdict."""
     from deepshield.config import load_config
 
     config = load_config(

@@ -28,9 +28,8 @@ from deepshield.detection.deepfake_backends import aggregate_frame_scores
 from deepshield.exceptions import InvalidMediaError
 from deepshield.logging_utils import get_logger
 from deepshield.media import sha256_file
-from deepshield.risk.features import DefaultRiskFeatureBuilder
-from deepshield.risk.scorer import WeightedRiskScorer
-from deepshield.types import EvidenceRecord, MediaType
+from deepshield.risk.scorer import build_risk_scorer
+from deepshield.types import EvidenceRecord, MediaType, RiskEvidence, SimilarityResult
 from deepshield.video.sampler import FrameSampler, SampledFrame, build_sampler
 from deepshield.video.tracker import FaceTracker, build_tracker
 
@@ -66,8 +65,7 @@ class DefaultVideoProcessor(VideoProcessor):
         self.tracker = tracker or build_tracker(
             config.video.tracking, config.video.representative_frame
         )
-        self.feature_builder = DefaultRiskFeatureBuilder(config.thresholds)
-        self.scorer = WeightedRiskScorer(config.thresholds.risk)
+        self.scorer = build_risk_scorer(config.thresholds)
 
     def _detect_all(self, frames: list[SampledFrame]) -> list[list[Any]]:
         """Detect faces in every sampled frame, tagging each with its position."""
@@ -108,10 +106,10 @@ class DefaultVideoProcessor(VideoProcessor):
         profiles = self.analysis._profiles(user_id)
 
         track_records: list[dict[str, Any]] = []
-        best_similarity: float | None = None
-        best_user: str | None = None
+        best_result: SimilarityResult | None = None
         best_confidence: float | None = None
-        deepfake_scores: list[float] = []
+        track_matches: list[list[SimilarityResult]] = []
+        subject_scores: dict[str | None, list[float]] = {}
         gated_tracks = 0
 
         for track in tracks:
@@ -144,18 +142,20 @@ class DefaultVideoProcessor(VideoProcessor):
                 track_records.append(entry)
                 continue
 
-            result = self.analysis.matcher.match_many(embedding.vector, comparable)[0]
+            ranked = self.analysis.matcher.match_many(embedding.vector, comparable)
+            track_matches.append(ranked)
+            result = ranked[0]
             entry.update(
                 {
                     "similarity": round(result.similarity, 6),
                     "matched_user_id": result.matched_user_id,
                     "candidate": result.is_candidate,
+                    "decision": result.decision,
                 }
             )
 
-            if best_similarity is None or result.similarity > best_similarity:
-                best_similarity = result.similarity
-                best_user = result.matched_user_id if result.is_candidate else None
+            if best_result is None or result.similarity > best_result.similarity:
+                best_result = result
                 best_confidence = face.detection_confidence
 
             if result.is_candidate:
@@ -171,12 +171,26 @@ class DefaultVideoProcessor(VideoProcessor):
                 ]
                 outcome = self.analysis.deepfake_detector.predict_video(crops)
                 entry["deepfake_score"] = round(outcome.score, 6)
-                deepfake_scores.extend(outcome.per_frame_scores or [outcome.score])
+                subject_scores.setdefault(result.matched_user_id, []).extend(
+                    outcome.per_frame_scores or [outcome.score]
+                )
             else:
                 gated_tracks += 1
 
             track_records.append(entry)
 
+        from deepshield.pipeline.analysis_pipeline import subject_result
+
+        subject = user_id or (
+            best_result.matched_user_id
+            if best_result is not None and best_result.decision != "no_match"
+            else None
+        )
+        subject_match = subject_result(track_matches, subject) if subject else None
+        compared = (
+            any(profile.user_id == subject for profile in profiles) if subject else bool(profiles)
+        ) and (bool(track_matches) or not tracks)
+        deepfake_scores = subject_scores.get(subject, []) if subject else []
         video_deepfake = (
             aggregate_frame_scores(
                 deepfake_scores, self.config.detection.deepfake.frame_aggregation
@@ -184,18 +198,23 @@ class DefaultVideoProcessor(VideoProcessor):
             if deepfake_scores
             else None
         )
-
-        feature_set = self.feature_builder.build(
-            {
-                "face_similarity": best_similarity,
-                "face_model": self.analysis.embedder.model_info.name,
-                "deepfake_score": video_deepfake,
-                "deepfake_model": self.analysis.deepfake_detector.model_info.name,
-                "watermark_detected": None,
-                "watermark_confidence": None,
-            }
+        risk = self.scorer.assess(
+            RiskEvidence(
+                subject_user_id=subject,
+                identities_compared=compared,
+                faces_detected=len(tracks),
+                identity_decision=(
+                    subject_match.decision
+                    if subject_match is not None
+                    else "no_match" if compared and track_matches else None
+                ),
+                identity_similarity=(
+                    subject_match.similarity if subject_match is not None else None
+                ),
+                deepfake_score=video_deepfake,
+                deepfake_calibrated=self.config.thresholds.deepfake.calibrated,
+            )
         )
-        risk = self.scorer.score(feature_set)
 
         limitations = list(risk.limitations)
         limitations.append(
@@ -217,8 +236,14 @@ class DefaultVideoProcessor(VideoProcessor):
             media_type=MediaType.VIDEO,
             media_sha256=sha256_file(path),
             face_detection_confidence=best_confidence,
-            face_similarity=best_similarity,
-            matched_user_id=best_user,
+            face_similarity=best_result.similarity if best_result else None,
+            matched_user_id=(
+                best_result.matched_user_id
+                if best_result is not None and best_result.is_high_confidence
+                else None
+            ),
+            identity_decision=best_result.decision if best_result else "no_match",
+            identity_margin=best_result.margin if best_result else None,
             deepfake_score=video_deepfake,
             watermark_detected=None,
             watermark_confidence=None,
@@ -241,6 +266,6 @@ class DefaultVideoProcessor(VideoProcessor):
             path.name,
             len(frames),
             len(tracks),
-            "none" if best_similarity is None else f"{best_similarity:.3f}",
+            "none" if best_result is None else f"{best_result.similarity:.3f}",
         )
         return record

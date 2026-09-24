@@ -13,8 +13,9 @@ from deepshield.types import (
     MediaType,
     ModelInfo,
     RiskAssessment,
-    RiskFeatures,
+    RiskEvidence,
     RiskLevel,
+    Verdict,
     WatermarkDetectionResult,
     WatermarkPayload,
 )
@@ -89,9 +90,12 @@ def test_asset_fingerprint_dict_omits_semantic_vector() -> None:
     assert "semantic_embedding" not in payload
 
 
-def test_risk_features_default_to_none_not_zero() -> None:
-    features = RiskFeatures()
-    assert set(features.to_dict().values()) == {None}
+def test_risk_evidence_defaults_to_missing_not_negative() -> None:
+    evidence = RiskEvidence().to_dict()
+    assert evidence["identity_decision"] is None
+    assert evidence["owner_face_in_original"] is None
+    assert evidence["deepfake_score"] is None
+    assert evidence["identities_compared"] is False
 
 
 def test_evidence_record_serialises_to_report_shape() -> None:
@@ -103,14 +107,15 @@ def test_evidence_record_serialises_to_report_shape() -> None:
         deepfake_score=0.81,
         watermark_detected=False,
         watermark_confidence=0.0,
-        risk=RiskAssessment(risk_score=84, risk_level=RiskLevel.HIGH),
+        risk=RiskAssessment(verdict=Verdict.IDENTITY_MATCH, risk_level=RiskLevel.MEDIUM),
         detector_versions={"face_embedder": MODEL},
         limitations=["Face similarity does not prove training-data usage."],
     )
     payload = record.to_dict()
     assert payload["identity"]["similarity"] == 0.93
     assert payload["deepfake"]["score"] == 0.81
-    assert payload["risk"]["risk_level"] == "HIGH"
+    assert payload["risk"]["verdict"] == "identity_match"
+    assert payload["risk"]["risk_level"] == "MEDIUM"
     assert payload["detector_versions"]["face_embedder"]["backend"] == "mock"
     assert payload["limitations"]
 

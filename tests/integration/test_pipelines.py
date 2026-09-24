@@ -1,7 +1,7 @@
 """End-to-end protection and analysis over the real components.
 
 These use mock face backends so they run without model downloads, but the
-pipeline order, the candidate gate, the watermark and the risk arithmetic are
+pipeline order, the candidate gate, the watermark and the verdict engine are
 the production ones.
 """
 
@@ -226,7 +226,7 @@ def test_evidence_reports_the_identity_decision(config, source_image: Path) -> N
 
 
 def test_analysis_reports_content_credentials_without_scoring_them(config) -> None:
-    """A C2PA-signed file is described in the record and never enters the risk score."""
+    """A C2PA-signed file is described in the record and never changes the verdict."""
     pytest.importorskip("c2pa")
     fixture = Path(__file__).resolve().parents[1] / "fixtures" / "c2pa" / "C.jpg"
     record = DefaultAnalysisPipeline(config).analyze_image(fixture)

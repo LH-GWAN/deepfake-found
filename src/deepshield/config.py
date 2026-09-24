@@ -326,6 +326,7 @@ class DeepfakeThresholds(_Base):
     suspicious_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
     high_confidence_threshold: float = Field(default=0.8, ge=0.0, le=1.0)
     calibrated: bool = False
+    calibration_source: str | None = None
 
 
 class WatermarkThresholds(_Base):
@@ -344,32 +345,6 @@ class FingerprintThresholds(_Base):
     evidence_similarity_threshold: float = Field(default=0.8125, ge=0.0, le=1.0)
 
 
-class RiskLevels(_Base):
-    """Lower bounds, in points, for each qualitative risk level."""
-
-    low: int = 0
-    medium: int = 40
-    high: int = 70
-    critical: int = 85
-
-
-class RiskWeights(_Base):
-    """Weights of the deterministic Phase 10 risk score."""
-
-    face_similarity: float = 0.40
-    deepfake_score: float = 0.30
-    watermark_confidence: float = 0.15
-    fingerprint_similarity: float = 0.10
-    provenance_confidence: float = 0.05
-
-
-class RiskThresholds(_Base):
-    """Risk engine configuration."""
-
-    weights: RiskWeights = RiskWeights()
-    levels: RiskLevels = RiskLevels()
-
-
 class Thresholds(_Base):
     """All decision boundaries in one object, loaded from ``thresholds.yaml``."""
 
@@ -377,7 +352,6 @@ class Thresholds(_Base):
     deepfake: DeepfakeThresholds = DeepfakeThresholds()
     watermark: WatermarkThresholds = WatermarkThresholds()
     fingerprint: FingerprintThresholds = FingerprintThresholds()
-    risk: RiskThresholds = RiskThresholds()
 
 
 class ProvenanceConfig(_Base):
