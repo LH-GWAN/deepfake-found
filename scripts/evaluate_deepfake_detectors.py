@@ -1,43 +1,59 @@
-"""Measure published deepfake detectors on this project's own data.
+r"""Decide whether any deepfake detector may change a verdict, on data it never saw.
 
 A checkpoint's headline accuracy describes the dataset it was trained on. This
-script asks the only question that matters here: does it separate real
-photographs from manipulated ones on the material this system will actually see.
+script asks the only question that matters here: can the detector call a face
+synthetic, on this system's own material, while being wrong about genuine
+photographs rarely enough that a person could live with the alert?
 
-Two numbers are reported for every detector, and the second one is the one that
-usually disqualifies a model:
+The adoption gate, fixed before any new detector is measured:
 
-separation
-    ROC-AUC over real versus manipulated faces, with the manipulated set built
-    by ``build_manipulation_set.py``.
-false positive rate on genuine photographs
-    What fraction of untouched photographs the detector calls synthetic at its
-    own default operating point. A detector that flags a third of real photos is
-    unusable in a system whose whole purpose is to avoid false accusations,
-    whatever its recall.
+threshold
+    The 99.5th percentile of the detector's scores on genuine photographs of
+    the calibration identities. It is fitted on genuine photographs alone, so
+    it does not depend on which fakes happen to be in the set.
+false alarms
+    On genuine photographs of the test identities, the upper end of the 95%
+    Clopper-Pearson interval of the false-positive rate must be at most 1%, in
+    every condition (clean, JPEG q50, a small face under H.264 crf 35). A
+    point estimate of zero on a hundred photographs is not a rate of zero.
+recall
+    On test identities, at least 20% of each manipulation family's fakes must
+    be flagged on clean photographs. A detector that never fires passes the
+    false-alarm bar trivially.
+no leakage
+    A detector whose metadata lists an evaluated manifest among its training
+    data is reported but never adopted: the manipulation sets share their
+    genuine photographs, so even a family it never saw is in-sample.
 
-Detectors are run through the project's own ONNX adapter on the padded face crop
-the analysis pipeline produces, so the measurement matches deployment rather
-than a notebook.
+Identities are split into calibration and test halves; a fake belongs to a half
+only when both the person in the photograph and the person whose face was
+pasted in belong to it. The genuine photographs of the manipulation sets are
+too few to bound a false-positive rate near 1% (85 test photographs with no
+false alarm still allow 4.2%), so ``--genuine`` adds one photograph each from
+other LFW identities, split the same way.
 
-With ``--write`` the best qualifying detector is wired in: it becomes the
-configured backend and its thresholds are marked calibrated, which is what lets
-the risk engine raise an identity match to ``synthetic_suspected``. Nothing is
-wired in unless a detector clears both bars, because a detector that fails them
-is worse than no detector -
-the risk engine already handles a missing signal correctly.
+``separation`` columns report ROC-AUC over every record of a family, the number
+earlier versions of this script gated on, so old and new results can be read
+side by side. With ``--write`` a detector that passes the gate becomes the
+configured backend with the fitted threshold; that is what lets the verdict
+engine raise an identity match to ``synthetic_suspected``.
 
 Usage:
-    python scripts/evaluate_deepfake_detectors.py
-    python scripts/evaluate_deepfake_detectors.py --write
+    python scripts/evaluate_deepfake_detectors.py \\
+        --manifest data/test/manipulated/manifest.json \\
+        data/test/manipulated_inswapper/manifest.json \\
+        --genuine data/sklearn/lfw_home/lfw_funneled --genuine-limit 3000
+    python scripts/evaluate_deepfake_detectors.py ... --write
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import random
 import sys
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -50,19 +66,21 @@ from deepshield.experiments import environment
 from deepshield.face.detector import build_detector
 from deepshield.media import load_image
 from deepshield.pipeline.analysis_pipeline import DEEPFAKE_CROP_MARGIN, crop_with_margin
-from deepshield.risk.calibration import precision_recall_at, roc_curve, threshold_for_precision
+from deepshield.risk.calibration import clopper_pearson_upper, roc_curve
 from deepshield.transforms import Transformation
 
 DEGRADATIONS = {
     "clean": ("identity", {}),
     "jpeg50": ("jpeg_compression", {"quality": 50}),
+    "video_small": ("video_compression", {"scale": 0.55, "crf": 35}),
 }
-DEFAULT_OPERATING_POINT = 0.5
-MIN_USEFUL_AUC = 0.75
-MAX_TOLERABLE_FPR = 0.10
+GENUINE_QUANTILE = 0.995
+MAX_FPR_BOUND = 0.01
+MIN_FAMILY_RECALL = 0.20
+CALIBRATION_SHARE = 0.5
 
 
-def discover_models(model_dir: Path) -> list[tuple[str, Path, dict]]:
+def discover_models(model_dir: Path) -> list[tuple[str, Path, dict[str, Any]]]:
     """Return every exported detector and its metadata."""
     found = []
     for meta_path in sorted(model_dir.glob("deepfake_*.json")):
@@ -75,20 +93,94 @@ def discover_models(model_dir: Path) -> list[tuple[str, Path, dict]]:
     return found
 
 
-def score_set(
+def identity_of(filename: str) -> str:
+    """Return the identity in an evaluation-set file name such as ``thomas_fargo_3.png``."""
+    return Path(filename).stem.rsplit("_", 1)[0].lower()
+
+
+def family_of(manifest: Path, payload: dict[str, Any]) -> str:
+    """Name a manifest's family the way ``train_deepfake_cnn.py`` does."""
+    swapper = payload.get("swapper")
+    if swapper:
+        return str(swapper)
+    name = manifest.parent.name
+    return name.replace("manipulated_", "") if "_" in name else "graphics"
+
+
+def load_records(manifests: list[Path]) -> list[dict[str, Any]]:
+    """Return every record of every manifest with its family and the people in it."""
+    records: list[dict[str, Any]] = []
+    for manifest in manifests:
+        payload = json.loads(manifest.read_text(encoding="utf-8"))
+        family = family_of(manifest, payload)
+        for record in payload["records"]:
+            people = {record["identity"].lower()}
+            if record.get("donor"):
+                people.add(identity_of(record["donor"]))
+            records.append(
+                {
+                    "path": record["path"],
+                    "label": record["label"],
+                    "family": family,
+                    "manifest": manifest.as_posix(),
+                    "people": sorted(people),
+                }
+            )
+    return records
+
+
+def genuine_photos(lfw: Path, excluded: set[str], limit: int, seed: int) -> list[dict[str, Any]]:
+    """Return one photograph each from up to ``limit`` LFW identities outside ``excluded``."""
+    folders = sorted(
+        folder for folder in lfw.iterdir()
+        if folder.is_dir() and folder.name.lower() not in excluded
+    )
+    random.Random(seed).shuffle(folders)
+    chosen = []
+    for folder in folders[:limit]:
+        photos = sorted(folder.glob("*.jpg"))
+        if photos:
+            chosen.append(
+                {
+                    "path": photos[0].as_posix(),
+                    "label": "real",
+                    "family": "lfw",
+                    "manifest": "genuine",
+                    "people": [folder.name.lower()],
+                }
+            )
+    return chosen
+
+
+def assign_halves(items: list[dict[str, Any]], share: float, seed: int) -> None:
+    """Mark each item ``calibration``, ``test`` or ``split`` by the people in it.
+
+    Identities are shuffled once and the first ``share`` of them calibrate. An
+    item whose people fall on both sides is ``split`` and used by neither half,
+    so no face seen while fitting the threshold is judged afterwards.
+    """
+    people = sorted({person for item in items for person in item["people"]})
+    random.Random(seed).shuffle(people)
+    calibration = set(people[: int(round(len(people) * share))])
+    for item in items:
+        sides = {person in calibration for person in item["people"]}
+        item["half"] = (
+            "split" if len(sides) > 1 else "calibration" if sides == {True} else "test"
+        )
+
+
+def score_items(
     detector: OnnxDeepfakeDetector,
-    face_detector: object,
-    records: list[dict[str, str]],
+    face_detector: Any,
+    items: list[dict[str, Any]],
     degradation: str,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Return scores and labels over the manipulation set for one condition."""
+) -> np.ndarray:
+    """Return a score per item on its largest face; ``nan`` where no face is found."""
     kind, params = DEGRADATIONS[degradation]
     transformation = Transformation(degradation, kind, params)
-
-    scores: list[float] = []
-    labels: list[int] = []
-    for record in records:
-        path = Path(record["path"])
+    scores = np.full(len(items), np.nan)
+    for index, item in enumerate(items):
+        path = Path(item["path"])
         if not path.is_file():
             continue
         image = load_image(path)
@@ -97,155 +189,98 @@ def score_set(
         faces = face_detector.detect(image)
         if not faces:
             continue
-        crop = crop_with_margin(image, faces[0], DEEPFAKE_CROP_MARGIN)
-        scores.append(detector.predict_image(crop).score)
-        labels.append(1 if record["label"] == "fake" else 0)
-    return np.asarray(scores), np.asarray(labels)
+        face = max(faces, key=lambda f: f.bbox.width * f.bbox.height)
+        scores[index] = detector.predict_image(
+            crop_with_margin(image, face, DEEPFAKE_CROP_MARGIN)
+        ).score
+    return scores
 
 
-def main(argv: list[str] | None = None) -> int:
-    """Evaluate every exported detector and report whether any is usable."""
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--manifest", type=Path, default=Path("data/test/manipulated/manifest.json")
-    )
-    parser.add_argument("--models", type=Path, default=Path("models"))
-    parser.add_argument("--output", type=Path, default=Path("data/results"))
-    parser.add_argument("--target-precision", type=float, default=0.95)
-    parser.add_argument("--tag", default=None, help="suffix for the report file name")
-    parser.add_argument(
-        "--write",
-        action="store_true",
-        help="adopt the best qualifying detector as the configured backend",
-    )
-    args = parser.parse_args(argv)
+def in_sample(metadata: dict[str, Any], manifests: list[Path]) -> bool:
+    """Return whether the detector was trained on any of the evaluated manifests."""
+    trained = {Path(item).as_posix() for item in metadata.get("training_families_manifests", [])}
+    return any(manifest.as_posix() in trained for manifest in manifests)
 
-    if not args.manifest.is_file():
-        raise SystemExit(
-            f"missing {args.manifest}; run scripts/build_manipulation_set.py first"
-        )
-    manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
-    records = manifest["records"]
-    models = discover_models(args.models)
-    if not models:
-        raise SystemExit(
-            f"no exported detectors in {args.models}; run "
-            "scripts/fetch_deepfake_detector.py first"
-        )
 
-    config = load_config()
-    face_detector = build_detector(config.face.detector)
-    print(f"manipulation set: {len(records)} images, {len(models)} detectors\n")
+def evaluate(
+    items: list[dict[str, Any]], scores: dict[str, np.ndarray]
+) -> dict[str, Any]:
+    """Fit the threshold on calibration genuine photos and judge the test half."""
+    labels = np.asarray([item["label"] == "fake" for item in items])
+    halves = np.asarray([item["half"] for item in items])
+    families = sorted({item["family"] for item in items if item["label"] == "fake"})
+    of_family = np.asarray([item["family"] for item in items])
 
-    results: dict[str, dict] = {}
-    for alias, onnx_path, metadata in models:
-        print(f"{alias}  ({metadata['repo']})", flush=True)
-        detector = OnnxDeepfakeDetector(
-            DeepfakeDetectorConfig(
-                backend="onnx",
-                model_path=onnx_path,
-                model_name=metadata["repo"],
-                input_size=metadata["input_size"],
-                positive_index=metadata["positive_index"],
-                training_dataset=metadata["repo"],
-            )
-        )
-        per_condition: dict[str, dict] = {}
-        for degradation in DEGRADATIONS:
-            scores, labels = score_set(detector, face_detector, records, degradation)
-            if labels.sum() == 0 or (labels == 0).sum() == 0:
-                continue
-            curve = roc_curve(scores, labels)
-            default_point = precision_recall_at(scores, labels, DEFAULT_OPERATING_POINT)
-            threshold, point = threshold_for_precision(scores, labels, args.target_precision)
-            genuine_flagged = float((scores[labels == 0] >= DEFAULT_OPERATING_POINT).mean())
-            per_condition[degradation] = {
-                "n": int(labels.size),
-                "auc": round(curve.auc, 6),
-                "eer": round(curve.eer, 6),
-                "fpr_at_default": round(genuine_flagged, 6),
-                "recall_at_default": round(default_point["recall"], 6),
-                "tuned_threshold": round(threshold, 6),
-                "tuned_precision": round(point["precision"], 6),
-                "tuned_recall": round(point["recall"], 6),
-            }
-            print(
-                f"  {degradation:7s} n={labels.size:3d} AUC={curve.auc:.4f} "
-                f"EER={curve.eer:.4f}  at its own 0.5 point: "
-                f"recall={default_point['recall']:.3f} "
-                f"false-positive rate on real photos={genuine_flagged:.3f}"
-            )
+    clean = scores["clean"]
+    fitting = clean[(halves == "calibration") & ~labels & np.isfinite(clean)]
+    threshold = float(np.quantile(fitting, GENUINE_QUANTILE))
 
-        clean = per_condition.get("clean", {})
-        usable = (
-            float(clean.get("auc", 0.0)) >= MIN_USEFUL_AUC
-            and float(clean.get("fpr_at_default", 1.0)) <= MAX_TOLERABLE_FPR
-        )
-        results[alias] = {
-            "repo": metadata["repo"],
-            "labels": metadata["labels"],
-            "per_condition": per_condition,
-            "usable": usable,
+    report: dict[str, Any] = {
+        "threshold": round(threshold, 6),
+        "calibration_genuine": int(fitting.size),
+        "genuine": {},
+        "families": {},
+    }
+    for degradation, values in scores.items():
+        judged = (halves == "test") & ~labels & np.isfinite(values)
+        alarms = int((values[judged] >= threshold).sum())
+        report["genuine"][degradation] = {
+            "test_photos": int(judged.sum()),
+            "false_positives": alarms,
+            "false_positive_rate": round(alarms / max(int(judged.sum()), 1), 6),
+            "false_positive_rate_upper_95": round(
+                clopper_pearson_upper(alarms, int(judged.sum())), 6
+            ) if judged.any() else None,
+            "undetected": int(((halves == "test") & ~labels & ~np.isfinite(values)).sum()),
         }
-        print(f"  verdict: {'usable' if usable else 'NOT usable'}\n")
+    for family in families:
+        member = of_family == family
+        entry: dict[str, Any] = {}
+        for degradation, values in scores.items():
+            fakes = (halves == "test") & labels & (of_family == family) & np.isfinite(values)
+            both = member & np.isfinite(values)
+            separation = (
+                roc_curve(values[both], labels[both].astype(int)).auc
+                if labels[both].any() and (~labels[both]).any()
+                else None
+            )
+            entry[degradation] = {
+                "separation_auc": None if separation is None else round(separation, 6),
+                "test_fakes": int(fakes.sum()),
+                "test_recall": round(float((values[fakes] >= threshold).mean()), 6)
+                if fakes.any() else None,
+            }
+        report["families"][family] = entry
+    return report
 
-    args.output.mkdir(parents=True, exist_ok=True)
-    suffix = f"_{args.tag}" if args.tag else ""
-    report_path = args.output / f"deepfake_detector_survey{suffix}.json"
-    report_path.write_text(
-        json.dumps(
-            {
-                "environment": environment(config),
-                "manifest": str(args.manifest),
-                "criteria": {
-                    "min_auc": MIN_USEFUL_AUC,
-                    "max_false_positive_rate": MAX_TOLERABLE_FPR,
-                },
-                "detectors": results,
-                "manipulation": manifest.get("method"),
-                "caveat": (
-                    f"Measured on one manipulation family generated by this repository: "
-                    f"{manifest.get('method')}. A detector may do better or worse on "
-                    f"{', '.join(manifest.get('does_not_cover', []))}, which this set "
-                    "does not contain."
-                ),
-            },
-            indent=2,
-            default=str,
-        ),
-        encoding="utf-8",
-    )
 
-    best_alias, best_result = max(
-        results.items(),
-        key=lambda item: item[1]["per_condition"].get("clean", {}).get("auc", 0.0),
-        default=(None, None),
-    )
-    print(f"wrote {report_path}")
-    if best_alias is None:
-        return 0
+def verdict(report: dict[str, Any], leaked: bool) -> tuple[bool, list[str]]:
+    """Apply the gate and list every reason a detector fails it."""
+    reasons: list[str] = []
+    if leaked:
+        reasons.append("trained on an evaluated manifest: every number here is in-sample")
+    for degradation, row in report["genuine"].items():
+        bound = row["false_positive_rate_upper_95"]
+        if bound is None or bound > MAX_FPR_BOUND:
+            reasons.append(
+                f"{degradation}: false-positive rate could be as high as "
+                f"{'unknown' if bound is None else f'{bound:.2%}'} "
+                f"({row['false_positives']}/{row['test_photos']}), above {MAX_FPR_BOUND:.0%}"
+            )
+    for family, entry in report["families"].items():
+        recall = entry["clean"]["test_recall"]
+        if recall is None or recall < MIN_FAMILY_RECALL:
+            reasons.append(
+                f"{family}: flags {'no' if recall is None else f'{recall:.0%} of'} test fakes, "
+                f"below {MIN_FAMILY_RECALL:.0%}"
+            )
+    return not reasons, reasons
 
-    clean = best_result["per_condition"].get("clean", {})
-    print(
-        f"best separation: {best_alias} at AUC {clean.get('auc', 0.0):.4f} "
-        f"({'usable' if best_result['usable'] else 'still NOT usable'})"
-    )
 
-    if not args.write:
-        return 0
-    if not best_result["usable"]:
-        print(
-            "\nnot adopting any detector: none reached "
-            f"AUC {MIN_USEFUL_AUC} with a false positive rate under "
-            f"{MAX_TOLERABLE_FPR:.0%}. The signal still never changes a verdict."
-        )
-        return 0
-
-    metadata = next(meta for alias, _, meta in models if alias == best_alias)
-    onnx_path = next(path for alias, path, _ in models if alias == best_alias)
-    suspicious = clean["tuned_threshold"]
-    high = max(suspicious, min(0.99, suspicious + (1.0 - suspicious) / 2.0))
-
+def adopt(alias: str, onnx_path: Path, metadata: dict[str, Any], threshold: float,
+          source: Path) -> None:
+    """Make the detector the configured backend and mark its threshold calibrated."""
+    high = max(threshold, min(0.99, threshold + (1.0 - threshold) / 2.0))
     default_path = ROOT / "configs" / "default.yaml"
     text = default_path.read_text(encoding="utf-8")
     block = (
@@ -269,21 +304,155 @@ def main(argv: list[str] | None = None) -> int:
     text = thresholds_path.read_text(encoding="utf-8")
     block = (
         "deepfake:\n"
-        f"  suspicious_threshold: {suspicious:.4f}\n"
+        f"  suspicious_threshold: {threshold:.4f}\n"
         f"  high_confidence_threshold: {high:.4f}\n"
         "  calibrated: true\n"
-        f"  calibration_source: {report_path.as_posix()}\n"
+        f"  calibration_source: {source.as_posix()}\n"
     )
     head, _, rest = text.partition("deepfake:")
     _, _, tail = rest.partition("\n\n")
     thresholds_path.write_text(head + block + "\n" + tail, encoding="utf-8")
-    print(f"updated {thresholds_path}")
-    adopted = load_config().thresholds.deepfake
-    print(
-        "\nthe synthetic-media score can now raise an identity match to "
-        f"'synthetic_suspected' at {adopted.suspicious_threshold:.4f} "
-        f"(CRITICAL at {adopted.high_confidence_threshold:.4f})"
+    print(f"updated {thresholds_path}; {alias} can now raise an identity match "
+          f"to 'synthetic_suspected' at {threshold:.4f}")
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Score every exported detector, apply the gate, and adopt a passing one if asked."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--manifest", type=Path, nargs="+",
+        default=[Path("data/test/manipulated/manifest.json")],
     )
+    parser.add_argument("--genuine", type=Path, default=None,
+                        help="LFW-style folder of extra genuine photographs, one per identity")
+    parser.add_argument("--genuine-limit", type=int, default=3000)
+    parser.add_argument("--faces", type=Path, default=Path("data/test/eval_faces"))
+    parser.add_argument("--models", type=Path, default=Path("models"))
+    parser.add_argument("--only", nargs="*", default=None, help="detector aliases to score")
+    parser.add_argument("--limit", type=int, default=None, help="cap records per manifest")
+    parser.add_argument("--conditions", nargs="+", choices=sorted(DEGRADATIONS),
+                        default=list(DEGRADATIONS))
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--output", type=Path, default=Path("data/results"))
+    parser.add_argument("--tag", default=None, help="suffix for the report file name")
+    parser.add_argument("--write", action="store_true",
+                        help="adopt the best detector that passes the gate")
+    args = parser.parse_args(argv)
+
+    if "clean" not in args.conditions:
+        args.conditions.insert(0, "clean")
+    missing = [str(manifest) for manifest in args.manifest if not manifest.is_file()]
+    if missing:
+        raise SystemExit(f"missing {missing}; run scripts/build_manipulation_set.py first")
+    records = load_records(args.manifest)
+    if args.limit:
+        kept: list[dict[str, Any]] = []
+        for manifest in args.manifest:
+            kept += [r for r in records if r["manifest"] == manifest.as_posix()][: args.limit]
+        records = kept
+    items = list(records)
+    if args.genuine is not None:
+        excluded = {person for record in records for person in record["people"]}
+        listing = args.faces / "identities.txt"
+        if listing.is_file():
+            excluded |= {
+                line.split("\t")[1].strip()
+                for line in listing.read_text(encoding="utf-8").splitlines() if "\t" in line
+            }
+        items += genuine_photos(args.genuine, excluded, args.genuine_limit, args.seed)
+    assign_halves(items, CALIBRATION_SHARE, args.seed)
+
+    models = [
+        model for model in discover_models(args.models)
+        if args.only is None or model[0] in args.only
+    ]
+    if not models:
+        raise SystemExit(f"no exported detectors in {args.models}; run "
+                         "scripts/fetch_deepfake_detector.py first")
+
+    config = load_config()
+    face_detector = build_detector(config.face.detector)
+    halves = [item["half"] for item in items]
+    print(f"{len(items)} images ({sum(r['label'] == 'fake' for r in items)} fake), "
+          f"halves: calibration {halves.count('calibration')}, test {halves.count('test')}, "
+          f"straddling {halves.count('split')}; {len(models)} detectors\n")
+
+    results: dict[str, dict[str, Any]] = {}
+    for alias, onnx_path, metadata in models:
+        print(f"{alias}  ({metadata['repo']})", flush=True)
+        detector = OnnxDeepfakeDetector(
+            DeepfakeDetectorConfig(
+                backend="onnx",
+                model_path=onnx_path,
+                model_name=metadata["repo"],
+                input_size=metadata["input_size"],
+                positive_index=metadata["positive_index"],
+                training_dataset=metadata["repo"],
+            )
+        )
+        scores = {
+            degradation: score_items(detector, face_detector, items, degradation)
+            for degradation in args.conditions
+        }
+        report = evaluate(items, scores)
+        leaked = in_sample(metadata, args.manifest)
+        usable, reasons = verdict(report, leaked)
+        results[alias] = {
+            "repo": metadata["repo"],
+            "in_sample": leaked,
+            "usable": usable,
+            "reasons": reasons,
+            **report,
+        }
+        for degradation, row in report["genuine"].items():
+            print(f"  {degradation:11s} genuine false positives "
+                  f"{row['false_positives']}/{row['test_photos']} "
+                  f"(upper 95% {row['false_positive_rate_upper_95']})")
+        for family, entry in report["families"].items():
+            clean = entry["clean"]
+            print(f"  {family:11s} separation AUC {clean['separation_auc']}, "
+                  f"test recall {clean['test_recall']} of {clean['test_fakes']}")
+        print(f"  threshold {report['threshold']:.4f}; "
+              f"{'USABLE' if usable else 'not usable: ' + '; '.join(reasons)}\n")
+
+    args.output.mkdir(parents=True, exist_ok=True)
+    suffix = f"_{args.tag}" if args.tag else ""
+    report_path = args.output / f"deepfake_detector_gate{suffix}.json"
+    report_path.write_text(
+        json.dumps(
+            {
+                "environment": environment(config),
+                "manifests": [manifest.as_posix() for manifest in args.manifest],
+                "genuine_source": None if args.genuine is None else args.genuine.as_posix(),
+                "gate": {
+                    "threshold": f"{GENUINE_QUANTILE:.1%} quantile of calibration genuine scores",
+                    "max_false_positive_rate_upper_95": MAX_FPR_BOUND,
+                    "min_recall_per_family": MIN_FAMILY_RECALL,
+                    "conditions": list(args.conditions),
+                },
+                "detectors": results,
+            },
+            indent=2,
+            default=str,
+        ) + "\n",
+        encoding="utf-8",
+    )
+    print(f"wrote {report_path}")
+
+    passing = [(alias, result) for alias, result in results.items() if result["usable"]]
+    if not args.write:
+        return 0
+    if not passing:
+        print("\nnot adopting any detector: none passed the gate. "
+              "The signal still never changes a verdict.")
+        return 0
+    alias, result = max(
+        passing,
+        key=lambda item: min(e["clean"]["test_recall"] for e in item[1]["families"].values()),
+    )
+    onnx_path = next(path for name, path, _ in models if name == alias)
+    metadata = next(meta for name, _, meta in models if name == alias)
+    adopt(alias, onnx_path, metadata, result["threshold"], report_path)
     return 0
 
 
