@@ -9,7 +9,12 @@ import pytest
 
 from deepshield.config import Thresholds
 from deepshield.exceptions import ConfigurationError
-from deepshield.risk.calibration import ThresholdCalibrator, pair_scores, roc_curve
+from deepshield.risk.calibration import (
+    ThresholdCalibrator,
+    clopper_pearson_upper,
+    pair_scores,
+    roc_curve,
+)
 from deepshield.risk.scorer import VerdictRiskScorer
 from deepshield.types import RiskAssessment, RiskEvidence, RiskLevel, Verdict
 
@@ -357,3 +362,30 @@ def test_pair_scores_labels_genuine_and_impostor() -> None:
     scores, labels = pair_scores(embeddings, identity)
     assert labels.sum() == 1
     assert scores[labels == 1][0] > scores[labels == 0].max()
+
+
+@pytest.mark.parametrize("trials", [85, 300, 12930])
+def test_no_false_alarm_still_bounds_the_rate_above_zero(trials: int) -> None:
+    """With zero failures the exact bound has a closed form: 1 - (alpha/2)^(1/n)."""
+    assert clopper_pearson_upper(0, trials) == pytest.approx(1 - 0.025 ** (1 / trials), rel=1e-6)
+
+
+def test_clopper_pearson_matches_a_known_interval() -> None:
+    assert clopper_pearson_upper(17, 169) == pytest.approx(0.156, abs=0.002)
+    assert clopper_pearson_upper(3, 1000) == pytest.approx(0.0087, abs=0.0002)
+
+
+def test_clopper_pearson_grows_with_failures_and_shrinks_with_trials() -> None:
+    assert clopper_pearson_upper(1, 100) > clopper_pearson_upper(0, 100)
+    assert clopper_pearson_upper(0, 1000) < clopper_pearson_upper(0, 100)
+    assert clopper_pearson_upper(5, 5) == 1.0
+
+
+@pytest.mark.parametrize(
+    ("failures", "trials", "confidence"), [(0, 0, 0.95), (4, 3, 0.95), (-1, 3, 0.95), (0, 3, 1.0)]
+)
+def test_clopper_pearson_rejects_impossible_counts(
+    failures: int, trials: int, confidence: float
+) -> None:
+    with pytest.raises(ConfigurationError):
+        clopper_pearson_upper(failures, trials, confidence)

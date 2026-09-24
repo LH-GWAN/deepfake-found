@@ -18,6 +18,7 @@ minimal install; results agree with scikit-learn to floating-point tolerance.
 
 from __future__ import annotations
 
+import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
@@ -331,6 +332,58 @@ def threshold_for_precision(
         return best
     fallback = float(values.max())
     return fallback, precision_recall_at(values, truth, fallback)
+
+
+def _binomial_cdf(successes: int, trials: int, rate: float) -> float:
+    """Return ``P(X <= successes)`` for ``X ~ Binomial(trials, rate)``, summed in log space."""
+    if rate <= 0.0:
+        return 1.0
+    if rate >= 1.0:
+        return 1.0 if successes >= trials else 0.0
+    terms = [
+        math.lgamma(trials + 1)
+        - math.lgamma(k + 1)
+        - math.lgamma(trials - k + 1)
+        + k * math.log(rate)
+        + (trials - k) * math.log1p(-rate)
+        for k in range(successes + 1)
+    ]
+    peak = max(terms)
+    return min(1.0, math.exp(peak) * sum(math.exp(term - peak) for term in terms))
+
+
+def clopper_pearson_upper(failures: int, trials: int, confidence: float = 0.95) -> float:
+    """Return the upper end of the two-sided Clopper-Pearson interval for a rate.
+
+    An observed false-positive rate of zero is not a rate of zero: with 300
+    genuine photographs and no false alarm, the true rate could still be as high
+    as 1.2%. A gate on a false-positive rate is only meaningful on this bound,
+    because the point estimate rewards small samples. The interval is exact, so
+    it stays conservative for small counts; the bound is found by bisection on
+    the binomial distribution so that no statistics package is needed.
+
+    Raises:
+        ConfigurationError: If the counts are impossible or ``confidence`` is
+            outside ``(0, 1)``.
+
+    """
+    if trials <= 0 or failures < 0 or failures > trials:
+        raise ConfigurationError(
+            f"need 0 <= failures <= trials and trials > 0, got {failures}/{trials}"
+        )
+    if not 0.0 < confidence < 1.0:
+        raise ConfigurationError(f"confidence must lie in (0, 1), got {confidence}")
+    if failures == trials:
+        return 1.0
+    tail = (1.0 - confidence) / 2.0
+    low, high = failures / trials, 1.0
+    for _ in range(100):
+        middle = (low + high) / 2.0
+        if _binomial_cdf(failures, trials, middle) > tail:
+            low = middle
+        else:
+            high = middle
+    return high
 
 
 def pair_scores(
