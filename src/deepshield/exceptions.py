@@ -40,6 +40,14 @@ class WatermarkError(DeepShieldError):
     """Raised when watermark embedding or extraction fails."""
 
 
+class SourceError(DeepShieldError):
+    """Raised when content cannot be discovered or fetched from a source."""
+
+
+class BlockedSourceError(SourceError):
+    """Raised when a fetch is refused by policy: robots.txt, host or address rules."""
+
+
 class NotImplementedInPhaseError(DeepShieldError):
     """Raised by interfaces whose concrete implementation belongs to a later phase.
 

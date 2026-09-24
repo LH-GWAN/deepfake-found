@@ -23,14 +23,18 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from pydantic import BaseModel, Field
+
 from deepshield import __version__
 from deepshield.config import DeepShieldConfig, load_config
 from deepshield.exceptions import (
+    BlockedSourceError,
     DeepShieldError,
     EnrollmentError,
     IdentityNotFoundError,
     InvalidMediaError,
     ModelNotAvailableError,
+    SourceError,
 )
 from deepshield.logging_utils import get_logger
 
@@ -43,6 +47,17 @@ try:
     FASTAPI_AVAILABLE = True
 except ImportError:
     FASTAPI_AVAILABLE = False
+
+class ScanRequest(BaseModel):
+    """URLs to scan; every bound is capped at the server's configured maximum."""
+
+    urls: list[str] = Field(min_length=1, max_length=50)
+    user_id: str | None = None
+    depth: int = Field(default=0, ge=0)
+    max_pages: int | None = Field(default=None, gt=0)
+    max_media: int | None = Field(default=None, gt=0)
+    same_host: bool = True
+
 
 DEFAULT_LIMITATIONS = [
     "Face similarity does not prove that an image was used as training data.",
@@ -99,6 +114,8 @@ def create_app(config: DeepShieldConfig | None = None) -> Any:
         status = {
             IdentityNotFoundError: 404,
             InvalidMediaError: 415,
+            BlockedSourceError: 403,
+            SourceError: 502,
             EnrollmentError: 422,
             ModelNotAvailableError: 503,
         }.get(type(exc), 400)
@@ -193,6 +210,55 @@ def create_app(config: DeepShieldConfig | None = None) -> Any:
             record = DefaultAnalysisPipeline(settings).analyze_video(path, user_id)
             record.analysis_id = build_evidence_repository(settings).save(record)
             return record.to_dict()
+
+    @app.post("/analyze/url", summary="Fetch and analyse the image or video at one URL")
+    def analyze_url(url: str = Form(...), user_id: str | None = Form(None)) -> dict[str, Any]:
+        """Download one media URL under the source policy and analyse it.
+
+        A URL that turns out to be a page is refused with a pointer to ``/scan``,
+        since a page can hold any number of media items.
+        """
+        from deepshield.pipeline.analysis_pipeline import DefaultAnalysisPipeline
+        from deepshield.sources import ContentKind, WebSource
+        from deepshield.storage import build_evidence_repository
+
+        source = WebSource(settings.sources, max_depth=0, max_pages=1)
+        direct = [item for item in source.discover(url) if item.found_on is None]
+        if not direct:
+            raise HTTPException(
+                status_code=415,
+                detail="the URL is a page, not an image or video; use POST /scan for pages",
+            )
+        with tempfile.TemporaryDirectory() as raw:
+            fetched = source.fetch(direct[0], Path(raw))
+            pipeline = DefaultAnalysisPipeline(settings)
+            record = (
+                pipeline.analyze_video(fetched.path, user_id)
+                if fetched.item.kind is ContentKind.VIDEO
+                else pipeline.analyze_image(fetched.path, user_id)
+            )
+        record.source_id = fetched.final_uri
+        record.analysis_id = build_evidence_repository(settings).save(record)
+        return record.to_dict()
+
+    @app.post("/scan", summary="Scan URLs and crawl pages for media concerning a user")
+    def scan(request: ScanRequest) -> dict[str, Any]:
+        """Run a bounded scan over URLs; folders are not scannable through the API."""
+        from deepshield.pipeline.scan_pipeline import ScanRunner
+        from deepshield.sources import WebSource
+
+        limits = settings.sources
+        source = WebSource(
+            limits,
+            max_depth=min(request.depth, limits.crawl_max_depth),
+            max_pages=min(request.max_pages or limits.crawl_max_pages, limits.crawl_max_pages),
+            max_media=min(request.max_media or limits.crawl_max_media, limits.crawl_max_media),
+            same_host=request.same_host or limits.crawl_same_host,
+        )
+        report = ScanRunner(settings).run(
+            [(source, url) for url in request.urls], request.user_id
+        )
+        return report.to_dict()
 
     @app.post("/watermark/detect", summary="Attempt watermark extraction from one image")
     def watermark_detect(file: UploadFile = File(...)) -> dict[str, Any]:
