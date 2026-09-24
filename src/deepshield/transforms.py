@@ -14,6 +14,8 @@ parameters are recorded alongside its result.
 from __future__ import annotations
 
 import io
+import shutil
+import subprocess
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any
@@ -21,7 +23,7 @@ from typing import Any
 import numpy as np
 from PIL import Image, ImageEnhance, ImageFilter
 
-from deepshield.exceptions import ConfigurationError
+from deepshield.exceptions import ConfigurationError, ModelNotAvailableError
 from deepshield.media import validate_rgb
 
 TransformFn = Callable[..., np.ndarray]
@@ -106,6 +108,51 @@ def downscale(
     height, width = array.shape[:2]
     target = (max(1, int(width * scale)), max(1, int(height * scale)))
     return _to_array(_to_pil(array).resize(target, Image.Resampling.LANCZOS))
+
+
+@register_transform("video_compression")
+def video_compression(
+    image: np.ndarray,
+    rng: np.random.Generator | None = None,
+    scale: float = 1.0,
+    crf: int = 23,
+) -> np.ndarray:
+    """Round-trip a frame through H.264 at a constant rate factor.
+
+    Distributed video is re-encoded with a block codec whose artefacts differ
+    from JPEG's, and a face in it is usually small. ``scale`` shrinks the frame
+    first, without restoring it, to put the face at the size video delivers.
+    Needs the ``ffmpeg`` binary.
+    """
+    executable = shutil.which("ffmpeg")
+    if executable is None:
+        raise ModelNotAvailableError("video_compression needs the ffmpeg binary on PATH")
+    array = downscale(image, rng, scale=scale) if scale != 1.0 else validate_rgb(image)
+    height, width = array.shape[:2]
+    frame = np.ascontiguousarray(array[: height - height % 2, : width - width % 2])
+    height, width = frame.shape[:2]
+    if height < 2 or width < 2:
+        raise ConfigurationError("video_compression needs a frame of at least 2x2 pixels")
+    encoded = subprocess.run(
+        [
+            executable, "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
+            "-s", f"{width}x{height}", "-i", "-", "-c:v", "libx264", "-crf", str(int(crf)),
+            "-pix_fmt", "yuv420p", "-f", "h264", "-",
+        ],
+        input=frame.tobytes(),
+        capture_output=True,
+        check=True,
+    ).stdout
+    decoded = subprocess.run(
+        [executable, "-loglevel", "error", "-f", "h264", "-i", "-",
+         "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+        input=encoded,
+        capture_output=True,
+        check=True,
+    ).stdout
+    return np.frombuffer(decoded, dtype=np.uint8)[: height * width * 3].reshape(
+        height, width, 3
+    ).copy()
 
 
 @register_transform("crop")

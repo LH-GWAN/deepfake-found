@@ -68,6 +68,7 @@ DEGRADATIONS: dict[str, tuple[str, dict[str, Any]]] = {
     "crop_20": ("crop", {"ratio": 0.2}),
     "blur_3": ("blur", {"sigma": 3.0}),
     "screenshot": ("screenshot_simulation", {"scale": 0.6, "quality": 60}),
+    "video_small": ("video_compression", {"scale": 0.55, "crf": 35}),
 }
 
 

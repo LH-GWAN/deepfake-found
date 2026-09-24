@@ -1,0 +1,97 @@
+{
+  "question": "does the video pipeline find the user's face swapped into a clip?",
+  "clip": "split_10s.mp4",
+  "clip_frames": 300,
+  "clip_fps": 30.100334448160535,
+  "sampling_fps": 2.0,
+  "identities": 10,
+  "frames_the_swapper_could_not_process": 0,
+  "situations": {
+    "original": {
+      "expected": "unrelated",
+      "cases": 10,
+      "as_expected": 10,
+      "verdicts": {
+        "unrelated": 10
+      },
+      "swapped_frames_sampled": 0,
+      "mean_seconds": 1.854
+    },
+    "full": {
+      "expected": "identity_match",
+      "cases": 10,
+      "as_expected": 10,
+      "verdicts": {
+        "identity_match": 10
+      },
+      "swapped_frames_sampled": 20,
+      "mean_seconds": 1.868
+    },
+    "second_scene": {
+      "expected": "identity_match",
+      "cases": 10,
+      "as_expected": 10,
+      "verdicts": {
+        "identity_match": 10
+      },
+      "swapped_frames_sampled": 14,
+      "mean_seconds": 1.862
+    },
+    "partial_2s": {
+      "expected": "identity_match",
+      "cases": 10,
+      "as_expected": 10,
+      "verdicts": {
+        "identity_match": 10
+      },
+      "swapped_frames_sampled": 4,
+      "mean_seconds": 1.844
+    },
+    "partial_1s": {
+      "expected": "identity_match",
+      "cases": 10,
+      "as_expected": 10,
+      "verdicts": {
+        "identity_match": 10
+      },
+      "swapped_frames_sampled": 2,
+      "mean_seconds": 1.863
+    },
+    "partial_half_s": {
+      "expected": "identity_match",
+      "cases": 10,
+      "as_expected": 10,
+      "verdicts": {
+        "identity_match": 10
+      },
+      "swapped_frames_sampled": 1,
+      "mean_seconds": 1.835
+    },
+    "full_crf35": {
+      "expected": "identity_match",
+      "cases": 10,
+      "as_expected": 10,
+      "verdicts": {
+        "identity_match": 10
+      },
+      "swapped_frames_sampled": 20,
+      "mean_seconds": 1.843
+    }
+  },
+  "environment": {
+    "deepshield_version": "0.1.0",
+    "git_commit": "4093ffac45fb6b9241ec697aaa3cea5cd82c5579",
+    "python": "3.12.10",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "numpy": "2.5.3",
+    "random_seed": 42,
+    "device": "cpu",
+    "face_detector": "opencv_yunet",
+    "face_aligner": "landmark",
+    "face_embedder": "insightface",
+    "deepfake_detector": "spectral",
+    "watermark_backend": "dct",
+    "watermark_strength": 0.16,
+    "recorded_at": "2026-09-24T13:54:59.001429+00:00"
+  }
+}

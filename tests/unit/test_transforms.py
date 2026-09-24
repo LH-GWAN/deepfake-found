@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import shutil
+
 import numpy as np
 import pytest
 import yaml
@@ -14,7 +16,9 @@ from deepshield.transforms import (
     TransformationPipeline,
 )
 
-ALL_TYPES = sorted(TRANSFORMS)
+ALL_TYPES = sorted(
+    name for name in TRANSFORMS if name != "video_compression" or shutil.which("ffmpeg")
+)
 
 
 @pytest.mark.parametrize("transform_type", ALL_TYPES)
@@ -111,3 +115,12 @@ def test_pipeline_records_its_parameters() -> None:
     payload = pipeline.to_dict()
     assert payload["seed"] == 42
     assert payload["transformations"][0]["params"] == {"quality": 70}
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="needs the ffmpeg binary")
+def test_video_compression_shrinks_and_degrades(photo: np.ndarray) -> None:
+    light = Transformation("v", "video_compression", {"crf": 18}).apply(photo)
+    heavy = Transformation("v", "video_compression", {"crf": 40}).apply(photo)
+    small = Transformation("v", "video_compression", {"scale": 0.5, "crf": 35}).apply(photo)
+    assert psnr(photo, light) > psnr(photo, heavy)
+    assert small.shape == (photo.shape[0] // 2, photo.shape[1] // 2, 3)
