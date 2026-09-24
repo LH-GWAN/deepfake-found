@@ -113,3 +113,73 @@ def test_analysis_pipeline_delegates_video(config, two_scene_clip: Path) -> None
 
     record = DefaultAnalysisPipeline(config).analyze_video(two_scene_clip)
     assert record.media_type.value == "video"
+
+
+def test_a_swap_inside_a_genuine_track_is_found(config, tmp_path: Path) -> None:
+    """A spliced deepfake joins the genuine track around it; it must still be compared.
+
+    The track's representative is a genuine frame, as the detection-confidence
+    rule picks it on real footage. Only the third sampled frame carries the
+    user's face.
+    """
+    from deepshield.pipeline.analysis_pipeline import DefaultAnalysisPipeline
+    from deepshield.storage import build_identity_repository
+    from deepshield.types import IdentityProfile, Verdict
+    from deepshield.video.sampler import FrameSampler, SampledFrame
+    from deepshield.video.tracker import FaceTrack, FaceTracker
+    from tests.conftest import synthetic_photo
+    from tests.integration.test_verdicts import CoarseLayoutEmbedder, replace_face
+
+    stranger = synthetic_photo(seed=200, size=256)
+    user = synthetic_photo(seed=5, size=256)
+    images = [stranger, stranger, replace_face(stranger, user), stranger]
+
+    class StillFrames(FrameSampler):
+        def probe(self, video_path: Path) -> dict:
+            return {"frame_count": len(images), "fps": 1.0}
+
+        def sample(self, video_path: Path) -> list[SampledFrame]:
+            return [
+                SampledFrame(image=image, frame_number=n, timestamp_seconds=float(n))
+                for n, image in enumerate(images)
+            ]
+
+    class OneTrack(FaceTracker):
+        def track(self, detections_per_frame, frames=None) -> list[FaceTrack]:
+            faces = [face for per_frame in detections_per_frame for face in per_frame]
+            return [
+                FaceTrack(
+                    track_id=0,
+                    faces=faces,
+                    frame_indices=list(range(len(faces))),
+                    representative_index=0,
+                )
+            ]
+
+        def select_representative(self, track, frames=None) -> FaceTrack:
+            return track
+
+    analysis = DefaultAnalysisPipeline(config, embedder=CoarseLayoutEmbedder())
+    face = analysis.detector.detect(user)[0]
+    vector = analysis.embedder.embed(analysis.aligner.align(user, face).image).vector
+    build_identity_repository(config).save(
+        IdentityProfile(
+            user_id="u1",
+            reference_embeddings=vector[None, :],
+            centroid_embedding=vector,
+            image_count=1,
+            model=analysis.embedder.model_info,
+            embedding_dimension=analysis.embedder.dimension,
+        )
+    )
+    placeholder = tmp_path / "clip.mp4"
+    placeholder.write_bytes(b"frames are supplied by the sampler")
+
+    record = DefaultVideoProcessor(
+        config, analysis=analysis, sampler=StillFrames(), tracker=OneTrack()
+    ).analyze(placeholder, "u1")
+
+    assert record.risk is not None
+    assert record.risk.verdict is Verdict.IDENTITY_MATCH
+    assert record.faces[0]["representative_frame"] == 0
+    assert record.faces[0]["identity_frame"] == 2
