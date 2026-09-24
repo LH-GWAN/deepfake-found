@@ -219,7 +219,12 @@ class IdentityProfile:
 
 @dataclass(frozen=True)
 class SimilarityResult:
-    """Outcome of comparing one probe face against one identity profile."""
+    """Outcome of comparing one probe face against one identity profile.
+
+    ``probe_quality`` and ``probe_face_pixels`` describe the probe face, not the
+    comparison: the pipeline that detected the face records them so the verdict
+    engine can tell a face that does not match from one too degraded to match.
+    """
 
     matched_user_id: str | None
     similarity: float
@@ -232,6 +237,7 @@ class SimilarityResult:
     runner_up_similarity: float | None = None
     margin: float | None = None
     probe_quality: float | None = None
+    probe_face_pixels: float | None = None
     decision: str = "no_match"
 
     def to_dict(self) -> dict[str, Any]:
@@ -423,7 +429,13 @@ class RiskEvidence:
     not a probability, and the calibrated decision is what carries its meaning.
     ``owner_face_in_original`` is ``True`` when the registered original shows the
     subject's face, ``False`` when it shows no face resembling them, and ``None``
-    when that could not be established.
+    when that could not be established. ``probe_quality`` and
+    ``probe_face_pixels`` describe the face the identity decision was made on. A
+    small face can fail to match its own owner under heavy compression, so a
+    missed match on one is not read as someone else's face; quality is reported
+    but does not decide, because a swapped face is softer than a genuine one.
+    ``copy_scale`` is the content's size relative to the registered original it
+    descends from, when both are known.
     """
 
     subject_user_id: str | None = None
@@ -431,6 +443,9 @@ class RiskEvidence:
     faces_detected: int = 0
     identity_decision: str | None = None
     identity_similarity: float | None = None
+    probe_quality: float | None = None
+    probe_face_pixels: float | None = None
+    copy_scale: float | None = None
     asset_id: str | None = None
     asset_owner: str | None = None
     asset_match_basis: str | None = None

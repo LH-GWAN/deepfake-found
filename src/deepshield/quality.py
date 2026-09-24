@@ -154,3 +154,22 @@ def face_quality_score(
     sharpness = laplacian_variance(crop)
     sharpness_score = min(1.0, max(0.0, sharpness / max(reference_sharpness, 1e-9)))
     return float(min(size_score, sharpness_score))
+
+
+SMALL_PROBE_FACE_PIXELS = 80.0
+
+
+def is_small_probe_face(face_pixels: float | None) -> bool:
+    """Return whether a face is too small for a missed match to rule anyone out.
+
+    Heavy video compression pushes a genuine face under 80 pixels below the
+    review threshold while leaving other people's scores where they were, so a
+    miss on such a face is absence of evidence, not someone else's face.
+
+    Sharpness is deliberately not part of the rule. A swapped face is redrawn
+    and pasted back, and it is softer than the photograph around it; a gate on
+    quality would excuse exactly the faces a swap produces. An unknown size
+    counts as not small, which keeps the earlier behaviour for callers that do
+    not record it.
+    """
+    return face_pixels is not None and face_pixels < SMALL_PROBE_FACE_PIXELS

@@ -36,7 +36,10 @@ of computing one:
     The best face cleared the candidate threshold but not the confidence
     threshold, or resembled two enrolled identities equally.
 ``unrelated`` / ``inconclusive``
-    No face resembling the subject, or nothing to compare against.
+    No face resembling the subject, or nothing to compare against. When the only
+    faces are too small to match reliably, ``unrelated`` says it cannot rule the
+    subject out, and a registered copy shrunk until its face is that small is
+    ``own_unverified`` rather than ``own_altered``.
 
 Registered-origin evidence is taken first because it is the most specific: a
 matching file hash or watermark code names one asset, while a face match names
@@ -49,6 +52,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from deepshield.config import Thresholds
+from deepshield.quality import is_small_probe_face
 from deepshield.types import RiskAssessment, RiskEvidence, RiskLevel, Verdict
 
 BASE_LIMITATIONS = [
@@ -58,7 +62,24 @@ BASE_LIMITATIONS = [
     "High face similarity alone is expected for genuine photographs of the user.",
 ]
 
+SMALL_FACE_LIMITATION = (
+    "A face under 80 pixels can fail to match its own owner under heavy compression, so "
+    "finding no match on it does not show that it is someone else's face."
+)
+SHRUNK_COPY_SCALE = 0.9
+
 EXACT_MATCH_BASIS = "exact file hash"
+
+
+def _face_detail(evidence: RiskEvidence) -> str:
+    """Return the size and quality of the decisive face, for the explanation."""
+    parts = []
+    if evidence.probe_face_pixels is not None:
+        parts.append(f"{evidence.probe_face_pixels:.0f} pixels")
+    if evidence.probe_quality is not None:
+        parts.append(f"quality {evidence.probe_quality:.2f}")
+    return f" ({', '.join(parts)})" if parts else ""
+
 
 VERDICT_LEVELS: dict[Verdict, RiskLevel] = {
     Verdict.INCONCLUSIVE: RiskLevel.LOW,
@@ -187,6 +208,20 @@ class VerdictRiskScorer(RiskScorer):
                 "A face resembles yours only weakly, which a heavily degraded copy can also "
                 "produce."
             )
+        elif is_small_probe_face(evidence.probe_face_pixels) and (
+            evidence.copy_scale is None or evidence.copy_scale < SHRUNK_COPY_SCALE
+        ):
+            shrunk = (
+                ""
+                if evidence.copy_scale is None
+                else f" The copy is {evidence.copy_scale:.0%} of the registered original's size."
+            )
+            reasons.append(
+                f"The face in this copy is too small{_face_detail(evidence)} to tell whether "
+                "it is still yours: a genuine face this small can fail to match, so a replaced "
+                f"face cannot be told apart from a shrunk one.{shrunk}"
+            )
+            limitations.append(SMALL_FACE_LIMITATION)
         elif original is True:
             reasons.append(
                 "The registered original shows your face, but the face in this copy does not "
@@ -246,6 +281,14 @@ class VerdictRiskScorer(RiskScorer):
                 f"{similarity}."
             )
             return Verdict.REVIEW, None
+        if is_small_probe_face(evidence.probe_face_pixels):
+            reasons.append(
+                f"No face cleared the review threshold{similarity}, but the best face is too "
+                f"small{_face_detail(evidence)} to rule you out: a genuine photograph of you "
+                "can score this low at that size."
+            )
+            limitations.append(SMALL_FACE_LIMITATION)
+            return Verdict.UNRELATED, None
         reasons.append(f"No face resembles you{similarity}.")
         return Verdict.UNRELATED, None
 

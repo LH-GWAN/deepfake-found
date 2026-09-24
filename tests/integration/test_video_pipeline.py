@@ -183,3 +183,6 @@ def test_a_swap_inside_a_genuine_track_is_found(config, tmp_path: Path) -> None:
     assert record.risk.verdict is Verdict.IDENTITY_MATCH
     assert record.faces[0]["representative_frame"] == 0
     assert record.faces[0]["identity_frame"] == 2
+    assert record.faces[0]["face_pixels"] == 128.0
+    assert 0.0 <= record.faces[0]["probe_quality"] <= 1.0
+    assert record.risk.signals["probe_face_pixels"] == 128.0

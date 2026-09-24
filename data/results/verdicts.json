@@ -3,7 +3,9 @@
   "identities": 30,
   "situations": {
     "repost": {
-      "expected": "own_copy",
+      "expected": [
+        "own_copy"
+      ],
       "cases": 30,
       "as_expected": 30,
       "verdicts": {
@@ -11,10 +13,15 @@
       },
       "levels": {
         "LOW": 30
+      },
+      "identity_decisions": {
+        "high_confidence": 30
       }
     },
     "recompressed": {
-      "expected": "own_copy",
+      "expected": [
+        "own_copy"
+      ],
       "cases": 30,
       "as_expected": 30,
       "verdicts": {
@@ -22,10 +29,36 @@
       },
       "levels": {
         "LOW": 30
+      },
+      "identity_decisions": {
+        "high_confidence": 30
+      }
+    },
+    "shrunk_repost": {
+      "expected": [
+        "own_copy",
+        "own_unverified"
+      ],
+      "cases": 30,
+      "as_expected": 30,
+      "verdicts": {
+        "own_unverified": 21,
+        "own_copy": 9
+      },
+      "levels": {
+        "MEDIUM": 21,
+        "LOW": 9
+      },
+      "identity_decisions": {
+        "no_match": 17,
+        "high_confidence": 9,
+        "candidate": 4
       }
     },
     "genuine": {
-      "expected": "identity_match",
+      "expected": [
+        "identity_match"
+      ],
       "cases": 30,
       "as_expected": 30,
       "verdicts": {
@@ -33,10 +66,15 @@
       },
       "levels": {
         "MEDIUM": 30
+      },
+      "identity_decisions": {
+        "high_confidence": 30
       }
     },
     "gan_source": {
-      "expected": "identity_match",
+      "expected": [
+        "identity_match"
+      ],
       "cases": 30,
       "as_expected": 30,
       "verdicts": {
@@ -44,10 +82,15 @@
       },
       "levels": {
         "MEDIUM": 30
+      },
+      "identity_decisions": {
+        "high_confidence": 30
       }
     },
     "gan_target": {
-      "expected": "own_altered",
+      "expected": [
+        "own_altered"
+      ],
       "cases": 30,
       "as_expected": 30,
       "verdicts": {
@@ -55,10 +98,15 @@
       },
       "levels": {
         "HIGH": 30
+      },
+      "identity_decisions": {
+        "no_match": 30
       }
     },
     "gan_target_orphan": {
-      "expected": "own_unverified",
+      "expected": [
+        "own_unverified"
+      ],
       "cases": 30,
       "as_expected": 30,
       "verdicts": {
@@ -66,10 +114,15 @@
       },
       "levels": {
         "MEDIUM": 30
+      },
+      "identity_decisions": {
+        "no_match": 30
       }
     },
     "unrelated": {
-      "expected": "unrelated",
+      "expected": [
+        "unrelated"
+      ],
       "cases": 30,
       "as_expected": 30,
       "verdicts": {
@@ -77,13 +130,16 @@
       },
       "levels": {
         "LOW": 30
+      },
+      "identity_decisions": {
+        "no_match": 30
       }
     }
   },
   "not_built": {},
   "environment": {
     "deepshield_version": "0.1.0",
-    "git_commit": "624f66ad26ec4441afd6debe917b8f3eec4f829d",
+    "git_commit": "6a11691d36df8a0c08e7cf309512f2a63f5a8942",
     "python": "3.12.10",
     "platform": "macOS-26.6.2-arm64-arm-64bit",
     "numpy": "2.5.3",
@@ -95,6 +151,6 @@
     "deepfake_detector": "spectral",
     "watermark_backend": "dct",
     "watermark_strength": 0.16,
-    "recorded_at": "2026-09-24T10:01:45.375590+00:00"
+    "recorded_at": "2026-09-24T17:47:27.075992+00:00"
   }
 }
