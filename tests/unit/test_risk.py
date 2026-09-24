@@ -1,139 +1,213 @@
-"""Phase 10: risk features, scoring policy and calibration metrics."""
+"""Phase 10: the verdict engine and the calibration metrics behind it."""
 
 from __future__ import annotations
+
+from typing import Any
 
 import numpy as np
 import pytest
 
-from deepshield.config import (
-    FaceSimilarityThresholds,
-    RiskThresholds,
-    Thresholds,
-)
+from deepshield.config import Thresholds
 from deepshield.exceptions import ConfigurationError
 from deepshield.risk.calibration import ThresholdCalibrator, pair_scores, roc_curve
-from deepshield.risk.features import DefaultRiskFeatureBuilder
-from deepshield.risk.scorer import WeightedRiskScorer
-from deepshield.types import RiskLevel
+from deepshield.risk.scorer import VerdictRiskScorer
+from deepshield.types import RiskAssessment, RiskEvidence, RiskLevel, Verdict
 
 
-def calibrated_thresholds() -> Thresholds:
+def calibrated_detector() -> Thresholds:
     base = Thresholds()
     return base.model_copy(
-        update={
-            "face_similarity": FaceSimilarityThresholds(
-                calibrated=True, calibration_source="test"
-            ),
-            "deepfake": base.deepfake.model_copy(update={"calibrated": True}),
-        }
+        update={"deepfake": base.deepfake.model_copy(update={"calibrated": True})}
     )
 
 
-def test_missing_signals_stay_none_not_zero() -> None:
-    """A failed detector must never be scored as evidence of safety."""
-    features = DefaultRiskFeatureBuilder().build({}).features
-    assert features.face_similarity is None
-    assert features.deepfake_score is None
+def evidence(**overrides: Any) -> RiskEvidence:
+    fields: dict[str, Any] = {
+        "subject_user_id": "u1",
+        "identities_compared": True,
+        "faces_detected": 1,
+    }
+    fields.update(overrides)
+    return RiskEvidence(**fields)
 
 
-def test_absent_watermark_is_neutral_not_scored() -> None:
-    builder = DefaultRiskFeatureBuilder()
-    absent = builder.build({"watermark_detected": False, "watermark_confidence": 0.9})
-    present = builder.build({"watermark_detected": True, "watermark_confidence": 0.9})
-    assert absent.features.watermark_confidence is None
-    assert present.features.watermark_confidence == 0.9
-
-
-def test_negative_similarity_is_clamped_not_negative() -> None:
-    features = DefaultRiskFeatureBuilder().build({"face_similarity": -0.4}).features
-    assert features.face_similarity == 0.0
-
-
-def test_uncalibrated_signals_are_flagged() -> None:
-    feature_set = DefaultRiskFeatureBuilder().build(
-        {"face_similarity": 0.9, "deepfake_score": 0.8}
+def own_asset(**overrides: Any) -> RiskEvidence:
+    return evidence(
+        asset_id="a1",
+        asset_owner="u1",
+        asset_match_basis="watermark code",
+        distribution_id="instagram",
+        **overrides,
     )
-    assert set(feature_set.uncalibrated_names()) == {"face_similarity", "deepfake_score"}
 
 
-def test_uncalibrated_signals_are_excluded_from_the_score() -> None:
-    thresholds = Thresholds()
-    feature_set = DefaultRiskFeatureBuilder(thresholds).build({"face_similarity": 0.99})
-    assessment = WeightedRiskScorer(thresholds.risk).score(feature_set)
-    assert assessment.risk_score == 0
-    assert "face_similarity" in assessment.signals["excluded"]
-    assert any("not calibrated" in line for line in assessment.limitations)
+def assess(item: RiskEvidence, thresholds: Thresholds | None = None) -> RiskAssessment:
+    return VerdictRiskScorer(thresholds).assess(item)
 
 
-def test_calibrated_signals_are_scored() -> None:
-    thresholds = calibrated_thresholds()
-    feature_set = DefaultRiskFeatureBuilder(thresholds).build({"face_similarity": 0.99})
-    assessment = WeightedRiskScorer(thresholds.risk).score(feature_set)
-    assert assessment.risk_score == 99
-    assert assessment.risk_level == RiskLevel.CRITICAL
+def test_own_photo_reposted_is_a_copy_not_a_threat() -> None:
+    """The regression that motivated verdicts: the user's own photo once scored CRITICAL."""
+    result = assess(own_asset(identity_decision="high_confidence", identity_similarity=0.83))
+    assert result.verdict is Verdict.OWN_COPY
+    assert result.risk_level is RiskLevel.LOW
+    assert any("instagram" in line for line in result.explanation)
 
 
-def test_trust_uncalibrated_can_be_enabled_explicitly() -> None:
-    thresholds = Thresholds()
-    feature_set = DefaultRiskFeatureBuilder(thresholds).build({"face_similarity": 0.8})
-    assessment = WeightedRiskScorer(thresholds.risk, trust_uncalibrated=True).score(feature_set)
-    assert assessment.risk_score == 80
+def test_a_face_swap_of_the_user_outranks_their_own_repost() -> None:
+    repost = assess(own_asset(identity_decision="high_confidence", identity_similarity=0.83))
+    swap = assess(evidence(identity_decision="high_confidence", identity_similarity=0.66))
+    assert swap.verdict is Verdict.IDENTITY_MATCH
+    order = list(RiskLevel)
+    assert order.index(swap.risk_level) > order.index(repost.risk_level)
 
 
-def test_weights_are_renormalised_over_present_signals() -> None:
-    """A signal that could not be computed lowers coverage, not the score."""
-    thresholds = calibrated_thresholds()
-    builder = DefaultRiskFeatureBuilder(thresholds)
-    scorer = WeightedRiskScorer(thresholds.risk)
-    only_face = scorer.score(builder.build({"face_similarity": 1.0}))
-    assert only_face.risk_score == 100
-    assert only_face.signals["coverage"] < 1.0
-
-
-def test_coverage_shortfall_is_reported() -> None:
-    thresholds = calibrated_thresholds()
-    assessment = WeightedRiskScorer(thresholds.risk).score(
-        DefaultRiskFeatureBuilder(thresholds).build({"face_similarity": 0.5})
-    )
-    assert any("signal weight was available" in line for line in assessment.limitations)
-
-
-def test_no_signals_yields_an_undefined_score() -> None:
-    assessment = WeightedRiskScorer().score(DefaultRiskFeatureBuilder().build({}))
-    assert assessment.risk_score == 0
-    assert assessment.risk_level == RiskLevel.LOW
-    assert any("undefined" in line for line in assessment.limitations)
+def test_an_identity_match_admits_it_cannot_tell_real_from_synthetic() -> None:
+    result = assess(evidence(identity_decision="high_confidence", deepfake_score=0.97))
+    assert result.verdict is Verdict.IDENTITY_MATCH
+    assert result.risk_level is RiskLevel.MEDIUM
+    assert any("cannot be determined" in line for line in result.explanation)
+    assert any("did not affect the verdict" in line for line in result.explanation)
+    assert any("uncalibrated" in line for line in result.limitations)
 
 
 @pytest.mark.parametrize(
-    ("score", "level"),
-    [(0, RiskLevel.LOW), (39, RiskLevel.LOW), (40, RiskLevel.MEDIUM),
-     (70, RiskLevel.HIGH), (85, RiskLevel.CRITICAL), (100, RiskLevel.CRITICAL)],
+    ("score", "level"), [(0.6, RiskLevel.HIGH), (0.9, RiskLevel.CRITICAL)]
 )
-def test_level_bands(score: int, level: RiskLevel) -> None:
-    assert WeightedRiskScorer(RiskThresholds()).level_for(score) == level
-
-
-def test_explanation_names_every_contribution() -> None:
-    thresholds = calibrated_thresholds()
-    feature_set = DefaultRiskFeatureBuilder(thresholds).build(
-        {
-            "face_similarity": 0.9,
-            "deepfake_score": 0.8,
-            "watermark_detected": True,
-            "watermark_confidence": 1.0,
-        }
+def test_a_calibrated_detector_raises_an_identity_match(score: float, level: RiskLevel) -> None:
+    result = assess(
+        evidence(
+            identity_decision="high_confidence", deepfake_score=score, deepfake_calibrated=True
+        ),
+        calibrated_detector(),
     )
-    assessment = WeightedRiskScorer(thresholds.risk).score(feature_set)
-    text = " ".join(assessment.explanation)
-    assert "face_similarity" in text
-    assert "deepfake_score" in text
-    assert "watermark_confidence" in text
+    assert result.verdict is Verdict.SYNTHETIC_SUSPECTED
+    assert result.risk_level is level
+
+
+def test_a_calibrated_detector_below_threshold_leaves_the_match() -> None:
+    result = assess(
+        evidence(
+            identity_decision="high_confidence", deepfake_score=0.1, deepfake_calibrated=True
+        ),
+        calibrated_detector(),
+    )
+    assert result.verdict is Verdict.IDENTITY_MATCH
+
+
+def test_own_photo_with_another_face_is_an_alteration() -> None:
+    """The target direction: someone else's face placed on the user's protected photo."""
+    result = assess(own_asset(identity_decision="no_match", owner_face_in_original=True))
+    assert result.verdict is Verdict.OWN_ALTERED
+    assert result.risk_level is RiskLevel.HIGH
+
+
+def test_own_photo_that_never_showed_the_user_is_a_copy() -> None:
+    result = assess(own_asset(identity_decision="no_match", owner_face_in_original=False))
+    assert result.verdict is Verdict.OWN_COPY
+
+
+def test_alteration_needs_the_original_to_be_checkable() -> None:
+    result = assess(own_asset(identity_decision="no_match", owner_face_in_original=None))
+    assert result.verdict is Verdict.OWN_UNVERIFIED
+    assert result.risk_level is RiskLevel.MEDIUM
+    assert any("missing or unreadable" in line for line in result.limitations)
+
+
+@pytest.mark.parametrize("decision", ["candidate", "ambiguous"])
+def test_a_weak_resemblance_is_not_called_an_alteration(decision: str) -> None:
+    result = assess(own_asset(identity_decision=decision, owner_face_in_original=True))
+    assert result.verdict is Verdict.OWN_UNVERIFIED
+
+
+def test_a_copy_with_no_detectable_face_is_not_called_an_alteration() -> None:
+    result = assess(
+        own_asset(faces_detected=0, identity_decision=None, owner_face_in_original=True)
+    )
+    assert result.verdict is Verdict.OWN_UNVERIFIED
+    assert any("cropped out" in line for line in result.explanation)
+
+
+def test_a_byte_identical_copy_is_a_copy_whatever_the_faces() -> None:
+    result = assess(
+        evidence(
+            asset_id="a1",
+            asset_owner="u1",
+            asset_match_basis="exact file hash",
+            identity_decision="no_match",
+        )
+    )
+    assert result.verdict is Verdict.OWN_COPY
+
+
+def test_an_unenrolled_owner_cannot_be_checked_for_face_changes() -> None:
+    result = assess(own_asset(identities_compared=False, identity_decision=None))
+    assert result.verdict is Verdict.OWN_UNVERIFIED
+    assert any("Enroll the asset owner" in line for line in result.limitations)
+
+
+def test_a_regenerated_face_on_the_users_photo_is_an_alteration() -> None:
+    result = assess(
+        own_asset(
+            identity_decision="high_confidence", deepfake_score=0.9, deepfake_calibrated=True
+        ),
+        calibrated_detector(),
+    )
+    assert result.verdict is Verdict.OWN_ALTERED
+
+
+def test_another_users_asset_is_judged_by_identity_and_named() -> None:
+    result = assess(
+        evidence(
+            asset_id="a9",
+            asset_owner="u2",
+            asset_match_basis="watermark code",
+            identity_decision="high_confidence",
+        )
+    )
+    assert result.verdict is Verdict.IDENTITY_MATCH
+    assert any("belongs to 'u2'" in line for line in result.explanation)
+
+
+@pytest.mark.parametrize("decision", ["candidate", "ambiguous"])
+def test_borderline_identity_is_a_review(decision: str) -> None:
+    result = assess(evidence(identity_decision=decision, identity_similarity=0.38))
+    assert result.verdict is Verdict.REVIEW
+    assert result.risk_level is RiskLevel.LOW
+
+
+def test_no_resemblance_is_unrelated() -> None:
+    assert assess(evidence(identity_decision="no_match")).verdict is Verdict.UNRELATED
+
+
+def test_no_face_is_unrelated_and_says_so() -> None:
+    result = assess(evidence(faces_detected=0))
+    assert result.verdict is Verdict.UNRELATED
+    assert any("No face was detected" in line for line in result.explanation)
+
+
+def test_nothing_to_compare_is_inconclusive_not_unrelated() -> None:
+    result = assess(RiskEvidence())
+    assert result.verdict is Verdict.INCONCLUSIVE
+
+
+def test_uncalibrated_detector_never_changes_a_verdict() -> None:
+    for score in (0.0, 0.5, 1.0):
+        result = assess(evidence(identity_decision="high_confidence", deepfake_score=score))
+        assert result.verdict is Verdict.IDENTITY_MATCH
 
 
 def test_base_limitations_are_always_present() -> None:
-    assessment = WeightedRiskScorer().score(DefaultRiskFeatureBuilder().build({}))
-    assert any("training data" in line for line in assessment.limitations)
+    result = assess(RiskEvidence())
+    assert any("training data" in line for line in result.limitations)
+
+
+def test_assessment_serialises_verdict_and_signals() -> None:
+    payload = assess(own_asset(identity_decision="high_confidence")).to_dict()
+    assert payload["verdict"] == "own_copy"
+    assert payload["risk_level"] == "LOW"
+    assert payload["subject_user_id"] == "u1"
+    assert payload["signals"]["asset_match_basis"] == "watermark code"
+    assert "risk_score" not in payload
 
 
 def test_roc_is_perfect_on_separable_data() -> None:

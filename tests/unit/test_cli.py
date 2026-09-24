@@ -153,3 +153,23 @@ def test_doctor_reports_model_presence(capsys: pytest.CaptureFixture[str]) -> No
 
 def test_description_states_the_attribution_limit() -> None:
     assert "training data" in build_parser().description
+
+
+def test_a_stored_record_from_before_verdicts_still_renders() -> None:
+    """Evidence saved by the weighted scorer carries risk_score and no verdict."""
+    from deepshield.cli import _render_evidence
+
+    legacy = {
+        "source_id": "old.jpg",
+        "media": {"type": "image", "sha256": "0" * 64},
+        "summary": "",
+        "identity": {"similarity": 0.9, "matched_user_id": "u1"},
+        "deepfake": {"score": None},
+        "watermark": {"detected": False, "confidence": 0.0, "code": None},
+        "fingerprint": {"perceptual_similarity": None},
+        "provenance": {"confidence": None},
+        "risk": {"risk_score": 84, "risk_level": "HIGH", "explanation": []},
+        "limitations": [],
+    }
+    text = "\n".join(_render_evidence(legacy))
+    assert "legacy score 84" in text

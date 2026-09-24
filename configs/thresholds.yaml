@@ -21,16 +21,3 @@ fingerprint:
   dhash_hamming_threshold: 12
   semantic_similarity_threshold: 0.8
   evidence_similarity_threshold: 0.8125
-
-risk:
-  weights:
-    face_similarity: 0.40
-    deepfake_score: 0.30
-    watermark_confidence: 0.15
-    fingerprint_similarity: 0.10
-    provenance_confidence: 0.05
-  levels:
-    low: 0
-    medium: 40
-    high: 70
-    critical: 85

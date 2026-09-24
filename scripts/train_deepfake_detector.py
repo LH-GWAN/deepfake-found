@@ -3,8 +3,8 @@
 The synthetic-media signal is the one piece of evidence DeepShield computes but
 does not score, because no threshold had ever been fitted for it. This script
 fits one, on the manipulation set built by ``build_manipulation_set.py``, and
-reports the operating characteristics that decide whether the signal may enter
-the risk score at all.
+reports the operating characteristics that decide whether the signal may ever
+change a verdict.
 
 Two rules keep the result honest:
 
@@ -23,7 +23,7 @@ degraded evaluation
     compression erodes.
 
 If the held-out result is not clearly better than chance, the threshold stays
-uncalibrated and the signal stays out of the risk score. That is a real possible
+uncalibrated and the signal never changes a verdict. That is a real possible
 outcome of running this script, not a failure of it.
 
 Usage:

@@ -88,7 +88,8 @@ def test_full_workflow(workspace, capsys: pytest.CaptureFixture[str]) -> None:
     assert analysis["watermark"]["detected"] is True
     assert analysis["fingerprint"]["matched_asset_id"] == protect["asset_id"]
     assert analysis["provenance"]["confidence"] == 1.0
-    assert analysis["risk"]["risk_score"] > 0
+    assert analysis["risk"]["verdict"] == "own_copy"
+    assert analysis["risk"]["risk_level"] == "LOW"
     assert analysis["limitations"]
 
     assert run(config_path, "report", analysis["analysis_id"]) == EXIT_OK

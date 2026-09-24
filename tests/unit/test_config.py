@@ -57,6 +57,32 @@ def test_uncalibrated_thresholds_stay_marked(project_root: Path) -> None:
     assert config.thresholds.deepfake.calibrated is False
 
 
+def test_an_adopted_detector_block_loads(project_root: Path, tmp_path: Path) -> None:
+    """The block ``evaluate_deepfake_detectors.py --write`` writes must be loadable."""
+    shipped = (project_root / "configs" / "thresholds.yaml").read_text(encoding="utf-8")
+    head, _, rest = shipped.partition("deepfake:")
+    _, _, tail = rest.partition("\n\n")
+    adopted = tmp_path / "thresholds.yaml"
+    adopted.write_text(
+        head
+        + "deepfake:\n"
+        + "  suspicious_threshold: 0.6100\n"
+        + "  high_confidence_threshold: 0.9000\n"
+        + "  calibrated: true\n"
+        + "  calibration_source: data/results/deepfake_detector_survey.json\n"
+        + "\n"
+        + tail,
+        encoding="utf-8",
+    )
+    config = load_config(
+        config_path=project_root / "configs" / "default.yaml",
+        thresholds_path=adopted,
+        environ={},
+    )
+    assert config.thresholds.deepfake.calibrated is True
+    assert config.thresholds.deepfake.calibration_source
+
+
 def test_deep_merge_does_not_mutate_inputs() -> None:
     base = {"a": {"b": 1, "c": 2}}
     override = {"a": {"c": 3}, "d": 4}

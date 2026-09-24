@@ -1,0 +1,187 @@
+{
+  "question": "does identity matching find the donor whose face a swap used?",
+  "evaluation_faces": "data/test/eval_faces",
+  "embedders": {
+    "insightface": {
+      "identities": 30,
+      "thresholds_apply": true,
+      "genuine_control": {
+        "photos": 170,
+        "similarity": {
+          "mean": 0.7675,
+          "median": 0.7799,
+          "p05": 0.6399
+        },
+        "above_high_confidence": 1.0
+      },
+      "swappers": {
+        "graphics": {
+          "fakes_scored": 169,
+          "fakes_without_a_face": 0,
+          "top1": {
+            "donor": 0.6095,
+            "target": 0.3728,
+            "other": 0.0178
+          },
+          "similarity": {
+            "donor": {
+              "mean": 0.2854,
+              "median": 0.2902,
+              "p05": 0.152
+            },
+            "target": {
+              "mean": 0.2493,
+              "median": 0.2621,
+              "p05": 0.0978
+            },
+            "other": {
+              "mean": 0.1586,
+              "median": 0.1566,
+              "p05": 0.1095
+            }
+          },
+          "genuine_vs_swap_auc": 1.0,
+          "thresholds": {
+            "candidate": 0.3591,
+            "high_confidence": 0.4128
+          },
+          "above_candidate": {
+            "donor": 0.142,
+            "target": 0.0769,
+            "other": 0.0
+          },
+          "above_high_confidence": {
+            "donor": 0.0355,
+            "target": 0.0178,
+            "other": 0.0
+          }
+        },
+        "inswapper": {
+          "fakes_scored": 169,
+          "fakes_without_a_face": 0,
+          "top1": {
+            "donor": 1.0,
+            "target": 0.0,
+            "other": 0.0
+          },
+          "similarity": {
+            "donor": {
+              "mean": 0.6871,
+              "median": 0.6949,
+              "p05": 0.5724
+            },
+            "target": {
+              "mean": 0.0921,
+              "median": 0.0878,
+              "p05": -0.011
+            },
+            "other": {
+              "mean": 0.1562,
+              "median": 0.1543,
+              "p05": 0.1145
+            }
+          },
+          "genuine_vs_swap_auc": 0.8129,
+          "thresholds": {
+            "candidate": 0.3591,
+            "high_confidence": 0.4128
+          },
+          "above_candidate": {
+            "donor": 1.0,
+            "target": 0.0,
+            "other": 0.0
+          },
+          "above_high_confidence": {
+            "donor": 1.0,
+            "target": 0.0,
+            "other": 0.0
+          }
+        }
+      }
+    },
+    "opencv_sface": {
+      "identities": 30,
+      "thresholds_apply": false,
+      "genuine_control": {
+        "photos": 170,
+        "similarity": {
+          "mean": 0.7713,
+          "median": 0.781,
+          "p05": 0.6445
+        }
+      },
+      "swappers": {
+        "graphics": {
+          "fakes_scored": 169,
+          "fakes_without_a_face": 0,
+          "top1": {
+            "donor": 0.2071,
+            "target": 0.7456,
+            "other": 0.0473
+          },
+          "similarity": {
+            "donor": {
+              "mean": 0.3235,
+              "median": 0.3323,
+              "p05": 0.1669
+            },
+            "target": {
+              "mean": 0.4159,
+              "median": 0.4305,
+              "p05": 0.264
+            },
+            "other": {
+              "mean": 0.3093,
+              "median": 0.308,
+              "p05": 0.2498
+            }
+          },
+          "genuine_vs_swap_auc": 1.0
+        },
+        "inswapper": {
+          "fakes_scored": 169,
+          "fakes_without_a_face": 0,
+          "top1": {
+            "donor": 1.0,
+            "target": 0.0,
+            "other": 0.0
+          },
+          "similarity": {
+            "donor": {
+              "mean": 0.6917,
+              "median": 0.6948,
+              "p05": 0.5751
+            },
+            "target": {
+              "mean": 0.2535,
+              "median": 0.2448,
+              "p05": 0.1346
+            },
+            "other": {
+              "mean": 0.3099,
+              "median": 0.3012,
+              "p05": 0.2539
+            }
+          },
+          "genuine_vs_swap_auc": 0.793
+        }
+      }
+    }
+  },
+  "environment": {
+    "deepshield_version": "0.1.0",
+    "git_commit": "624f66ad26ec4441afd6debe917b8f3eec4f829d",
+    "python": "3.12.10",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "numpy": "2.5.3",
+    "random_seed": 42,
+    "device": "cpu",
+    "face_detector": "opencv_yunet",
+    "face_aligner": "landmark",
+    "face_embedder": "insightface",
+    "deepfake_detector": "spectral",
+    "watermark_backend": "dct",
+    "watermark_strength": 0.16,
+    "recorded_at": "2026-09-24T09:54:46.355891+00:00"
+  }
+}

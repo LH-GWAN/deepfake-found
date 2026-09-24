@@ -22,8 +22,9 @@ than a notebook.
 
 With ``--write`` the best qualifying detector is wired in: it becomes the
 configured backend and its thresholds are marked calibrated, which is what lets
-the risk engine start scoring the signal. Nothing is wired in unless a detector
-clears both bars, because a detector that fails them is worse than no detector -
+the risk engine raise an identity match to ``synthetic_suspected``. Nothing is
+wired in unless a detector clears both bars, because a detector that fails them
+is worse than no detector -
 the risk engine already handles a missing signal correctly.
 
 Usage:
@@ -236,7 +237,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             "\nnot adopting any detector: none reached "
             f"AUC {MIN_USEFUL_AUC} with a false positive rate under "
-            f"{MAX_TOLERABLE_FPR:.0%}. The signal stays out of the risk score."
+            f"{MAX_TOLERABLE_FPR:.0%}. The signal still never changes a verdict."
         )
         return 0
 
@@ -277,9 +278,11 @@ def main(argv: list[str] | None = None) -> int:
     _, _, tail = rest.partition("\n\n")
     thresholds_path.write_text(head + block + "\n" + tail, encoding="utf-8")
     print(f"updated {thresholds_path}")
+    adopted = load_config().thresholds.deepfake
     print(
-        f"\nthe deepfake signal now enters the risk score, weighted "
-        f"{load_config().thresholds.risk.weights.deepfake_score:.0%}"
+        "\nthe synthetic-media score can now raise an identity match to "
+        f"'synthetic_suspected' at {adopted.suspicious_threshold:.4f} "
+        f"(CRITICAL at {adopted.high_confidence_threshold:.4f})"
     )
     return 0
 

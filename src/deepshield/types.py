@@ -33,12 +33,31 @@ class MediaType(StrEnum):
 
 
 class RiskLevel(StrEnum):
-    """Qualitative risk band derived from the numeric risk score."""
+    """Urgency attached to a verdict; it ranks verdicts, it does not measure evidence."""
 
     LOW = "LOW"
     MEDIUM = "MEDIUM"
     HIGH = "HIGH"
     CRITICAL = "CRITICAL"
+
+
+class Verdict(StrEnum):
+    """What an analysis concluded about its subject, the enrolled user it concerns.
+
+    Each verdict answers a different question, which is why they are categories
+    rather than points on one scale. A redistributed copy of the user's own
+    protected photograph and a synthetic image of the user's face share most of
+    their signals, yet call for opposite responses.
+    """
+
+    INCONCLUSIVE = "inconclusive"
+    UNRELATED = "unrelated"
+    REVIEW = "review"
+    IDENTITY_MATCH = "identity_match"
+    SYNTHETIC_SUSPECTED = "synthetic_suspected"
+    OWN_COPY = "own_copy"
+    OWN_UNVERIFIED = "own_unverified"
+    OWN_ALTERED = "own_altered"
 
 
 @dataclass(frozen=True)
@@ -382,20 +401,36 @@ class ProvenanceRecord:
 
 
 @dataclass(frozen=True)
-class RiskFeatures:
-    """Normalised signals fed into the risk engine.
+class RiskEvidence:
+    """The facts the verdict engine decides from, about one subject.
 
-    Every field is optional: signals fail independently, and a missing signal
-    must not be silently read as zero risk.
+    Three independent questions feed it: whose face is in the content, whether
+    the content descends from a registered asset, and whether a calibrated
+    detector considers the face synthetic. Every field may be missing, because
+    each question can fail on its own, and a missing answer is reported as
+    missing rather than read as a negative one.
+
+    ``identity_decision`` is the matcher's decision for the subject's best face,
+    one of ``high_confidence``, ``candidate``, ``ambiguous`` or ``no_match``. The
+    raw similarity travels alongside for reporting only: a cosine similarity is
+    not a probability, and the calibrated decision is what carries its meaning.
+    ``owner_face_in_original`` is ``True`` when the registered original shows the
+    subject's face, ``False`` when it shows no face resembling them, and ``None``
+    when that could not be established.
     """
 
-    face_similarity: float | None = None
+    subject_user_id: str | None = None
+    identities_compared: bool = False
+    faces_detected: int = 0
+    identity_decision: str | None = None
+    identity_similarity: float | None = None
+    asset_id: str | None = None
+    asset_owner: str | None = None
+    asset_match_basis: str | None = None
+    distribution_id: str | None = None
+    owner_face_in_original: bool | None = None
     deepfake_score: float | None = None
-    watermark_confidence: float | None = None
-    fingerprint_similarity: float | None = None
-    provenance_confidence: float | None = None
-    manipulation_score: float | None = None
-    source_risk: float | None = None
+    deepfake_calibrated: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serialisable mapping."""
@@ -404,10 +439,11 @@ class RiskFeatures:
 
 @dataclass(frozen=True)
 class RiskAssessment:
-    """Explainable risk output: a score, its evidence and its known limits."""
+    """Explainable outcome: a verdict, its urgency, the reasons and the limits."""
 
-    risk_score: int
+    verdict: Verdict
     risk_level: RiskLevel
+    subject_user_id: str | None = None
     signals: dict[str, Any] = field(default_factory=dict)
     explanation: list[str] = field(default_factory=list)
     limitations: list[str] = field(default_factory=list)
@@ -415,8 +451,9 @@ class RiskAssessment:
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serialisable mapping."""
         return {
-            "risk_score": self.risk_score,
+            "verdict": self.verdict.value,
             "risk_level": self.risk_level.value,
+            "subject_user_id": self.subject_user_id,
             "signals": dict(self.signals),
             "explanation": list(self.explanation),
             "limitations": list(self.limitations),

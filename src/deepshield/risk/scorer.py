@@ -1,35 +1,55 @@
-"""Risk scoring: fusing independent signals into an explainable assessment.
+"""Verdict engine: turning independent evidence into one explainable conclusion.
 
-The score starts as a deterministic weighted rule rather than a learned model.
-A rule can be read, argued with and audited, which matters more at this stage
-than accuracy, and there is no labelled data to fit anything on yet. The
-interface leaves room for a calibrated classifier once that data exists.
+An earlier version fused every signal into one weighted 0-100 score. Measured
+end to end, it ranked the user's own protected photograph, reposted unchanged,
+above a GAN face swap of the user: the watermark, fingerprint and provenance
+matches that prove a file is the user's registered original were added to the
+risk, and a cosine similarity of 0.66, far above the calibrated match threshold,
+contributed 66 points as if it were a probability.
 
-Two design decisions carry most of the honesty of the system:
+The signals do not measure one quantity. Registered-origin evidence says where
+a file came from, identity evidence says whose face it shows, and a synthetic
+media score says how it was made. So the engine answers with a verdict, a
+category naming the situation, and attaches an urgency to that category instead
+of computing one:
 
-Renormalisation over present signals
-    Missing signals are not scored as zero. The weights of the signals that were
-    actually computed are renormalised, so a watermark that could not be checked
-    lowers confidence rather than lowering risk.
+``own_copy``
+    The content descends from one of the subject's registered assets and still
+    shows their face, or is byte-identical to it. A leak or a repost, traceable
+    to its distribution channel. Low urgency.
+``own_altered``
+    The content descends from the subject's registered asset, the registered
+    original showed their face, and the content now shows someone else's face
+    where theirs was, or a calibrated detector flags their face as synthetic.
+    This is the target direction of a face swap. High urgency.
+``own_unverified``
+    The content descends from the subject's registered asset, but their face
+    could not be confirmed in it and the original could not settle why.
+``identity_match``
+    The subject's face is present at high confidence in content that is not one
+    of their registered assets. A genuine photograph and a face swap both land
+    here while no calibrated synthetic-media detector is available, and the
+    engine says so rather than guessing. Medium urgency.
+``synthetic_suspected``
+    As above, and a calibrated detector scores the face as synthetic.
+``review``
+    The best face cleared the candidate threshold but not the confidence
+    threshold, or resembled two enrolled identities equally.
+``unrelated`` / ``inconclusive``
+    No face resembling the subject, or nothing to compare against.
 
-Uncalibrated signals are reported but not scored
-    A detector whose threshold has never been fitted produces a number with no
-    defined operating point. Including it would launder a guess into a
-    percentage. Such signals appear in the explanation and in the limitations,
-    and are excluded from the arithmetic unless configuration says otherwise.
-
-The output is never a bare number: every assessment carries the evidence that
-moved it and the limits that qualify it.
+Registered-origin evidence is taken first because it is the most specific: a
+matching file hash or watermark code names one asset, while a face match names
+only a person. Uncalibrated signals never change a verdict; they are reported
+in the explanation and listed in the limitations.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 
-from deepshield.config import RiskThresholds
-from deepshield.risk.features import RiskFeatureSet
-from deepshield.types import RiskAssessment, RiskFeatures, RiskLevel
+from deepshield.config import Thresholds
+from deepshield.types import RiskAssessment, RiskEvidence, RiskLevel, Verdict
 
 BASE_LIMITATIONS = [
     "Face similarity does not prove that an image was used as training data.",
@@ -38,216 +58,216 @@ BASE_LIMITATIONS = [
     "High face similarity alone is expected for genuine photographs of the user.",
 ]
 
+EXACT_MATCH_BASIS = "exact file hash"
 
-@dataclass(frozen=True)
-class ScoredSignal:
-    """One signal's contribution to the final score."""
-
-    name: str
-    value: float
-    weight: float
-    contribution: float
-    counted: bool
-    note: str
+VERDICT_LEVELS: dict[Verdict, RiskLevel] = {
+    Verdict.INCONCLUSIVE: RiskLevel.LOW,
+    Verdict.UNRELATED: RiskLevel.LOW,
+    Verdict.REVIEW: RiskLevel.LOW,
+    Verdict.OWN_COPY: RiskLevel.LOW,
+    Verdict.IDENTITY_MATCH: RiskLevel.MEDIUM,
+    Verdict.OWN_UNVERIFIED: RiskLevel.MEDIUM,
+    Verdict.OWN_ALTERED: RiskLevel.HIGH,
+    Verdict.SYNTHETIC_SUSPECTED: RiskLevel.HIGH,
+}
 
 
 class RiskScorer(ABC):
-    """Contract for turning risk features into an explainable assessment."""
+    """Contract for turning evidence about one subject into an explainable verdict."""
 
     @abstractmethod
-    def score(self, features: RiskFeatures | RiskFeatureSet) -> RiskAssessment:
-        """Return the risk score, level, per-signal explanation and limitations."""
+    def assess(self, evidence: RiskEvidence) -> RiskAssessment:
+        """Return the verdict, its urgency, the reasons and the limitations."""
 
 
-class WeightedRiskScorer(RiskScorer):
-    """Deterministic weighted-sum scorer with renormalisation and calibration gating."""
+class VerdictRiskScorer(RiskScorer):
+    """Deterministic rules over registered origin, identity and calibrated synthesis."""
 
-    def __init__(
-        self,
-        thresholds: RiskThresholds | None = None,
-        trust_uncalibrated: bool = False,
-    ) -> None:
-        """Store the weights, level bands and calibration policy."""
-        self.thresholds = thresholds or RiskThresholds()
-        self.trust_uncalibrated = trust_uncalibrated
+    def __init__(self, thresholds: Thresholds | None = None) -> None:
+        """Store the thresholds that decide when the synthetic-media score may count."""
+        self.thresholds = thresholds or Thresholds()
 
-    def level_for(self, score: int) -> RiskLevel:
-        """Map a numeric score onto its qualitative band."""
-        levels = self.thresholds.levels
-        if score >= levels.critical:
-            return RiskLevel.CRITICAL
-        if score >= levels.high:
-            return RiskLevel.HIGH
-        if score >= levels.medium:
-            return RiskLevel.MEDIUM
-        return RiskLevel.LOW
-
-    def _weight_of(self, name: str) -> float:
-        """Return the configured weight of one signal."""
-        return float(getattr(self.thresholds.weights, name, 0.0))
-
-    def score(self, features: RiskFeatures | RiskFeatureSet) -> RiskAssessment:
-        """Fuse the present signals into a score with a full audit trail."""
-        feature_set = (
-            features
-            if isinstance(features, RiskFeatureSet)
-            else RiskFeatureSet(features=features)
-        )
-        values = feature_set.features
-        calibration = {p.name: p.calibrated for p in feature_set.provenance}
-
-        scored: list[ScoredSignal] = []
-        for name in (
-            "face_similarity",
-            "deepfake_score",
-            "watermark_confidence",
-            "fingerprint_similarity",
-            "provenance_confidence",
-        ):
-            value = getattr(values, name)
-            if value is None:
-                continue
-            calibrated = calibration.get(name, True)
-            counted = calibrated or self.trust_uncalibrated
-            weight = self._weight_of(name)
-            scored.append(
-                ScoredSignal(
-                    name=name,
-                    value=float(value),
-                    weight=weight,
-                    contribution=0.0,
-                    counted=counted,
-                    note="" if counted else "excluded: threshold not calibrated",
-                )
-            )
-
-        contributing = [signal for signal in scored if signal.counted and signal.weight > 0]
-        total_weight = sum(signal.weight for signal in contributing)
-
-        excluded_names = [signal.name for signal in scored if not signal.counted]
-
-        if total_weight <= 0.0:
-            return RiskAssessment(
-                risk_score=0,
-                risk_level=RiskLevel.LOW,
-                signals={
-                    "scored": [],
-                    "excluded": excluded_names,
-                    "available": [signal.name for signal in scored],
-                    "coverage": 0.0,
-                },
-                explanation=[
-                    "No calibrated signal was available, so no risk score was computed.",
-                    *(
-                        f"{signal.name}: {signal.value:.3f} reported but {signal.note}"
-                        for signal in scored
-                        if not signal.counted
-                    ),
-                ],
-                limitations=BASE_LIMITATIONS
-                + [
-                    "Risk score is undefined because no calibrated signal was available.",
-                    *(
-                        [
-                            "Excluded from the score because their thresholds are not "
-                            "calibrated: " + ", ".join(excluded_names)
-                        ]
-                        if excluded_names
-                        else []
-                    ),
-                ],
-            )
-
-        weighted = 0.0
-        details: list[ScoredSignal] = []
-        for signal in contributing:
-            share = signal.weight / total_weight
-            contribution = signal.value * share
-            weighted += contribution
-            details.append(
-                ScoredSignal(
-                    name=signal.name,
-                    value=signal.value,
-                    weight=share,
-                    contribution=contribution,
-                    counted=True,
-                    note="",
-                )
-            )
-
-        raw_score = int(round(max(0.0, min(1.0, weighted)) * 100))
-        level = self.level_for(raw_score)
-        coverage = total_weight / max(
-            sum(
-                self._weight_of(name)
-                for name in (
-                    "face_similarity",
-                    "deepfake_score",
-                    "watermark_confidence",
-                    "fingerprint_similarity",
-                    "provenance_confidence",
-                )
-            ),
-            1e-9,
-        )
-
-        explanation = self._explain(details, scored, values)
+    def assess(self, evidence: RiskEvidence) -> RiskAssessment:
+        """Classify the evidence and return the verdict with its reasons."""
+        reasons: list[str] = []
         limitations = list(BASE_LIMITATIONS)
-        excluded = excluded_names
-        if excluded:
-            limitations.append(
-                "Excluded from the score because their thresholds are not calibrated: "
-                + ", ".join(excluded)
-            )
-        if coverage < 0.999:
-            limitations.append(
-                f"Only {coverage:.0%} of the intended signal weight was available; "
-                "the score is computed over the signals that were present."
-            )
+        level: RiskLevel | None = None
 
+        owns_asset = (
+            evidence.asset_id is not None
+            and evidence.subject_user_id is not None
+            and evidence.asset_owner == evidence.subject_user_id
+        )
+        if owns_asset:
+            verdict = self._own_asset(evidence, reasons, limitations)
+        else:
+            if evidence.asset_id is not None and evidence.asset_owner is not None:
+                reasons.append(
+                    f"The content descends from registered asset {evidence.asset_id}, which "
+                    f"belongs to '{evidence.asset_owner}', not to the subject of this analysis."
+                )
+            verdict, level = self._identity_only(evidence, reasons, limitations)
+
+        self._report_synthesis(evidence, reasons, limitations)
         return RiskAssessment(
-            risk_score=raw_score,
-            risk_level=level,
-            signals={
-                "scored": [
-                    {
-                        "name": s.name,
-                        "value": round(s.value, 4),
-                        "effective_weight": round(s.weight, 4),
-                        "contribution": round(s.contribution, 4),
-                    }
-                    for s in details
-                ],
-                "excluded": excluded,
-                "coverage": round(coverage, 4),
-            },
-            explanation=explanation,
+            verdict=verdict,
+            risk_level=level or VERDICT_LEVELS[verdict],
+            subject_user_id=evidence.subject_user_id,
+            signals=evidence.to_dict(),
+            explanation=reasons,
             limitations=limitations,
         )
 
-    def _explain(
-        self,
-        details: list[ScoredSignal],
-        all_signals: list[ScoredSignal],
-        values: RiskFeatures,
-    ) -> list[str]:
-        """Render one human-readable line per signal, present or absent."""
-        lines: list[str] = []
-        for signal in sorted(details, key=lambda s: s.contribution, reverse=True):
-            lines.append(
-                f"{signal.name}: {signal.value:.3f} "
-                f"(weight {signal.weight:.0%}, contributes {signal.contribution * 100:.1f} points)"
+    def _synthetic_level(self, evidence: RiskEvidence) -> RiskLevel | None:
+        """Return the urgency a calibrated synthetic score demands, or ``None``."""
+        if evidence.deepfake_score is None or not evidence.deepfake_calibrated:
+            return None
+        limits = self.thresholds.deepfake
+        if evidence.deepfake_score >= limits.high_confidence_threshold:
+            return RiskLevel.CRITICAL
+        if evidence.deepfake_score >= limits.suspicious_threshold:
+            return RiskLevel.HIGH
+        return None
+
+    def _own_asset(
+        self, evidence: RiskEvidence, reasons: list[str], limitations: list[str]
+    ) -> Verdict:
+        """Decide between a copy, an alteration and an unverifiable case."""
+        channel = (
+            f" published as '{evidence.distribution_id}'" if evidence.distribution_id else ""
+        )
+        reasons.append(
+            f"The content descends from your registered asset {evidence.asset_id}{channel}, "
+            f"matched by {evidence.asset_match_basis}."
+        )
+        exact = evidence.asset_match_basis == EXACT_MATCH_BASIS
+        decision = evidence.identity_decision
+
+        if exact:
+            reasons.append(
+                "It is byte-identical to the registered file, so nothing in it was changed."
             )
-        for signal in all_signals:
-            if not signal.counted:
-                lines.append(f"{signal.name}: {signal.value:.3f} reported but {signal.note}")
-        if values.watermark_confidence is None:
-            lines.append("watermark: not detected, treated as neutral rather than exculpatory")
-        if values.face_similarity is None:
-            lines.append("face similarity: unavailable, no identity conclusion drawn")
-        return lines
+            return Verdict.OWN_COPY
+
+        if decision == "high_confidence":
+            if self._synthetic_level(evidence) is not None:
+                reasons.append(
+                    "Your face is present, but a calibrated detector scores it as synthetic, "
+                    "so the face appears to have been regenerated."
+                )
+                return Verdict.OWN_ALTERED
+            reasons.append("Your face is still present at high confidence.")
+            return Verdict.OWN_COPY
+
+        if not evidence.identities_compared:
+            reasons.append(
+                "No enrolled identity was compared, so whether your face was replaced cannot "
+                "be checked."
+            )
+            limitations.append(
+                "Enroll the asset owner to check registered copies for face changes."
+            )
+            return Verdict.OWN_UNVERIFIED
+
+        original = evidence.owner_face_in_original
+        if original is False:
+            reasons.append(
+                "The registered original does not show your face either, so no face of "
+                "yours was removed."
+            )
+            return Verdict.OWN_COPY
+
+        if evidence.faces_detected == 0:
+            reasons.append(
+                "No face is detectable in the content: it may have been cropped out, degraded "
+                "beyond detection, or removed."
+            )
+        elif decision in ("candidate", "ambiguous"):
+            reasons.append(
+                "A face resembles yours only weakly, which a heavily degraded copy can also "
+                "produce."
+            )
+        elif original is True:
+            reasons.append(
+                "The registered original shows your face, but the face in this copy does not "
+                "match you: another face appears where yours was."
+            )
+            return Verdict.OWN_ALTERED
+        else:
+            reasons.append("The faces in the content do not match you.")
+
+        if original is None:
+            reasons.append(
+                "The registered original could not be re-checked, so whether it showed your "
+                "face is unknown."
+            )
+            limitations.append(
+                "The protected file recorded for this asset is missing or unreadable; keep it "
+                "to let alterations be confirmed."
+            )
+        return Verdict.OWN_UNVERIFIED
+
+    def _identity_only(
+        self, evidence: RiskEvidence, reasons: list[str], limitations: list[str]
+    ) -> tuple[Verdict, RiskLevel | None]:
+        """Decide from identity and calibrated synthesis alone."""
+        if not evidence.identities_compared:
+            reasons.append("No enrolled identity was available to compare against.")
+            return Verdict.INCONCLUSIVE, None
+        if evidence.faces_detected == 0:
+            reasons.append("No face was detected in the content.")
+            return Verdict.UNRELATED, None
+
+        similarity = (
+            "" if evidence.identity_similarity is None
+            else f" (similarity {evidence.identity_similarity:.3f})"
+        )
+        decision = evidence.identity_decision
+        if decision == "high_confidence":
+            reasons.append(f"Your face appears at high confidence{similarity}.")
+            synthetic = self._synthetic_level(evidence)
+            if synthetic is not None:
+                reasons.append("A calibrated detector scores the face as synthetic.")
+                return Verdict.SYNTHETIC_SUSPECTED, synthetic
+            reasons.append(
+                "The content is not one of your registered assets, and whether it is a genuine "
+                "photograph or a synthetic image of your face cannot be determined from the "
+                "available signals."
+            )
+            return Verdict.IDENTITY_MATCH, None
+        if decision == "ambiguous":
+            reasons.append(
+                f"A face resembles you and another enrolled identity almost equally{similarity}."
+            )
+            return Verdict.REVIEW, None
+        if decision == "candidate":
+            reasons.append(
+                f"A face cleared the review threshold but not the confidence threshold"
+                f"{similarity}."
+            )
+            return Verdict.REVIEW, None
+        reasons.append(f"No face resembles you{similarity}.")
+        return Verdict.UNRELATED, None
+
+    def _report_synthesis(
+        self, evidence: RiskEvidence, reasons: list[str], limitations: list[str]
+    ) -> None:
+        """Describe the synthetic-media score without letting an uncalibrated one count."""
+        if evidence.deepfake_score is None:
+            return
+        if evidence.deepfake_calibrated:
+            reasons.append(f"Synthetic-media score {evidence.deepfake_score:.3f} (calibrated).")
+            return
+        reasons.append(
+            f"Synthetic-media score {evidence.deepfake_score:.3f} was reported but did not "
+            "affect the verdict: its threshold has not been calibrated."
+        )
+        limitations.append(
+            "The synthetic-media detector is uncalibrated, so genuine photographs and "
+            "synthetic images of the same face cannot be told apart."
+        )
 
 
-def build_risk_scorer(thresholds: RiskThresholds, trust_uncalibrated: bool = False) -> RiskScorer:
-    """Instantiate the configured risk scorer."""
-    return WeightedRiskScorer(thresholds, trust_uncalibrated=trust_uncalibrated)
+def build_risk_scorer(thresholds: Thresholds) -> RiskScorer:
+    """Instantiate the verdict engine."""
+    return VerdictRiskScorer(thresholds)

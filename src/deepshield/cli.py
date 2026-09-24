@@ -206,7 +206,7 @@ def command_info(config: DeepShieldConfig, as_json: bool) -> int:
     deepfake_note = (
         "calibrated"
         if config.thresholds.deepfake.calibrated
-        else "NOT calibrated; excluded from the risk score"
+        else "NOT calibrated; reported but never changes a verdict"
     )
     calibration_note = (
         f"calibrated from {face_thresholds.calibration_source}"
@@ -430,8 +430,10 @@ def _render_evidence(payload: dict[str, Any]) -> list[str]:
         "",
     ]
     if risk:
+        subject = f"  subject: {risk['subject_user_id']}" if risk.get("subject_user_id") else ""
+        verdict = risk.get("verdict") or f"none recorded, legacy score {risk.get('risk_score')}"
         lines += [
-            f"risk score: {risk['risk_score']} / 100  ({risk['risk_level']})",
+            f"verdict: {verdict}  ({risk.get('risk_level')}){subject}",
             *(f"  {line}" for line in risk.get("explanation", [])),
             "",
         ]
