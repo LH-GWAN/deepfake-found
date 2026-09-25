@@ -1,0 +1,104 @@
+{
+  "environment": {
+    "deepshield_version": "0.1.0",
+    "git_commit": "6a11691d36df8a0c08e7cf309512f2a63f5a8942",
+    "python": "3.13.15",
+    "platform": "Linux-6.6.122+-x86_64-with-glibc2.39",
+    "numpy": "2.1.3",
+    "random_seed": 42,
+    "device": "cpu",
+    "face_detector": "opencv_yunet",
+    "face_aligner": "landmark",
+    "face_embedder": "insightface",
+    "deepfake_detector": "spectral",
+    "watermark_backend": "dct",
+    "watermark_strength": 0.16,
+    "recorded_at": "2026-09-25T01:54:16.567531+00:00"
+  },
+  "manifests": [
+    "data/test/manipulated/manifest.json",
+    "data/test/manipulated_inswapper/manifest.json"
+  ],
+  "genuine_source": "data/sklearn/lfw_home/lfw_funneled",
+  "gate": {
+    "threshold": "99.5% quantile of calibration genuine scores",
+    "max_false_positive_rate_upper_95": 0.01,
+    "min_recall_per_family": 0.2,
+    "conditions": [
+      "clean",
+      "jpeg50",
+      "video_small"
+    ]
+  },
+  "detectors": {
+    "gend": {
+      "repo": "yermandy/GenD_CLIP_L_14",
+      "in_sample": false,
+      "usable": false,
+      "reasons": [
+        "video_small: false-positive rate could be as high as 47.41% (761/1691), above 1%"
+      ],
+      "threshold": 0.956033,
+      "calibration_genuine": 1646,
+      "genuine": {
+        "clean": {
+          "test_photos": 1692,
+          "false_positives": 6,
+          "false_positive_rate": 0.003546,
+          "false_positive_rate_upper_95": 0.007702,
+          "undetected": 0
+        },
+        "jpeg50": {
+          "test_photos": 1692,
+          "false_positives": 4,
+          "false_positive_rate": 0.002364,
+          "false_positive_rate_upper_95": 0.006042,
+          "undetected": 0
+        },
+        "video_small": {
+          "test_photos": 1691,
+          "false_positives": 761,
+          "false_positive_rate": 0.45003,
+          "false_positive_rate_upper_95": 0.474107,
+          "undetected": 1
+        }
+      },
+      "families": {
+        "graphics": {
+          "clean": {
+            "separation_auc": 0.994223,
+            "test_fakes": 53,
+            "test_recall": 0.924528
+          },
+          "jpeg50": {
+            "separation_auc": 0.981513,
+            "test_fakes": 53,
+            "test_recall": 0.660377
+          },
+          "video_small": {
+            "separation_auc": 0.636497,
+            "test_fakes": 53,
+            "test_recall": 0.698113
+          }
+        },
+        "inswapper": {
+          "clean": {
+            "separation_auc": 0.90277,
+            "test_fakes": 53,
+            "test_recall": 0.377358
+          },
+          "jpeg50": {
+            "separation_auc": 0.764329,
+            "test_fakes": 53,
+            "test_recall": 0.150943
+          },
+          "video_small": {
+            "separation_auc": 0.539582,
+            "test_fakes": 53,
+            "test_recall": 0.641509
+          }
+        }
+      }
+    }
+  }
+}

@@ -163,9 +163,10 @@ class OnnxDeepfakeDetector(DeepfakeDetector):
         if not path.is_file():
             raise ModelNotAvailableError(f"ONNX detector not found: {path}")
         self.model_path = path
-        self._session = onnxruntime.InferenceSession(
-            str(path), providers=["CPUExecutionProvider"]
-        )
+        providers = ["CPUExecutionProvider"]
+        if "CUDAExecutionProvider" in onnxruntime.get_available_providers():
+            providers.insert(0, "CUDAExecutionProvider")
+        self._session = onnxruntime.InferenceSession(str(path), providers=providers)
         self._input_name = self._session.get_inputs()[0].name
 
     @property
