@@ -56,3 +56,7 @@ data/scans/
 data/test/manipulated_inswapper/
 # Research-only GAN swapper weights fetched by scripts/fetch_inswapper.py
 models/inswapper/
+
+# LoRA-defence experiment: LFW photos of real people and what is generated from them
+experiments/lora_defense/*.zip
+experiments/lora_defense/generated/
