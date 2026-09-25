@@ -258,7 +258,9 @@ def main(argv: list[str] | None = None) -> int:
         model.load_state_dict(saved["model"])
         optimiser.load_state_dict(saved["optimiser"])
         rng.setstate(saved["rng"])
-        torch.set_rng_state(saved["torch_rng"])
+        # map_location moved the CPU generator state to the GPU with everything else;
+        # set_rng_state only takes a CPU ByteTensor.
+        torch.set_rng_state(saved["torch_rng"].cpu())
         first_epoch = saved["epoch"] + 1
         print(f"resuming after epoch {saved['epoch']} from {args.checkpoint}", flush=True)
 
