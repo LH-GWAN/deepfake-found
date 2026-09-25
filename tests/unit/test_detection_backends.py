@@ -178,3 +178,30 @@ def test_onnx_results_carry_their_training_dataset(tmp_path) -> None:
     result = detector.predict_image(np.zeros((80, 80, 3), dtype=np.uint8))
     assert result.model.training_dataset == "unit-test corpus"
     assert any("generalisation" in note for note in result.notes)
+
+
+def test_onnx_adapter_prefers_cuda_when_onnxruntime_has_it(tmp_path, monkeypatch) -> None:
+    """A GPU build of ONNX Runtime is used when present, with the CPU as the fallback."""
+    onnxruntime = pytest.importorskip("onnxruntime")
+    path = tmp_path / "model.onnx"
+    path.write_bytes(b"read by the stub session only")
+    seen: dict[str, list[str]] = {}
+
+    class Session:
+        def __init__(self, model: str, providers: list[str]) -> None:
+            seen["providers"] = providers
+
+        def get_inputs(self) -> list[object]:
+            return [type("Input", (), {"name": "pixel_values"})()]
+
+    monkeypatch.setattr(onnxruntime, "InferenceSession", Session)
+    monkeypatch.setattr(
+        onnxruntime, "get_available_providers",
+        lambda: ["CUDAExecutionProvider", "CPUExecutionProvider"],
+    )
+    OnnxDeepfakeDetector(DeepfakeDetectorConfig(model_path=path))
+    assert seen["providers"] == ["CUDAExecutionProvider", "CPUExecutionProvider"]
+
+    monkeypatch.setattr(onnxruntime, "get_available_providers", lambda: ["CPUExecutionProvider"])
+    OnnxDeepfakeDetector(DeepfakeDetectorConfig(model_path=path))
+    assert seen["providers"] == ["CPUExecutionProvider"]
