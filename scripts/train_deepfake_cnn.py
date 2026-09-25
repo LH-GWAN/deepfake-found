@@ -27,6 +27,12 @@ the same crop the pipeline makes
     published checkpoints, and ``evaluate_deepfake_detectors.py`` can survey
     it and refuse or adopt it by the same bar.
 
+Training on FaceForensics++ uses the manifests ``build_ffpp_manifest.py``
+writes, one per manipulation. ``--checkpoint`` saves after every epoch and
+resumes from the last one, which is what a Colab session that can disconnect
+needs; the identity hold-out is drawn from the seed before anything is
+loaded, so a resumed run holds out the same people.
+
 Usage:
     python scripts/train_deepfake_cnn.py --manifest data/test/manipulated/manifest.json \\
         data/test/manipulated_inswapper/manifest.json \\
@@ -195,6 +201,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--limit", type=int, default=None, help="cap records per family")
+    parser.add_argument("--checkpoint", type=Path, default=None,
+                        help="save after every epoch and resume from it if it exists")
     args = parser.parse_args(argv)
 
     fakes, reals = load_manifests(args.manifest)
@@ -244,8 +252,36 @@ def main(argv: list[str] | None = None) -> int:
     weight = torch.tensor(
         [positives / max(1, len(train_items) - positives), 1.0], device=device
     ).float()
+    first_epoch = 1
+    if args.checkpoint is not None and args.checkpoint.is_file():
+        saved = torch.load(args.checkpoint, map_location=device, weights_only=False)
+        model.load_state_dict(saved["model"])
+        optimiser.load_state_dict(saved["optimiser"])
+        rng.setstate(saved["rng"])
+        torch.set_rng_state(saved["torch_rng"])
+        first_epoch = saved["epoch"] + 1
+        print(f"resuming after epoch {saved['epoch']} from {args.checkpoint}", flush=True)
+
+    def save(epoch: int) -> None:
+        """Write the checkpoint atomically so a disconnect cannot truncate it."""
+        if args.checkpoint is None:
+            return
+        args.checkpoint.parent.mkdir(parents=True, exist_ok=True)
+        staging = args.checkpoint.with_suffix(args.checkpoint.suffix + ".partial")
+        torch.save(
+            {
+                "model": model.state_dict(),
+                "optimiser": optimiser.state_dict(),
+                "epoch": epoch,
+                "rng": rng.getstate(),
+                "torch_rng": torch.get_rng_state(),
+            },
+            staging,
+        )
+        staging.replace(args.checkpoint)
+
     started = time.time()
-    for epoch in range(1, args.epochs + 1):
+    for epoch in range(first_epoch, args.epochs + 1):
         model.train()
         rng.shuffle(train_items)
         total = 0.0
@@ -260,6 +296,7 @@ def main(argv: list[str] | None = None) -> int:
             total += float(loss.item()) * len(chunk)
         mean_loss = total / max(1, len(train_items))
         print(f"epoch {epoch:2d} loss {mean_loss:.4f} {time.time() - started:.0f}s", flush=True)
+        save(epoch)
 
     held_real = [crop for crop, identity, _ in real_crops if identity in held]
     report: dict[str, Any] = {
