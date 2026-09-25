@@ -1,0 +1,95 @@
+{
+  "tag": "ffpp",
+  "trained_on": [
+    "ffpp_deepfakes",
+    "ffpp_face2face",
+    "ffpp_faceswap",
+    "ffpp_neuraltextures"
+  ],
+  "holdout_identities": 150,
+  "train_crops": 11189,
+  "epochs": 12,
+  "held_out_real": 2399,
+  "per_family": {
+    "ffpp_deepfakes": {
+      "seen_in_training": true,
+      "held_out_fake": 600,
+      "clean": {
+        "n": 2999,
+        "auc": 0.9815,
+        "eer": 0.0696,
+        "recall_at_0.5": 0.975,
+        "false_positive_rate_at_0.5": 0.1542
+      },
+      "jpeg50": {
+        "n": 2999,
+        "auc": 0.9555,
+        "eer": 0.11,
+        "recall_at_0.5": 0.94,
+        "false_positive_rate_at_0.5": 0.1822
+      },
+      "usable_by_this_project's_bar": false
+    },
+    "ffpp_face2face": {
+      "seen_in_training": true,
+      "held_out_fake": 600,
+      "clean": {
+        "n": 2999,
+        "auc": 0.9793,
+        "eer": 0.0733,
+        "recall_at_0.5": 0.9733,
+        "false_positive_rate_at_0.5": 0.1542
+      },
+      "jpeg50": {
+        "n": 2999,
+        "auc": 0.9207,
+        "eer": 0.1579,
+        "recall_at_0.5": 0.8617,
+        "false_positive_rate_at_0.5": 0.1822
+      },
+      "usable_by_this_project's_bar": false
+    },
+    "ffpp_faceswap": {
+      "seen_in_training": true,
+      "held_out_fake": 600,
+      "clean": {
+        "n": 2999,
+        "auc": 0.976,
+        "eer": 0.0769,
+        "recall_at_0.5": 0.9617,
+        "false_positive_rate_at_0.5": 0.1542
+      },
+      "jpeg50": {
+        "n": 2999,
+        "auc": 0.9366,
+        "eer": 0.1432,
+        "recall_at_0.5": 0.8933,
+        "false_positive_rate_at_0.5": 0.1822
+      },
+      "usable_by_this_project's_bar": false
+    },
+    "ffpp_neuraltextures": {
+      "seen_in_training": true,
+      "held_out_fake": 600,
+      "clean": {
+        "n": 2999,
+        "auc": 0.9496,
+        "eer": 0.125,
+        "recall_at_0.5": 0.8967,
+        "false_positive_rate_at_0.5": 0.1542
+      },
+      "jpeg50": {
+        "n": 2999,
+        "auc": 0.8589,
+        "eer": 0.2084,
+        "recall_at_0.5": 0.7567,
+        "false_positive_rate_at_0.5": 0.1822
+      },
+      "usable_by_this_project's_bar": false
+    }
+  },
+  "criteria": {
+    "min_auc": 0.75,
+    "max_false_positive_rate": 0.1
+  }
+}
