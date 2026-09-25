@@ -53,6 +53,8 @@ markers = [
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# Generated from experiments/lora_defense/build_notebook.py, which is linted instead.
+extend-exclude = ["experiments/**/*.ipynb"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ANN", "D"]
