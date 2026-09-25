@@ -1,0 +1,26 @@
+{
+  "repo": "deepshield/ffpp",
+  "alias": "ffpp",
+  "input_size": 224,
+  "native_size": 224,
+  "positive_index": 1,
+  "labels": {
+    "0": "Real",
+    "1": "Fake"
+  },
+  "preprocessing": "resize and normalise are baked into the graph; feed [0,1] RGB",
+  "trained_on": [
+    "ffpp_deepfakes",
+    "ffpp_face2face",
+    "ffpp_faceswap",
+    "ffpp_neuraltextures"
+  ],
+  "training_families_manifests": [
+    "data/test/ffpp/manifest_deepfakes.json",
+    "data/test/ffpp/manifest_face2face.json",
+    "data/test/ffpp/manifest_faceswap.json",
+    "data/test/ffpp/manifest_neuraltextures.json"
+  ],
+  "holdout_fraction": 0.3,
+  "note": "trained on FaceForensics++; held-out rows are identities it never saw, and only evaluate_deepfake_detectors.py on other corpora speaks to deployment"
+}

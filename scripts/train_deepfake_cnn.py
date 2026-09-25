@@ -206,6 +206,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     fakes, reals = load_manifests(args.manifest)
+    corpora = sorted({
+        str(json.loads(m.read_text(encoding="utf-8")).get("source_dataset"))
+        for m in args.manifest
+        if json.loads(m.read_text(encoding="utf-8")).get("source_dataset")
+    })
     missing = [family for family in args.train if family not in fakes]
     if missing:
         raise SystemExit(f"no fakes for {missing}; families present: {sorted(fakes)}")
@@ -363,6 +368,9 @@ def main(argv: list[str] | None = None) -> int:
         "training_families_manifests": [str(m) for m in args.manifest],
         "holdout_fraction": args.holdout,
         "note": (
+            f"trained on {', '.join(corpora)}; held-out rows are identities it never saw, "
+            "and only evaluate_deepfake_detectors.py on other corpora speaks to deployment"
+            if corpora else
             "trained on fakes this repository generated itself; in-family numbers say "
             "nothing about deployment, only the unseen-family rows do"
         ),
