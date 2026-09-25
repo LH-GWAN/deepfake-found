@@ -367,12 +367,16 @@ class DefaultVideoProcessor(VideoProcessor):
             any(profile.user_id == subject for profile in profiles) if subject else bool(profiles)
         ) and (bool(track_matches) or not tracks)
         owner_face_in_original: bool | None = None
+        face_in_registered: bool | None = None
         if (
             asset is not None
             and asset.user_id == subject
             and (subject_match is None or subject_match.decision != "high_confidence")
         ):
-            owner_face_in_original = self.analysis._owner_face_in_original(asset)
+            if asset.shielded and still is not None:
+                face_in_registered = self.analysis.face_in_registered_file(asset, still.region)
+            elif not asset.shielded:
+                owner_face_in_original = self.analysis._owner_face_in_original(asset)
         deepfake_scores = subject_scores.get(subject, []) if subject else []
         video_deepfake = (
             aggregate_frame_scores(
@@ -405,6 +409,8 @@ class DefaultVideoProcessor(VideoProcessor):
                 asset_match_basis=asset_basis,
                 distribution_id=asset.distribution_id if asset is not None else None,
                 owner_face_in_original=owner_face_in_original,
+                asset_shielded=bool(asset is not None and asset.shielded),
+                face_in_registered_file=face_in_registered,
                 deepfake_score=video_deepfake,
                 deepfake_calibrated=self.config.thresholds.deepfake.calibrated,
             )

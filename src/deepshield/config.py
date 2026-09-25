@@ -252,12 +252,29 @@ class AdversarialConfig(_Base):
     step_size: float = Field(default=0.005, gt=0.0)
 
 
+class ShieldConfig(_Base):
+    """Swap-shield perturbation used by ``protect --mode shield``.
+
+    The defaults are the measured setting: 8/255 against the ArcFace model
+    ``inswapper_128`` conditions on stopped 30 of 30 swaps from carrying the
+    person at about 36 dB PSNR. ``encoder_model`` is relative to the model
+    directory.
+    """
+
+    epsilon: float = Field(default=8 / 255, gt=0.0, le=0.25)
+    steps: int = Field(default=200, gt=0)
+    eot_samples: int = Field(default=4, gt=0)
+    seed: int = 0
+    encoder_model: Path = Path("insightface/models/buffalo_l/w600k_r50.onnx")
+
+
 class ProtectionConfig(_Base):
-    """Container for the three protection layers."""
+    """Container for the protection layers."""
 
     watermark: WatermarkConfig = WatermarkConfig()
     fingerprint: FingerprintConfig = FingerprintConfig()
     adversarial: AdversarialConfig = AdversarialConfig()
+    shield: ShieldConfig = ShieldConfig()
 
 
 class VideoSamplingConfig(_Base):

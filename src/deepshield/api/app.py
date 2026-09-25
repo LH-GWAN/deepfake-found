@@ -172,15 +172,18 @@ def create_app(config: DeepShieldConfig | None = None) -> Any:
     def protect(
         user_id: str = Form(...),
         distribution_id: str | None = Form(None),
+        mode: str = Form("trace"),
         file: UploadFile = File(...),
     ) -> dict[str, Any]:
-        """Watermark, fingerprint and register one uploaded image."""
+        """Watermark, fingerprint and register one image; ``shield`` also perturbs faces."""
+        if mode not in ("trace", "shield"):
+            raise HTTPException(status_code=422, detail="mode must be 'trace' or 'shield'")
         from deepshield.pipeline.protection_pipeline import DefaultProtectionPipeline
 
         with tempfile.TemporaryDirectory() as raw:
             path = _save_upload(file, Path(raw))
             return DefaultProtectionPipeline(settings).protect(
-                path, user_id, distribution_id
+                path, user_id, distribution_id, mode="shield" if mode == "shield" else "trace"
             )
 
     @app.post("/analyze/image", summary="Analyse one suspect image")
