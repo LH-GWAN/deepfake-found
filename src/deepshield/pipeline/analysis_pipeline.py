@@ -360,6 +360,49 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
             return True
         return None
 
+    def face_in_registered_file(self, asset: AssetRecord, image: np.ndarray) -> bool | None:
+        """Compare the content's faces with the faces in a shielded asset's registered file.
+
+        A shielded photo matches no one by face, its owner included, so whether
+        a copy still shows the face that was published is read against the
+        registered file itself: the perturbation travels with the copy and the
+        two faces embed alike. Returns ``True`` for a high-confidence match,
+        ``False`` when no face reaches even the candidate threshold, and
+        ``None`` when the file is gone or unreadable, holds no face, or the
+        resemblance is borderline.
+        """
+        if not asset.protected_path:
+            return None
+        try:
+            registered = validate_rgb(load_image(Path(asset.protected_path)))
+        except InvalidMediaError as exc:
+            logger.info("could not re-check shielded asset %s: %s", asset.asset_id, exc)
+            return None
+        vectors = []
+        for face in self.detector.detect(registered):
+            vectors.append(self.embedder.embed(self.aligner.align(registered, face).image).vector)
+        if not vectors:
+            return None
+        stacked = np.vstack(vectors).astype(np.float32)
+        stacked /= np.maximum(np.linalg.norm(stacked, axis=1, keepdims=True), 1e-12)
+        centroid = stacked.mean(axis=0)
+        label = f"registered-file:{asset.asset_id}"
+        profile = IdentityProfile(
+            user_id=label,
+            reference_embeddings=stacked,
+            centroid_embedding=centroid / max(float(np.linalg.norm(centroid)), 1e-12),
+            image_count=int(stacked.shape[0]),
+            model=self.embedder.model_info,
+            embedding_dimension=int(stacked.shape[1]),
+        )
+        _, _, _, face_matches = self._analyse_faces(image, [profile])
+        best = subject_result(face_matches, label)
+        if best is None or best.decision == "no_match":
+            return False if face_matches else None
+        if best.decision == "high_confidence":
+            return True
+        return None
+
     def registered_size(self, asset: AssetRecord) -> tuple[int, int] | None:
         """Return the ``(width, height)`` a registered asset was protected at, if known."""
         fingerprint = asset.fingerprint
@@ -519,13 +562,17 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
             any(profile.user_id == subject for profile in profiles) if subject else bool(profiles)
         ) and (bool(face_matches) or not face_records)
         owner_face_in_original: bool | None = None
+        face_in_registered: bool | None = None
         if (
             asset is not None
             and asset.user_id == subject
             and attribution["provenance_basis"] != EXACT_MATCH_BASIS
             and (subject_match is None or subject_match.decision != "high_confidence")
         ):
-            owner_face_in_original = self._owner_face_in_original(asset)
+            if asset.shielded:
+                face_in_registered = self.face_in_registered_file(asset, image)
+            else:
+                owner_face_in_original = self._owner_face_in_original(asset)
         registered_at = self.registered_size(asset) if asset is not None else None
         copy_scale = (
             round(min(image.shape[1] / registered_at[0], image.shape[0] / registered_at[1]), 4)
@@ -560,6 +607,8 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
                 ),
                 distribution_id=attribution["distribution_id"],
                 owner_face_in_original=owner_face_in_original,
+                asset_shielded=bool(asset is not None and asset.shielded),
+                face_in_registered_file=face_in_registered,
                 deepfake_score=(
                     deepfake_score
                     if best_result is not None and best_result.matched_user_id == subject

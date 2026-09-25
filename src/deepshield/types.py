@@ -379,6 +379,7 @@ class AssetRecord:
     source_path: str | None = None
     protection_version: str | None = None
     created_at: str = field(default_factory=utc_now)
+    shielded: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serialisable mapping."""
@@ -392,6 +393,7 @@ class AssetRecord:
             "source_path": self.source_path,
             "protection_version": self.protection_version,
             "created_at": self.created_at,
+            "shielded": self.shielded,
         }
 
 
@@ -435,7 +437,11 @@ class RiskEvidence:
     missed match on one is not read as someone else's face; quality is reported
     but does not decide, because a swapped face is softer than a genuine one.
     ``copy_scale`` is the content's size relative to the registered original it
-    descends from, when both are known.
+    descends from, when both are known. ``asset_shielded`` marks an asset
+    published with the swap shield, whose face no recogniser matches to its
+    owner by design; for those ``face_in_registered_file`` says whether the
+    content's face is the one in the registered file (``True``), a different
+    one (``False``) or could not be compared (``None``).
     """
 
     subject_user_id: str | None = None
@@ -451,6 +457,8 @@ class RiskEvidence:
     asset_match_basis: str | None = None
     distribution_id: str | None = None
     owner_face_in_original: bool | None = None
+    asset_shielded: bool = False
+    face_in_registered_file: bool | None = None
     deepfake_score: float | None = None
     deepfake_calibrated: bool = False
 

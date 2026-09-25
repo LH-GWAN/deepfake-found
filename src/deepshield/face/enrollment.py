@@ -37,7 +37,7 @@ from deepshield.face.aligner import FaceAligner, build_aligner
 from deepshield.face.detector import FaceDetector, build_detector
 from deepshield.face.embedder import FaceEmbedder, build_embedder
 from deepshield.logging_utils import get_logger
-from deepshield.media import IMAGE_SUFFIXES, load_image
+from deepshield.media import IMAGE_SUFFIXES, load_image, sha256_file
 from deepshield.quality import laplacian_variance
 from deepshield.types import IdentityProfile
 
@@ -106,12 +106,44 @@ class DefaultIdentityEnroller(IdentityEnroller):
         detector: FaceDetector | None = None,
         aligner: FaceAligner | None = None,
         embedder: FaceEmbedder | None = None,
+        asset_repository: Any = None,
     ) -> None:
         """Build or accept the three face-pipeline stages."""
         self.config = config
         self.detector = detector or build_detector(config.face.detector)
         self.aligner = aligner or build_aligner(config.face.aligner)
         self.embedder = embedder or build_embedder(config.face.embedder)
+        self._assets = asset_repository
+
+    def _shielded_refusal(self, path: Path, shielded: list[Any]) -> str | None:
+        """Return why a candidate may not be enrolled because it is a shielded file.
+
+        A shielded photo is perturbed so that no recogniser matches it to its
+        owner, so enrolling it would teach the template the wrong face. It is
+        recognised by exact bytes, or by carrying the watermark of a shielded
+        asset; the clean original carries no watermark and passes.
+        """
+        if not shielded:
+            return None
+        digest = sha256_file(path)
+        codes = {asset.watermark_code for asset in shielded if asset.watermark_code}
+        if any(asset.fingerprint.sha256 == digest for asset in shielded):
+            return "this is a swap-shielded file; enroll with the original photo instead"
+        if codes:
+            from deepshield.protection.watermark import build_watermarker
+
+            try:
+                detection = build_watermarker(self.config.protection.watermark).detect(
+                    load_image(path)
+                )
+            except InvalidMediaError:
+                return None
+            if detection.detected and detection.watermark_code in codes:
+                return (
+                    "this carries the watermark of a swap-shielded asset; enroll with the "
+                    "original photo instead"
+                )
+        return None
 
     @staticmethod
     def collect_images(directory: Path) -> list[Path]:
@@ -194,9 +226,21 @@ class DefaultIdentityEnroller(IdentityEnroller):
         if not candidates:
             raise EnrollmentError("no enrollment images supplied")
 
+        if self._assets is None:
+            from deepshield.storage.repository import build_asset_repository
+
+            self._assets = build_asset_repository(self.config)
+        shielded = [asset for asset in self._assets.list_assets() if asset.shielded]
+
         reports: list[EnrollmentImageReport] = []
         vectors: list[np.ndarray] = []
         for path in candidates:
+            refusal = self._shielded_refusal(Path(path), shielded)
+            if refusal is not None:
+                reports.append(
+                    EnrollmentImageReport(path=str(path), accepted=False, reason=refusal)
+                )
+                continue
             report, vector = self._analyse(path)
             reports.append(report)
             if vector is not None:

@@ -110,8 +110,19 @@ def test_protect_then_detect_watermark(client) -> None:
     payload = detect.json()
     assert payload["detected"] is True
     assert payload["watermark_code"] == code
+    assert protect.json()["mode"] == "trace"
+    assert protect.json()["shielded"] is False
     assert payload["matched_asset"]["distribution_id"] == "instagram"
     assert "inconclusive" in payload["interpretation"]
+
+
+def test_protect_refuses_an_unknown_mode(client) -> None:
+    response = client.post(
+        "/protect/image",
+        data={"user_id": "u1", "mode": "cloak"},
+        files={"file": ("a.png", png_bytes(), "image/png")},
+    )
+    assert response.status_code == 422
 
 
 def test_analyze_image_returns_evidence_with_limitations(client) -> None:

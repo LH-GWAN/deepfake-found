@@ -124,6 +124,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_protect.add_argument("--user-id", required=True)
     p_protect.add_argument("--distribution-id", default=None)
     p_protect.add_argument("--output", type=Path, default=None)
+    p_protect.add_argument(
+        "--mode",
+        choices=("trace", "shield"),
+        default="trace",
+        help="trace: watermark and fingerprints (default). shield: also perturb faces so "
+        "a face swap made from the photo no longer carries you; the result no longer "
+        "matches you by face, so keep the original for enrollment",
+    )
 
     p_img = sub.add_parser("analyze-image", help="analyse one suspect image")
     p_img.add_argument("image", type=Path)
@@ -412,16 +420,27 @@ def command_protect(config: DeepShieldConfig, args: Any, as_json: bool) -> int:
     from deepshield.pipeline.protection_pipeline import DefaultProtectionPipeline
 
     report = DefaultProtectionPipeline(config).protect(
-        args.image, args.user_id, args.distribution_id, args.output
+        args.image, args.user_id, args.distribution_id, args.output, mode=args.mode
     )
     watermark = report["watermark"]
+    shield = report["shield"]
     lines = [
-        f"protected {report['source_path']}",
+        f"protected {report['source_path']}  ({report['mode']} mode)",
         f"  output      {report['protected_path']}",
         f"  asset id    {report['asset_id']}",
         f"  watermark   {watermark['code']} ({watermark['backend']}), "
         f"verified after save: {watermark['verified_after_save']}",
         f"  quality     PSNR {report['quality']['psnr']} dB, SSIM {report['quality']['ssim']}",
+        *(
+            [
+                f"  shield      {shield['faces']} face(s), similarity to the clean face "
+                f"{shield.get('similarity_to_clean_face')}"
+            ]
+            if shield.get("applied")
+            else ([f"  shield      not applied: {shield.get('reason')}"] if args.mode == "shield"
+                  else [])
+        ),
+        *(f"  note: {line}" for line in shield.get("caveats", [])),
         f"  sha256      {report['fingerprint']['sha256'][:32]}...",
         "",
         *(f"  note: {line}" for line in report["limitations"]),

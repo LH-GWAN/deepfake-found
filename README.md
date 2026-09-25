@@ -30,7 +30,7 @@ DeepShield는 사용자의 얼굴 이미지에 서로 독립적인 보호 계층
 | 신원 유사도 매칭 | EER 0.0000 (진짜 850건 대 사칭 24,650건) |
 | **내 얼굴이 합성된 딥페이크 영상** | 30명 × 샘플 클립: 전체 교체, 한 장면만 교체, 2초·1초 부분 교체, H.264 crf 35 압축까지 전부 30/30 `identity_match`. 0.5초 교체는 1fps에서 0/30, 기본값 2fps에서 30/30. 실제 NASA 인터뷰 영상(10명)에서도 0.5초 교체까지 10/10, crf 35 압축은 8/10. 두 사람이 나란히 나오는 화면(10명)에서 모든 상황 10/10 |
 | **내 얼굴로 만든 GAN 딥페이크에서 나를 찾기** (소스 방향) | inswapper 가짜 169장 전부에서 재료가 된 사람이 30명 중 1위, 전부 고신뢰 임계값 통과. 스왑기와 무관한 SFace로도 169/169 |
-| **내 사진을 스왑 재료로 못 쓰게 하는 노이즈** (실험, 파이프라인 미연결) | 스왑기가 쓰는 ArcFace를 직접 겨냥한 8/255 노이즈(36.2dB): inswapper 스왑이 원래 사람으로 식별 30/30 → **0/30**, 공격 안 한 SFace로도 0/30, JPEG 85·70·절반 축소 뒤에도 0/30. 노이즈를 얹은 사진의 워터마크는 그대로 읽힘 |
+| **내 사진을 스왑 재료로 못 쓰게 하는 노이즈** (`protect --mode shield`) | 스왑기가 쓰는 ArcFace를 직접 겨냥한 8/255 노이즈(36.2dB): inswapper 스왑이 원래 사람으로 식별 30/30 → **0/30**, 공격 안 한 SFace로도 0/30, JPEG 85·70·절반 축소 뒤에도 0/30. 노이즈를 얹은 사진의 워터마크는 그대로 읽힘 |
 | 워터마크 재배포 추적 | 4,250회 중 잘못된 코드 0건 |
 | 워터마크 — **회전** | 2°·5°·10°에서 170장 중 169·167·167 복원, 15°는 158, 잘못된 코드 0 |
 | 워터마크 — **회전 + 크롭** | 5°+10% 크롭 169, 10°+10% 154, 5°+20% 167 (170장 중), 잘못된 코드 0 |
@@ -316,9 +316,31 @@ JPEG 85·70 재저장과 절반 축소 뒤에도 0/30입니다. 같은 8/255로 
 파이프라인의 신원 매칭도 같은 ArcFace를 쓰기 때문입니다. 그래서 방어와 추적은 역할을 나눕니다.
 등록은 노이즈 없는 원본으로 하고 로컬에 두며, 노이즈본은 올리기만 합니다. 노이즈본의 재게시는
 얼굴이 아니라 워터마크와 지각 해시로 찾습니다. 1549×2105 보호 사진에 8/255 노이즈를 얹고
-JPEG 85로 저장해도 워터마크 코드와 지각 해시(1.000)는 그대로였습니다. 다만 지금 판정 엔진은
-이 재게시를 "워터마크는 내 사진인데 얼굴이 다르다"로 읽어 `own_altered`로 오판하므로, 방어
-모드를 넣을 때 등록 기록에 노이즈 여부를 남겨 고쳐야 합니다.
+JPEG 85로 저장해도 워터마크 코드와 지각 해시(1.000)는 그대로였습니다.
+
+**방어 모드(`protect --mode shield`).** 이 결과를 기능으로 넣었습니다.
+[`protection/shield.py`](src/deepshield/protection/shield.py)가 사진의 모든 얼굴에 같은 공격을
+걸고(기본 8/255, 200스텝, 시드 고정), 워터마크를 넣은 **뒤에** 얹습니다. 효과를 잰 순서가 그쪽이고,
+그래야 올라가는 픽셀이 최적화한 그 픽셀입니다. 등록 기록에는 `shielded`가 남습니다. 처음 쟀을 때
+판정 엔진은 노이즈본의 재게시를 "워터마크는 내 사진인데 얼굴이 나와 다르다"로 읽어 `own_altered`로
+오판했으므로, 방어 모드 자산의 사본은 얼굴을 **등록자 얼굴이 아니라 등록된 노이즈본 파일의 얼굴과**
+비교합니다. 노이즈가 사본에 그대로 따라가므로 둘은 서로 맞습니다. 얼굴 등록은 방어 모드 파일을
+거부합니다(파일 해시, 또는 방어 모드 자산의 워터마크 코드로 알아봅니다. 워터마크가 없는 원본은
+통과합니다). 실제 모델로 확인한 결과입니다(800픽셀 퀴리 사진, M4 GPU).
+
+| 확인 | 결과 |
+|---|---|
+| 방어 모드 보호 | 7.7초, 원래 얼굴과의 유사도 −0.47, 워터마크 저장 후 확인 통과, PSNR 34.5dB (워터마크 포함) |
+| 노이즈본을 JPEG 85로 재게시 | `own_copy`. 등록 얼굴과 −0.25로 안 맞지만 등록 파일의 얼굴과 일치 |
+| 노이즈본의 얼굴을 다른 사람으로 바꿈 | `own_altered` |
+| 노이즈본과 그 재게시로 얼굴 등록 | 둘 다 거부 |
+
+```bash
+./bin/deepshield protect photo.jpg --user-id alice --distribution-id instagram --mode shield
+```
+
+방어 모드에는 PyTorch(`torch` extra)와 buffalo_l 가중치가 필요합니다. 추적 모드(기본값)는 지금과
+같습니다.
 
 **LoRA 방어 — 3명(각 8장), Stable Diffusion 1.5 LoRA(rank 8, 400스텝), LoRA마다 16장 생성:**
 
@@ -1346,6 +1368,7 @@ Makefile 타깃은 영향을 받지 않습니다. 저장소를 동기화 폴더 
 ./bin/deepshield download-models                                  # 가중치 받기
 ./bin/deepshield enroll ./my_photos --user-id alice               # 사진 3–10장
 ./bin/deepshield protect photo.jpg --user-id alice --distribution-id instagram
+./bin/deepshield protect photo.jpg --user-id alice --distribution-id x --mode shield   # 스왑 방어 노이즈까지
 ./bin/deepshield analyze-image suspect.jpg --user-id alice --save
 ./bin/deepshield analyze-video suspect.mp4 --user-id alice
 ./bin/deepshield report <analysis-id>
@@ -1364,7 +1387,7 @@ Makefile 타깃은 영향을 받지 않습니다. 저장소를 동기화 폴더 
 | `download-models` | 체크섬으로 고정된 가중치 받기 (InsightFace 팩 포함, `--skip-insightface`로 제외) |
 | `enroll <dir> --user-id <id>` | 신원 템플릿 생성 (`--min-images`로 재정의) |
 | `identities` | 등록된 신원 목록 |
-| `protect <img> --user-id <id>` | 워터마크, 핑거프린트, 등록, 출처 기록 |
+| `protect <img> --user-id <id> [--mode trace\|shield]` | 워터마크, 핑거프린트, 등록, 출처 기록. `shield`는 스왑 방어 노이즈까지 얹고 자산에 표시 |
 | `analyze-image <img>` | 게이팅이 적용된 전체 분석. `--save`로 저장 |
 | `analyze-video <vid>` | 샘플링, 트래킹, 게이팅, 집계 |
 | `watermark-detect <img>` | 코드를 복원해 자산으로 해석 |

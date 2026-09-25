@@ -389,3 +389,43 @@ def test_clopper_pearson_rejects_impossible_counts(
 ) -> None:
     with pytest.raises(ConfigurationError):
         clopper_pearson_upper(failures, trials, confidence)
+
+
+def shielded(**overrides: Any) -> RiskEvidence:
+    fields: dict[str, Any] = {
+        "asset_shielded": True,
+        "identity_decision": "no_match",
+        "identity_similarity": -0.2,
+    }
+    fields.update(overrides)
+    return own_asset(**fields)
+
+
+def test_a_shielded_copy_with_the_registered_face_is_a_copy() -> None:
+    """The shield makes the owner unrecognisable by design; that is not an alteration."""
+    result = assess(shielded(face_in_registered_file=True))
+    assert result.verdict is Verdict.OWN_COPY
+    assert any("swap shield" in line for line in result.explanation)
+
+
+def test_a_shielded_copy_with_another_face_is_an_alteration() -> None:
+    result = assess(shielded(face_in_registered_file=False))
+    assert result.verdict is Verdict.OWN_ALTERED
+    assert result.risk_level is RiskLevel.HIGH
+
+
+def test_a_shielded_copy_that_cannot_be_compared_is_unverified() -> None:
+    assert assess(shielded(face_in_registered_file=None)).verdict is Verdict.OWN_UNVERIFIED
+    assert assess(shielded(faces_detected=0)).verdict is Verdict.OWN_UNVERIFIED
+
+
+def test_a_small_shielded_face_is_not_called_replaced() -> None:
+    result = assess(
+        shielded(face_in_registered_file=False, probe_face_pixels=40.0, copy_scale=0.5)
+    )
+    assert result.verdict is Verdict.OWN_UNVERIFIED
+
+
+def test_without_the_shield_flag_a_missed_match_still_means_alteration() -> None:
+    result = assess(own_asset(identity_decision="no_match", owner_face_in_original=True))
+    assert result.verdict is Verdict.OWN_ALTERED

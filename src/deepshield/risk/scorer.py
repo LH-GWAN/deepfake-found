@@ -180,6 +180,9 @@ class VerdictRiskScorer(RiskScorer):
             reasons.append("Your face is still present at high confidence.")
             return Verdict.OWN_COPY
 
+        if evidence.asset_shielded:
+            return self._shielded_asset(evidence, reasons, limitations)
+
         if not evidence.identities_compared:
             reasons.append(
                 "No enrolled identity was compared, so whether your face was replaced cannot "
@@ -240,6 +243,55 @@ class VerdictRiskScorer(RiskScorer):
                 "The protected file recorded for this asset is missing or unreadable; keep it "
                 "to let alterations be confirmed."
             )
+        return Verdict.OWN_UNVERIFIED
+
+    def _shielded_asset(
+        self, evidence: RiskEvidence, reasons: list[str], limitations: list[str]
+    ) -> Verdict:
+        """Decide for a copy of a photo published with the swap shield.
+
+        The shield keeps face recognisers from matching the photo to you, so a
+        missed match with your enrollment says nothing here. The copy's face is
+        compared with the face in the registered file instead.
+        """
+        reasons.append(
+            "This photo was published with the swap shield, which keeps face recognisers, "
+            "this one included, from matching it to you; its face is compared with the face "
+            "in the registered file instead."
+        )
+        registered = evidence.face_in_registered_file
+        if evidence.faces_detected == 0:
+            reasons.append(
+                "No face is detectable in the content: it may have been cropped out, degraded "
+                "beyond detection, or removed."
+            )
+            return Verdict.OWN_UNVERIFIED
+        if registered is True:
+            reasons.append("The face is the one in the registered file, unchanged.")
+            return Verdict.OWN_COPY
+        if registered is False:
+            if is_small_probe_face(evidence.probe_face_pixels) and (
+                evidence.copy_scale is None or evidence.copy_scale < SHRUNK_COPY_SCALE
+            ):
+                reasons.append(
+                    f"The face in this copy is too small{_face_detail(evidence)} to tell "
+                    "whether it is still the one that was published."
+                )
+                limitations.append(SMALL_FACE_LIMITATION)
+                return Verdict.OWN_UNVERIFIED
+            reasons.append(
+                "The face in this copy does not match the face in the registered file: "
+                "another face appears where it was."
+            )
+            return Verdict.OWN_ALTERED
+        reasons.append(
+            "The registered file could not be compared with this copy, so whether its face "
+            "was replaced is unknown."
+        )
+        limitations.append(
+            "Keep the shielded file recorded for this asset; it is what copies are checked "
+            "against for face changes."
+        )
         return Verdict.OWN_UNVERIFIED
 
     def _identity_only(

@@ -14,11 +14,25 @@ Fingerprint
     even when the watermark is gone.
 Adversarial cloaking
     Optional research layer that perturbs pixels to disturb automated face
-    embedding. Off by default.
+    embedding. Off by default; measured not to work against a real recogniser.
 
-Each can fail or be stripped on its own. None of them prevents anyone from
-generating synthetic content, and none of them survives into a generative
-model's output. They make published content traceable, which is a different and
+Two modes decide what the published file is for:
+
+``trace`` (default)
+    The watermark and fingerprints only. The face stays recognisable, so the
+    photo can also be matched to its owner by face.
+``shield``
+    The same, plus the swap shield (:mod:`deepshield.protection.shield`): a
+    perturbation against the encoder GAN face swappers read identity from, so
+    a swap made from the published photo no longer carries the person. The
+    photo then no longer matches its owner by face either, which is why the
+    asset is marked ``shielded``: analysis compares a found copy with the face
+    in the registered file instead, and enrollment refuses the file. Keep the
+    clean original for enrollment and publish only the shielded file.
+
+Each layer can fail or be stripped on its own. The shield stops one kind of
+swap and does not stop fine-tuning a generator on the photos; the watermark
+and fingerprints make published content traceable, which is a different and
 achievable goal.
 
 Publishing the same image to several channels with different distribution ids
@@ -30,7 +44,7 @@ from __future__ import annotations
 import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 
@@ -54,6 +68,8 @@ from deepshield.types import AssetRecord, ProvenanceRecord, WatermarkPayload
 logger = get_logger(__name__)
 
 PROTECTED_SUFFIX = ".png"
+ProtectionMode = Literal["trace", "shield"]
+PROTECTION_MODES: tuple[str, ...] = ("trace", "shield")
 
 
 class ProtectionPipeline(ABC):
@@ -66,6 +82,7 @@ class ProtectionPipeline(ABC):
         user_id: str,
         distribution_id: str | None = None,
         output_path: Path | None = None,
+        mode: ProtectionMode = "trace",
     ) -> dict[str, Any]:
         """Protect one image and return the resulting asset record."""
 
@@ -79,13 +96,22 @@ class DefaultProtectionPipeline(ProtectionPipeline):
         watermarker: Watermarker | None = None,
         asset_repository: FileAssetRepository | None = None,
         provenance_store: FileProvenanceStore | None = None,
+        shield: Any = None,
+        detector: Any = None,
     ) -> None:
-        """Build or accept the protection components."""
+        """Build or accept the protection components.
+
+        The shield and the face detector it needs are built only when a photo
+        is first protected in ``shield`` mode, since loading them costs time and
+        the shield needs PyTorch.
+        """
         self.config = config
         self.watermarker = watermarker or build_watermarker(config.protection.watermark)
         self.fingerprinter = DefaultFingerprinter(config.protection.fingerprint)
         self.assets = asset_repository or build_asset_repository(config)
         self.provenance = provenance_store or build_provenance_store(config)
+        self._shield = shield
+        self._detector = detector
 
     def _default_output(self, source: Path, asset_id: str) -> Path:
         """Return the default destination inside the configured protected directory."""
@@ -120,20 +146,55 @@ class DefaultProtectionPipeline(ProtectionPipeline):
             ),
         }
 
+    def _apply_shield(self, image: np.ndarray) -> tuple[np.ndarray, dict[str, Any]]:
+        """Perturb every detected face against the swapper's encoder.
+
+        The shield runs after the watermark, the reverse of cloaking: it was
+        measured as the last change to the published pixels, and the watermark
+        was measured to survive it. Optimising on the marked image also means
+        the perturbation that ships is the one that was optimised.
+        """
+        if self._detector is None:
+            from deepshield.face.detector import build_detector
+
+            self._detector = build_detector(self.config.face.detector)
+        if self._shield is None:
+            from deepshield.protection.shield import SwapShield
+
+            self._shield = SwapShield(
+                self.config.protection.shield, Path(self.config.runtime.model_dir)
+            )
+        faces = self._detector.detect(image)
+        shielded, report = self._shield.shield(image, faces)
+        report["caveats"] = [
+            "Measured against inswapper_128; swappers built on another face encoder, "
+            "deliberate denoising or face restoration, and fine-tuning a generator on "
+            "the photo were not stopped or not measured.",
+            "The shielded photo no longer matches you by face. Keep the original for "
+            "enrollment; reposts of this file are found by watermark and perceptual hash.",
+        ]
+        return shielded, report
+
     def protect(
         self,
         image_path: Path,
         user_id: str,
         distribution_id: str | None = None,
         output_path: Path | None = None,
+        mode: ProtectionMode = "trace",
     ) -> dict[str, Any]:
         """Protect one image, register it, and return a full report.
 
         Raises:
+            ValueError: If ``mode`` is not ``trace`` or ``shield``.
             InvalidMediaError: If the source file cannot be decoded.
             WatermarkError: If the image is too small to carry the watermark.
+            ModelNotAvailableError: In ``shield`` mode, if PyTorch or the encoder
+                weights are missing.
 
         """
+        if mode not in PROTECTION_MODES:
+            raise ValueError(f"mode must be one of {PROTECTION_MODES}, not {mode!r}")
         source = Path(image_path)
         original = validate_rgb(load_image(source))
         source_digest = sha256_file(source)
@@ -157,6 +218,11 @@ class DefaultProtectionPipeline(ProtectionPipeline):
             protected = cloaked
             watermark_code = None
 
+        shield_report: dict[str, Any] = {"applied": False, "reason": "trace mode"}
+        if mode == "shield":
+            protected, shield_report = self._apply_shield(protected)
+        shielded = bool(shield_report.get("applied"))
+
         destination = Path(output_path) if output_path else self._default_output(source, asset_id)
         save_image(protected, destination)
 
@@ -173,6 +239,7 @@ class DefaultProtectionPipeline(ProtectionPipeline):
             protected_path=str(destination),
             source_path=str(source),
             protection_version=__version__,
+            shielded=shielded,
         )
         self.assets.save(record)
 
@@ -202,6 +269,8 @@ class DefaultProtectionPipeline(ProtectionPipeline):
         return {
             "asset_id": asset_id,
             "user_id": user_id,
+            "mode": mode,
+            "shielded": shielded,
             "distribution_id": distribution_id,
             "source_path": str(source),
             "protected_path": str(destination),
@@ -214,6 +283,7 @@ class DefaultProtectionPipeline(ProtectionPipeline):
             },
             "fingerprint": fingerprint.to_dict(),
             "adversarial": cloak_report,
+            "shield": shield_report,
             "quality": {
                 "psnr": None if quality["psnr"] == float("inf") else round(quality["psnr"], 3),
                 "ssim": round(quality["ssim"], 5),

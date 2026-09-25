@@ -350,3 +350,83 @@ def test_a_video_without_a_registered_photo_says_what_was_checked(
     record = DefaultVideoProcessor(config, analysis=pipeline).analyze(video, "u1")
     assert record.matched_asset_id is None
     assert any("No sampled frame resembled" in line for line in record.limitations)
+
+
+class GradientShield:
+    """Stands in for the swap shield: makes the face unmatchable, identically on every copy.
+
+    A strong smooth ramp over the face swamps the coarse layout the test embedder
+    reads, so the owner no longer matches, while the low-frequency change leaves
+    the mid-band watermark readable, as the real shield does.
+    """
+
+    def shield(self, image: np.ndarray, faces: list) -> tuple[np.ndarray, dict]:
+        rows, cols = face_region(image)
+        height, width = rows.stop - rows.start, cols.stop - cols.start
+        ramp = np.add.outer(np.linspace(-90, 90, height), np.linspace(-90, 90, width))
+        out = image.astype(np.float64)
+        out[rows, cols] += ramp[:, :, None]
+        return np.clip(out, 0, 255).astype(np.uint8), {"applied": True, "faces": len(faces)}
+
+
+@pytest.fixture
+def shielded(
+    config: DeepShieldConfig, pipeline: DefaultAnalysisPipeline, tmp_path: Path
+) -> tuple[Path, dict]:
+    source = synthetic_photo(seed=5, size=512)
+    enroll(pipeline, config, source)
+    protection = DefaultProtectionPipeline(
+        config, shield=GradientShield(), detector=pipeline.detector
+    )
+    report = protection.protect(
+        save_image(source, tmp_path / "me.png"), "u1", "instagram", mode="shield"
+    )
+    return Path(report["protected_path"]), report
+
+
+def test_shield_mode_marks_the_asset(pipeline, shielded) -> None:
+    _, report = shielded
+    assert report["mode"] == "shield"
+    assert report["shielded"] is True
+    assert report["shield"]["applied"] is True
+    assert pipeline.assets.list_assets()[0].shielded is True
+
+
+def test_a_shielded_repost_is_a_copy_although_the_owner_no_longer_matches(
+    pipeline, shielded, tmp_path: Path
+) -> None:
+    path, report = shielded
+    record = analyse(pipeline, jpeg(load_image(path), 90), tmp_path / "repost.png")
+    assert record.watermark_code == report["watermark"]["code"]
+    assert record.risk.signals["identity_decision"] != "high_confidence"
+    assert record.risk.signals["face_in_registered_file"] is True
+    assert record.risk.verdict is Verdict.OWN_COPY
+
+
+def test_another_face_on_a_shielded_photo_is_an_alteration(
+    pipeline, shielded, tmp_path: Path
+) -> None:
+    path, _ = shielded
+    swapped = replace_face(load_image(path), synthetic_photo(seed=91, size=512))
+    record = analyse(pipeline, swapped, tmp_path / "swapped.png")
+    assert record.risk.signals["face_in_registered_file"] is False
+    assert record.risk.verdict is Verdict.OWN_ALTERED
+
+
+def test_a_shielded_file_cannot_be_enrolled(config, pipeline, shielded, tmp_path: Path) -> None:
+    from deepshield.exceptions import EnrollmentError
+    from deepshield.face.enrollment import DefaultIdentityEnroller
+
+    path, _ = shielded
+    repost = save_image(jpeg(load_image(path), 90), tmp_path / "repost.png")
+    enroller = DefaultIdentityEnroller(
+        config, detector=pipeline.detector, aligner=pipeline.aligner, embedder=pipeline.embedder
+    )
+    with pytest.raises(EnrollmentError, match="swap-shielded"):
+        enroller.enroll("u2", [path, repost])
+
+
+def test_an_unknown_protection_mode_is_refused(config, tmp_path: Path) -> None:
+    source = save_image(synthetic_photo(seed=5, size=256), tmp_path / "me.png")
+    with pytest.raises(ValueError, match="mode"):
+        DefaultProtectionPipeline(config).protect(source, "u1", mode="cloak")  # type: ignore[arg-type]

@@ -358,6 +358,7 @@ class FileAssetRepository:
                 source_path=payload.get("source_path"),
                 protection_version=payload.get("protection_version"),
                 created_at=payload["created_at"],
+                shielded=bool(payload.get("shielded", False)),
             )
         except (json.JSONDecodeError, KeyError, TypeError):
             logger.warning("skipping unreadable asset record: %s", path)
