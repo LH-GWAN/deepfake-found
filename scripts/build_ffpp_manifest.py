@@ -10,10 +10,10 @@ it changes nothing downstream.
 What it does, per clip:
 
 sample frames
-    A few frames spread over each video (more for real clips than for each
-    manipulation, so real and fake end up roughly balanced), skipping the
-    first and last frame. Mirrors that ship frames instead of videos are read
-    the same way, one folder per clip.
+    A few frames spread over the first half of each video (more for real
+    clips than for each manipulation, so real and fake end up roughly
+    balanced), read in one pass rather than by seeking. Mirrors that ship
+    frames instead of videos are read the same way, one folder per clip.
 crop loosely
     The project's own face detector finds the largest face and the crop keeps
     a margin wider than the pipeline's, so the trainer can find the face again
@@ -215,18 +215,30 @@ class Source:
             shutil.rmtree(folder, ignore_errors=True)
 
 
-def video_frames(path: Path, count: int) -> list[np.ndarray]:
-    """Return ``count`` RGB frames spread over a video."""
+def video_frames(path: Path, count: int, window: float = 0.5) -> list[np.ndarray]:
+    """Return ``count`` RGB frames spread over the first ``window`` of a video.
+
+    The video is read once from the start and stops at the last frame wanted.
+    Seeking looks cheaper but is not: on these H.264 files OpenCV decodes from
+    the previous keyframe on every seek, which measured 0.74 s per frame
+    against 0.17 s for the face detector, so eight seeks cost several full
+    decodes. Sampling the first half keeps a clip's frames distinct while
+    halving what has to be decoded.
+    """
     import cv2
 
     capture = cv2.VideoCapture(str(path))
     try:
+        total = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+        wanted = set(spread(max(1, int(total * window)), count))
         frames = []
-        for index in spread(int(capture.get(cv2.CAP_PROP_FRAME_COUNT)), count):
-            capture.set(cv2.CAP_PROP_POS_FRAMES, index)
-            ok, frame = capture.read()
-            if ok:
-                frames.append(np.ascontiguousarray(frame[:, :, ::-1]))
+        for index in range(max(wanted, default=-1) + 1):
+            if not capture.grab():
+                break
+            if index in wanted:
+                ok, frame = capture.retrieve()
+                if ok:
+                    frames.append(np.ascontiguousarray(frame[:, :, ::-1]))
         return frames
     finally:
         capture.release()
@@ -284,6 +296,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--frames-real", type=int, default=8)
     parser.add_argument("--frames-fake", type=int, default=2)
     parser.add_argument("--max-side", type=int, default=512)
+    parser.add_argument("--window", type=float, default=0.5,
+                        help="sample frames from this leading fraction of each video")
     parser.add_argument("--limit", type=int, default=None, help="clips per kind, for a trial")
     parser.add_argument("--survey", action="store_true", help="report the layout and stop")
     args = parser.parse_args(argv)
@@ -319,7 +333,7 @@ def main(argv: list[str] | None = None) -> int:
         if not all(path.is_file() for path in wanted):
             if clip.is_video:
                 with source.local(clip.members[0]) as local:
-                    frames = video_frames(local, count)
+                    frames = video_frames(local, count, args.window)
             else:
                 frames = [source.image(clip.members[i])
                           for i in spread(len(clip.members), count)]
@@ -327,7 +341,11 @@ def main(argv: list[str] | None = None) -> int:
             for path, frame in zip(wanted, frames, strict=False):
                 crop = context_crop(detector, frame, args.max_side)
                 if crop is not None:
-                    Image.fromarray(crop).save(path)
+                    # Written under another name and renamed, so a snapshot taken
+                    # mid-run never holds a half-written crop under its real name.
+                    staging = path.with_suffix(".partial")
+                    Image.fromarray(crop).save(staging, format="PNG")
+                    staging.replace(path)
         for index, path in enumerate(wanted):
             if path.is_file():
                 records.setdefault(clip.kind, []).append({
