@@ -436,12 +436,18 @@ class RiskEvidence:
     small face can fail to match its own owner under heavy compression, so a
     missed match on one is not read as someone else's face; quality is reported
     but does not decide, because a swapped face is softer than a genuine one.
-    ``copy_scale`` is the content's size relative to the registered original it
-    descends from, when both are known. ``asset_shielded`` marks an asset
-    published with the swap shield, whose face no recogniser matches to its
-    owner by design; for those ``face_in_registered_file`` says whether the
-    content's face is the one in the registered file (``True``), a different
-    one (``False``) or could not be compared (``None``).
+    ``copy_scale`` is the content's scale relative to the registered original
+    it descends from: read from faces kept from it where possible, from the
+    canvas otherwise. ``asset_shielded`` marks an asset published with the
+    swap shield, whose faces no recogniser matches to its owner by design.
+
+    When the registered file could be re-read, ``registered_faces_compared``
+    is set and the content's faces were compared one by one with its faces:
+    ``owner_face_kept`` says whether one of them is the owner's face from the
+    file, ``face_in_registered_file`` whether every face is a face of the file
+    (``True``), one is none of them (``False``) or one resembles them only
+    weakly (``None``), and ``replaced_face_pixels`` is the size of the largest
+    face that is none of them.
     """
 
     subject_user_id: str | None = None
@@ -458,7 +464,10 @@ class RiskEvidence:
     distribution_id: str | None = None
     owner_face_in_original: bool | None = None
     asset_shielded: bool = False
+    registered_faces_compared: bool = False
+    owner_face_kept: bool | None = None
     face_in_registered_file: bool | None = None
+    replaced_face_pixels: float | None = None
     deepfake_score: float | None = None
     deepfake_calibrated: bool = False
 

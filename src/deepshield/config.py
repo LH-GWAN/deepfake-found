@@ -258,7 +258,10 @@ class ShieldConfig(_Base):
     The defaults are the measured setting: 8/255 against the ArcFace model
     ``inswapper_128`` conditions on stopped 30 of 30 swaps from carrying the
     person at about 36 dB PSNR. ``encoder_model`` is relative to the model
-    directory.
+    directory. ``landmark_detector`` is the detector whose landmarks place the
+    aligned frame: ``insightface`` (SCRFD from the same pack) is the one the
+    swapper re-detects with, and ``pipeline`` uses the configured face detector
+    instead, whose frame can sit several degrees off.
     """
 
     epsilon: float = Field(default=8 / 255, gt=0.0, le=0.25)
@@ -266,6 +269,7 @@ class ShieldConfig(_Base):
     eot_samples: int = Field(default=4, gt=0)
     seed: int = 0
     encoder_model: Path = Path("insightface/models/buffalo_l/w600k_r50.onnx")
+    landmark_detector: str = "insightface"
 
 
 class ProtectionConfig(_Base):

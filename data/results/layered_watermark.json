@@ -2274,6 +2274,8 @@
     "deepfake_detector": "spectral",
     "watermark_backend": "dct",
     "watermark_strength": 0.16,
-    "recorded_at": "2026-09-25T02:28:02.126801+00:00"
-  }
+    "recorded_at": "2026-09-25T02:28:02.126801+00:00",
+    "provenance_note": "git_commit is the HEAD the run started from; the working tree had uncommitted changes, so the exact code is not recoverable from it. device recorded runtime.device from configs/default.yaml, not what ran: the run was on a Colab T4 GPU."
+  },
+  "counting_note": "conflict_caught counts only learned mark = victim while the DCT mark names the owner. The script now counts any disagreement between the two decoded owners; from these cells, forge_dct disagrees in 74 of 75 photographs in each layered configuration, dct_then_v3 pgd_f4 in 59 and pgd_e16 in 1. Per-image decodes were not kept, so the cells here are as measured."
 }

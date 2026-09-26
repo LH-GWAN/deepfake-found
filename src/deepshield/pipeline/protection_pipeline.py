@@ -113,6 +113,11 @@ class DefaultProtectionPipeline(ProtectionPipeline):
         self._shield = shield
         self._detector = detector
 
+    def shield_components(self) -> dict[str, Any]:
+        """Return the shield and its detector once loaded, for reuse by a later pipeline."""
+        loaded = {"shield": self._shield, "detector": self._detector}
+        return {name: part for name, part in loaded.items() if part is not None}
+
     def _default_output(self, source: Path, asset_id: str) -> Path:
         """Return the default destination inside the configured protected directory."""
         directory = Path(self.config.runtime.data_dir) / "protected"
@@ -146,18 +151,33 @@ class DefaultProtectionPipeline(ProtectionPipeline):
             ),
         }
 
+    def _shield_detector(self) -> Any:
+        """Build the detector whose landmarks place the frame the shield optimises in."""
+        from deepshield.face.detector import build_detector
+
+        name = self.config.protection.shield.landmark_detector
+        if name == "pipeline":
+            return build_detector(self.config.face.detector)
+        if name == "insightface":
+            from deepshield.config import FaceDetectorConfig
+            from deepshield.face.backends import InsightFaceDetector
+
+            return InsightFaceDetector(
+                FaceDetectorConfig(backend="insightface"), Path(self.config.runtime.model_dir)
+            )
+        return build_detector(self.config.face.detector.model_copy(update={"backend": name}))
+
     def _apply_shield(self, image: np.ndarray) -> tuple[np.ndarray, dict[str, Any]]:
         """Perturb every detected face against the swapper's encoder.
 
-        The shield runs after the watermark, the reverse of cloaking: it was
-        measured as the last change to the published pixels, and the watermark
-        was measured to survive it. Optimising on the marked image also means
-        the perturbation that ships is the one that was optimised.
+        The shield runs after the watermark, the reverse of cloaking, so the
+        perturbation that ships is the one that was optimised; the watermark
+        was measured to survive it. The swap measurement behind the default
+        budget was made without a watermark, so
+        ``scripts/evaluate_shield_mode.py`` measures this order end to end.
         """
         if self._detector is None:
-            from deepshield.face.detector import build_detector
-
-            self._detector = build_detector(self.config.face.detector)
+            self._detector = self._shield_detector()
         if self._shield is None:
             from deepshield.protection.shield import SwapShield
 
@@ -166,12 +186,20 @@ class DefaultProtectionPipeline(ProtectionPipeline):
             )
         faces = self._detector.detect(image)
         shielded, report = self._shield.shield(image, faces)
+        if not report.get("applied"):
+            report["caveats"] = [
+                "No face was found to shield, so the photo was published with the watermark "
+                "and fingerprints only, like trace mode, and is not marked shielded."
+            ]
+            return shielded, report
         report["caveats"] = [
             "Measured against inswapper_128; swappers built on another face encoder, "
             "deliberate denoising or face restoration, and fine-tuning a generator on "
             "the photo were not stopped or not measured.",
-            "The shielded photo no longer matches you by face. Keep the original for "
-            "enrollment; reposts of this file are found by watermark and perceptual hash.",
+            "The shielded photo no longer matches you by face with the ArcFace model this "
+            "system and the swapper use; a recogniser nobody attacked (SFace) still ranked "
+            "the owner first on 11 of 30 measured photos. Keep the original for enrollment; "
+            "reposts of this file are found by watermark and perceptual hash.",
         ]
         return shielded, report
 

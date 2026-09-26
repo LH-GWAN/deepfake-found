@@ -206,6 +206,8 @@ class VerdictRiskScorer(RiskScorer):
                 "No face is detectable in the content: it may have been cropped out, degraded "
                 "beyond detection, or removed."
             )
+        elif evidence.registered_faces_compared:
+            return self._against_registered_faces(evidence, reasons, limitations)
         elif decision in ("candidate", "ambiguous"):
             reasons.append(
                 "A face resembles yours only weakly, which a heavily degraded copy can also "
@@ -245,6 +247,82 @@ class VerdictRiskScorer(RiskScorer):
             )
         return Verdict.OWN_UNVERIFIED
 
+    def _too_small_to_tell(
+        self, evidence: RiskEvidence, reasons: list[str], limitations: list[str]
+    ) -> bool:
+        """Explain and return whether the face that matches nothing is too small to call.
+
+        A face under 80 pixels in a copy shrunk from the registered file can
+        miss even its own earlier self. At the registered scale it would have
+        matched, so there a miss still means another face.
+        """
+        pixels = evidence.replaced_face_pixels
+        scale = evidence.copy_scale
+        if not is_small_probe_face(pixels) or (scale is not None and scale >= SHRUNK_COPY_SCALE):
+            return False
+        shrunk = (
+            "" if scale is None else f" This copy is at {scale:.0%} of the registered file's scale."
+        )
+        reasons.append(
+            f"A face in this copy matches none of the faces in the registered file, but it is "
+            f"too small ({pixels:.0f} pixels) to tell a replaced face from a shrunk one.{shrunk}"
+        )
+        limitations.append(SMALL_FACE_LIMITATION)
+        return True
+
+    def _against_registered_faces(
+        self, evidence: RiskEvidence, reasons: list[str], limitations: list[str]
+    ) -> Verdict:
+        """Decide from the content's faces compared one by one with the registered file's.
+
+        The face that decides is the one where the owner's face was, not the
+        best-scoring face in the picture: a neighbour who is still there
+        matches their own face in the file and is set aside, and a face that
+        was put in matches none of them.
+        """
+        original = evidence.owner_face_in_original
+        if evidence.owner_face_kept:
+            reasons.append(
+                "Your face from the registered original is still in this copy, unchanged; it "
+                "matches your enrollment less strongly only because the copy is degraded."
+            )
+            return Verdict.OWN_COPY
+        if evidence.replaced_face_pixels is not None:
+            if self._too_small_to_tell(evidence, reasons, limitations):
+                return Verdict.OWN_UNVERIFIED
+            if original is True:
+                reasons.append(
+                    "The registered original shows your face, but this copy has a face that is "
+                    "none of the faces in it: another face appears where yours was."
+                )
+                return Verdict.OWN_ALTERED
+            reasons.append(
+                "This copy has a face that is none of the faces in the registered original, but "
+                "whether the original showed your face could not be settled, so whether yours "
+                "was replaced is unknown."
+            )
+            return Verdict.OWN_UNVERIFIED
+        if evidence.face_in_registered_file is None or evidence.identity_decision in (
+            "candidate",
+            "ambiguous",
+        ):
+            reasons.append(
+                "A face resembles yours or the registered original's only weakly, which a "
+                "heavily degraded copy can also produce."
+            )
+            return Verdict.OWN_UNVERIFIED
+        if original is True:
+            reasons.append(
+                "Your face is not in this copy, and every face it shows is another face from "
+                "the registered original, so yours was cropped out rather than replaced."
+            )
+            return Verdict.OWN_UNVERIFIED
+        reasons.append(
+            "The faces in the content are faces from the registered original, and whether "
+            "that original shows you could not be settled."
+        )
+        return Verdict.OWN_UNVERIFIED
+
     def _shielded_asset(
         self, evidence: RiskEvidence, reasons: list[str], limitations: list[str]
     ) -> Verdict:
@@ -255,42 +333,41 @@ class VerdictRiskScorer(RiskScorer):
         compared with the face in the registered file instead.
         """
         reasons.append(
-            "This photo was published with the swap shield, which keeps face recognisers, "
-            "this one included, from matching it to you; its face is compared with the face "
-            "in the registered file instead."
+            "This photo was published with the swap shield, which keeps this system's face "
+            "recogniser, the ArcFace model face swappers read identity from, from matching it "
+            "to you; its faces are compared with the faces in the registered file instead."
         )
-        registered = evidence.face_in_registered_file
         if evidence.faces_detected == 0:
             reasons.append(
                 "No face is detectable in the content: it may have been cropped out, degraded "
                 "beyond detection, or removed."
             )
             return Verdict.OWN_UNVERIFIED
-        if registered is True:
-            reasons.append("The face is the one in the registered file, unchanged.")
-            return Verdict.OWN_COPY
-        if registered is False:
-            if is_small_probe_face(evidence.probe_face_pixels) and (
-                evidence.copy_scale is None or evidence.copy_scale < SHRUNK_COPY_SCALE
-            ):
-                reasons.append(
-                    f"The face in this copy is too small{_face_detail(evidence)} to tell "
-                    "whether it is still the one that was published."
-                )
-                limitations.append(SMALL_FACE_LIMITATION)
+        if not evidence.registered_faces_compared:
+            reasons.append(
+                "The registered file could not be read or shows no face, so whether a face "
+                "was replaced is unknown."
+            )
+            limitations.append(
+                "Keep the shielded file recorded for this asset; it is what copies are checked "
+                "against for face changes."
+            )
+            return Verdict.OWN_UNVERIFIED
+        if evidence.replaced_face_pixels is not None:
+            if self._too_small_to_tell(evidence, reasons, limitations):
                 return Verdict.OWN_UNVERIFIED
             reasons.append(
-                "The face in this copy does not match the face in the registered file: "
-                "another face appears where it was."
+                "This copy has a face that is none of the faces in the registered file: another "
+                "face appears where one of them was. The shield keeps faces from being matched "
+                "to people, so in a photo of several people which face it replaced is not known."
             )
             return Verdict.OWN_ALTERED
+        if evidence.face_in_registered_file:
+            reasons.append("Every face in it is a face of the registered file, unchanged.")
+            return Verdict.OWN_COPY
         reasons.append(
-            "The registered file could not be compared with this copy, so whether its face "
-            "was replaced is unknown."
-        )
-        limitations.append(
-            "Keep the shielded file recorded for this asset; it is what copies are checked "
-            "against for face changes."
+            "A face in this copy resembles the faces in the registered file only weakly, which "
+            "a heavily degraded copy can also produce."
         )
         return Verdict.OWN_UNVERIFIED
 

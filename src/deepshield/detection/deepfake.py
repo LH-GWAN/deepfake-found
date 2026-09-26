@@ -129,6 +129,14 @@ class MockDeepfakeDetector(DeepfakeDetector):
 DEEPFAKE_REGISTRY.register("mock", MockDeepfakeDetector)
 
 
-def build_deepfake_detector(config: DeepfakeDetectorConfig) -> DeepfakeDetector:
-    """Instantiate the deepfake detector backend named in ``config``."""
+def build_deepfake_detector(
+    config: DeepfakeDetectorConfig, device: str | None = None
+) -> DeepfakeDetector:
+    """Instantiate the deepfake detector backend named in ``config``.
+
+    ``device`` is ``runtime.device``; it reaches the backends that run a model
+    (``onnx``), and the others ignore it.
+    """
+    if device is not None and config.backend == "onnx":
+        return DEEPFAKE_REGISTRY.create(config.backend, config, device=device)
     return DEEPFAKE_REGISTRY.create(config.backend, config)

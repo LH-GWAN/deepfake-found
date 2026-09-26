@@ -12,9 +12,13 @@ Groups:
 
 east_asian
     LFW identities whose names follow Korean, Chinese or Japanese romanisation,
-    by a coarse name rule plus a short manual list, excluding the evaluation
-    identities. A name is a proxy, not a label; every selected name is written
-    to the report so the selection can be audited.
+    by the rules in :func:`population` plus a manual list, excluding the
+    evaluation identities. A name is a proxy, not a label; every selected name
+    is written to the report so the selection can be audited. Names the rules
+    cannot place (a Western given name before one of these family names) are
+    ambiguous and kept out of every group, controls included; an identity with
+    no photograph the face stack accepts is listed with the reason it was
+    dropped.
 control_<n>
     For every East Asian identity, another LFW identity with at least as many
     photographs, the same predicted sex and a predicted age within ten years,
@@ -41,6 +45,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from collections.abc import Iterable
 from concurrent.futures import ProcessPoolExecutor
@@ -59,11 +64,16 @@ from deepshield.transforms import Transformation
 
 KOREAN = (
     "kim lee park choi roh moon yoon chung jung kang cho han hwang ahn song hong shin kwon oh "
-    "seo yoo jang lim yim ko nam baek chang"
+    "seo yoo jang lim yim ko nam baek chang jeong jeon bae yun seong suh sohn son choe pak paek "
+    "ri rhee heo noh ryu yu ha kwak jo yeo won min pyo bak cha goh suk chyung ham"
 ).split()
 CHINESE = (
     "hu jiang wen zhu li wang zhang chen liu yang huang zhao wu zhou xu sun ma lin tang deng "
-    "xie feng cao qian jiao luo gao liang tsai lu lui yeo goh chok soong"
+    "xie feng cao qian jiao luo gao liang tsai lu lui yeo goh chok soong guo he xi ye zeng peng "
+    "pan dong yuan su cai tian du qin ren shen xiong jin wei yin yan kong hao fang shi bai ding "
+    "wan zou meng qiu gu yi lou hung tung hsu hsieh chiang chu kuo tsao lo wong chan cheung "
+    "leung lau ho chow kwok tsang yip fong lam tse lai chiu kwan yeoh ng tan jia gong xiang "
+    "chao ling"
 ).split()
 JAPANESE = (
     "koizumi tanaka suzuki takahashi watanabe ito yamamoto nakamura kobayashi kato yoshida "
@@ -72,16 +82,111 @@ JAPANESE = (
     "fujiwara miura nakajima ishii ueda morita harada sakai miyazaki ishida takeda murata ueno "
     "masuda hirano matsui noguchi nomura kikuchi sugimoto arai hamada ichikawa mizuno yamashita "
     "ishihara otani nakasone obuchi kawaguchi tanigaki hiranuma machimura ozawa kan hatoyama aso "
-    "sato ichiro nomo ohno takako"
+    "sato ichiro nomo ohno takako sugiyama morigami tamura mitarai urushima hasuike takenaka "
+    "naemura nakata gomi oguchi owada soga oshitani inamoto tabei kutaragi haraguchi matsuura "
+    "uehara kitajima nakayama nagasawa tokuyama azuma hayami koshiba moriyama yabunaka "
+    "kawabuchi nagashima ishiba katayama suetsugu taniguchi sorimachi kanzaki fukui kitano "
+    "yamasaki fuji masumoto maeda hagiwara takagi izawa motegi takebe akashi chimura kamei "
+    "okudo miyazato fujimori hosoi ohata idei yoshino"
 ).split()
-CHINESE_GIVEN = {"jintao", "zemin", "jiabao", "rongji", "zhaoxing", "xiaoping"}
+SURNAMES = frozenset(KOREAN + CHINESE)
+# One syllable of Chinese (pinyin, Wade-Giles, Cantonese) or Korean romanisation.
+# Deliberately loose: it only has to tell "Changchun" or "Myung" from "Clijsters".
+SYLLABLE = (
+    r"(?:ch|sh|zh|ts|tz|hs|hw|wh|kw|gw|jj|kk|tt|pp|ss|[bpmfdtnlgkhjqxrzcsyw])?"
+    r"(?:iao|iu|ia|ie|io|ua|uo|ue|ui|ai|ao|ay|ei|eo|eu|ey|ou|oo|ee|oe|ae|oi|yu|ye|ya|yi|yo"
+    r"|[aeiou])"
+    r"(?:ng|ck|n|m|k|p|t|l|h|r)?"
+)
+ROMANISED = re.compile(rf"(?:{SYLLABLE}){{1,3}}")
+# One mora of Hepburn romanisation, including the doubled consonant and a closing n.
+MORAE = re.compile(
+    r"(?:(?:(?:[kgsztdnhbpmr]y?|sh|ch|ts|j|f|y|w)?[aiueo])|n(?![aiueoy])|([kstp])(?=\1))+"
+)
 MANUAL = {
     "Zhang_Ziyi", "Gong_Li", "Yao_Ming", "Jackie_Chan", "Lucy_Liu", "Michelle_Kwan",
     "Chen_Kaige", "Tang_Jiaxuan", "Qian_Qichen", "Chen_Liang_Yu", "Maggie_Cheung",
     "Zhong_Nanshan", "Annette_Lu", "Tung_Chee-hwa", "Toshihiko_Fukui", "Yoko_Ono",
     "Hiroyuki_Yoshino", "Nobuyuki_Idei", "Wang_Yingfan", "Nan_Wang", "Zhang_Wenkang",
     "Liu_Mingkang", "Li_Peng",
+    # Western or English given names before a Chinese, Korean or Japanese family name,
+    # which the rules leave ambiguous: public figures of East Asian descent.
+    "Ambrose_Lee", "Andy_Lau", "Antony_Leung", "Bill_Kong", "Cecilia_Cheung", "Connie_Chung",
+    "David_Ho", "Edward_Lu", "Elaine_Chao", "Fann_Wong", "Faye_Wong", "Frank_Hsieh",
+    "Fruit_Chan", "Jacky_Cheung", "Kurt_Suzuki", "Leon_Lai", "Lisa_Ling", "Michael_Chang",
+    "Michelle_Yeoh", "Nicholas_Tse", "Peter_Chan",
+    # Given name first, written as one pinyin or Korean word.
+    "Chuanyun_Li", "Xiang_Xu", "Yingfan_Wang", "Yishan_Zhang", "Ziwang_Xu", "Myung_Yang",
+    "Soon_Yi", "Fujio_Cho", "Moon-So-ri", "Rod_Jong-il", "Guangdong_Ou_Guangyuan",
+    "Debra_Yang",
 }
+# Names the rules read as East Asian that the selection could not confirm.
+AMBIGUOUS = {"Lou_Lang"}
+# Names the rules read as romanised that belong to people who are not East Asian.
+NOT_EAST_ASIAN = {
+    "Chan_Gailey", "Duane_Lee_Chapman", "Jo_Dee_Messina", "Lee_Baca", "Lou_Piniella",
+    "Mary_Lou_Retton", "Paul_Lo_Duca", "Spike_Lee", "Ben_Lee",
+}
+LONGEST_GIVEN_PART = 6
+
+
+def _romanised(token: str, longest: int = 12) -> bool:
+    """Return whether a name token reads as romanised Chinese or Korean syllables."""
+    pieces = token.split("-")
+    return len(pieces) <= 3 and all(
+        piece and len(piece) <= longest and ROMANISED.fullmatch(piece) for piece in pieces
+    )
+
+
+def population(name: str) -> str:
+    """Return ``east_asian``, ``ambiguous`` or ``other`` for an LFW name.
+
+    ``east_asian``: a Korean or Chinese family name followed by a romanised
+    given name (``Li_Changchun``, ``Kim_Dae-jung``, ``Chan_Ho_Park`` read either
+    way round when the given name is hyphenated or in two parts), an English
+    name before a Chinese one (``Alan_Tang_Kwong-wing``), a Japanese family name
+    after a given name written in Hepburn morae, or the manual list.
+    ``ambiguous``: a family name from these lists after a given name the rules
+    cannot read (``Michelle_Yeoh``, ``Spike_Lee``, ``Kurt_Suzuki``). Such people
+    join neither group: a control must not hold East Asian faces either, or the
+    contrast it exists for shrinks. A name is a proxy, not a label; the report
+    lists every name in every group, and the ambiguous ones, for audit.
+    """
+    if name in MANUAL:
+        return "east_asian"
+    if name in NOT_EAST_ASIAN:
+        return "other"
+    if name in AMBIGUOUS:
+        return "ambiguous"
+    parts = name.lower().split("_")
+    first, last = parts[0], parts[-1]
+    # Three-part names are two short given syllables; longer tokens are Western.
+    longest = 12 if len(parts) == 2 else LONGEST_GIVEN_PART
+    if len(parts) in (2, 3):
+        if first in SURNAMES and all(_romanised(part, longest) for part in parts[1:]):
+            return "east_asian"
+        given_first = len(parts) == 3 or "-" in first
+        if last in SURNAMES and given_first and all(
+            _romanised(part, longest) for part in parts[:-1]
+        ):
+            return "east_asian"
+        if last in JAPANESE and len(parts) == 2 and MORAE.fullmatch(first):
+            return "east_asian"
+    if len(parts) == 3 and parts[1] in SURNAMES and _romanised(last, LONGEST_GIVEN_PART) and (
+        "-" in last or len(last) <= 4
+    ):
+        # An English name before a Chinese one: Alan_Tang_Kwong-wing, Vicki_Zhao_Wei.
+        return "east_asian"
+    if last in SURNAMES or last in JAPANESE or name in AMBIGUOUS:
+        return "ambiguous"
+    return "other"
+
+
+def east_asian(name: str) -> bool:
+    """Return whether :func:`population` places an LFW name in the East Asian group."""
+    return population(name) == "east_asian"
+
+
 SMALL = Transformation("video_small", "video_compression", {"scale": 0.55, "crf": 35})
 CONDITIONS = ("clean", "video_small")
 PHOTOS_PER_IDENTITY = 8
@@ -92,27 +197,6 @@ AGE_TOLERANCE = 10.0
 LEVELS = (0.25, 0.30, 0.35)
 
 _components: tuple[Any, Any, Any] | None = None
-
-
-def east_asian(name: str) -> bool:
-    """Return whether an LFW name follows Korean, Chinese or Japanese romanisation.
-
-    A Korean or Chinese family name counts only with a given name written the
-    way those languages romanise it (hyphenated, or two short syllables), which
-    keeps out names like Spike Lee or Kim Clijsters. A Japanese family name
-    counts as it stands. The rule misses people and admits a few; the manual
-    list adds well-known people it misses, and the report lists every name.
-    """
-    if name in MANUAL:
-        return True
-    parts = name.lower().split("_")
-    first, last = parts[0], parts[-1]
-    if first in KOREAN + CHINESE:
-        if len(parts) == 2 and ("-" in parts[1] or parts[1] in CHINESE_GIVEN):
-            return True
-        if len(parts) == 3 and len(parts[1]) <= 4 and len(parts[2]) <= 5:
-            return True
-    return last in JAPANESE
 
 
 def identities(lfw: Path, excluded: set[str]) -> dict[str, list[Path]]:
@@ -219,17 +303,22 @@ def _embed(paths: list[str]) -> list[dict[str, Any]]:
         image = load_image(Path(path))
         row: dict[str, Any] = {"path": path, "accepted": False}
         faces = detector.detect(image)
-        if len(faces) == 1:
-            face = faces[0]
-            pixels = min(face.bbox.width, face.bbox.height)
-            if face.detection_confidence >= MIN_DETECTION_CONFIDENCE and pixels >= MIN_FACE_PIXELS:
-                row["clean"] = embedder.embed(aligner.align(image, face).image).vector
-                small = SMALL.apply(image)
-                found = detector.detect(small)
-                if found:
-                    best = max(found, key=lambda f: f.detection_confidence)
-                    row["video_small"] = embedder.embed(aligner.align(small, best).image).vector
-                    row["accepted"] = True
+        if len(faces) != 1:
+            row["rejected"] = f"{len(faces)} faces found"
+        elif faces[0].detection_confidence < MIN_DETECTION_CONFIDENCE:
+            row["rejected"] = "detection confidence below 0.7"
+        elif min(faces[0].bbox.width, faces[0].bbox.height) < MIN_FACE_PIXELS:
+            row["rejected"] = f"face smaller than {MIN_FACE_PIXELS} pixels"
+        else:
+            row["clean"] = embedder.embed(aligner.align(image, faces[0]).image).vector
+            small = SMALL.apply(image)
+            found = detector.detect(small)
+            if found:
+                best = max(found, key=lambda f: f.detection_confidence)
+                row["video_small"] = embedder.embed(aligner.align(small, best).image).vector
+                row["accepted"] = True
+            else:
+                row["rejected"] = "no face after video_small"
         rows.append(row)
     return rows
 
@@ -273,13 +362,19 @@ def analyse(
     names: list[str] = []
     clean: list[np.ndarray] = []
     small: list[np.ndarray] = []
+    dropped: dict[str, list[str]] = {}
     for name, count in members:
+        reasons: list[str] = []
         for path in photos[name][:count]:
-            row = embedded.get(str(path))
-            if row and row["accepted"]:
+            entry = embedded.get(str(path))
+            if entry and entry["accepted"]:
                 names.append(name)
-                clean.append(np.asarray(row["clean"], dtype=np.float64))
-                small.append(np.asarray(row["video_small"], dtype=np.float64))
+                clean.append(np.asarray(entry["clean"], dtype=np.float64))
+                small.append(np.asarray(entry["video_small"], dtype=np.float64))
+            else:
+                reasons.append(entry.get("rejected", "not embedded") if entry else "not embedded")
+        if name not in names:
+            dropped[name] = sorted(set(reasons))
     labels = np.asarray(names)
     gallery = np.stack(clean)
     counts = {name: int((labels == name).sum()) for name in set(names)}
@@ -293,6 +388,8 @@ def analyse(
         "identities": len(counts),
         "photos": len(names),
         "gallery_identities": len(galleries),
+        "measured_members": sorted(counts),
+        "dropped_no_usable_photo": dropped,
         "dropped_as_same_person": [list(pair) for pair in aliases],
     }
     for condition, probes in (("clean", gallery), ("video_small", np.stack(small))):
@@ -359,8 +456,9 @@ def main(argv: list[str] | None = None) -> int:
         for name in sorted(photos)
         if east_asian(name)
     ]
-    chosen_names = {name for name, _ in group}
-    pool = sorted(name for name in photos if name not in chosen_names)
+    ambiguous = sorted(name for name in photos if population(name) == "ambiguous")
+    # Controls come only from names read as neither East Asian nor ambiguous.
+    pool = sorted(name for name in photos if population(name) == "other")
     attributes = Attributes(args.models)
     rng = np.random.default_rng(args.seed)
 
@@ -384,13 +482,19 @@ def main(argv: list[str] | None = None) -> int:
     report: dict[str, Any] = {
         "question": "is the impostor tail heavier within one population than in matched controls?",
         "high_confidence_threshold": high,
+        "selection": {
+            "east_asian_selected": len(group),
+            "ambiguous_excluded_from_every_group": ambiguous,
+        },
         "groups": {},
-        "environment": environment(load_config()),
+        # The seed that drew the controls, not the configuration's default.
+        "environment": {**environment(load_config()), "random_seed": args.seed},
     }
     for label, members in groups.items():
-        described = [attributes(name, photos[name][0]) for name, _ in members]
-        known = [item for item in described if item is not None]
         result = analyse(members, photos, embedded, high)
+        # Describe the identities that were measured, not every one selected.
+        described = [attributes(name, photos[name][0]) for name in result["measured_members"]]
+        known = [item for item in described if item is not None]
         result["members"] = [name for name, _ in members]
         result["predicted_male_share"] = round(
             float(np.mean([sex == "M" for sex, _ in known])), 3

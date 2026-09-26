@@ -28,8 +28,8 @@ no leakage
 Identities are split into calibration and test halves; a fake belongs to a half
 only when both the person in the photograph and the person whose face was
 pasted in belong to it. The genuine photographs of the manipulation sets are
-too few to bound a false-positive rate near 1% (85 test photographs with no
-false alarm still allow 4.2%), so ``--genuine`` adds one photograph each from
+too few to bound a false-positive rate near 1% (the 97 in the test half,
+with no false alarm, still allow 3.7%), so ``--genuine`` adds one photograph each from
 other LFW identities, split the same way.
 
 ``separation`` columns report ROC-AUC over every record of a family, the number
@@ -49,7 +49,9 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import random
 import sys
 from pathlib import Path
@@ -107,13 +109,33 @@ def family_of(manifest: Path, payload: dict[str, Any]) -> str:
     return name.replace("manipulated_", "") if "_" in name else "graphics"
 
 
+def file_sha256(path: Path) -> str:
+    """Return the SHA-256 of a file's bytes."""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def load_records(manifests: list[Path]) -> list[dict[str, Any]]:
-    """Return every record of every manifest with its family and the people in it."""
+    """Return every record of every manifest with its family and the people in it.
+
+    The manipulation sets share their genuine photographs, each keeping its own
+    byte-identical copy. A genuine photograph is kept once, from the first
+    manifest that holds it; counting it once per manifest would count the same
+    trial twice and narrow every false-positive bound on nothing.
+    """
     records: list[dict[str, Any]] = []
+    seen_genuine: set[str] = set()
     for manifest in manifests:
         payload = json.loads(manifest.read_text(encoding="utf-8"))
         family = family_of(manifest, payload)
         for record in payload["records"]:
+            if record["label"] != "fake":
+                path = Path(record["path"])
+                key = file_sha256(path) if path.is_file() else str(
+                    record.get("source") or path.resolve().as_posix()
+                )
+                if key in seen_genuine:
+                    continue
+                seen_genuine.add(key)
             people = {record["identity"].lower()}
             if record.get("donor"):
                 people.add(identity_of(record["donor"]))
@@ -197,9 +219,33 @@ def score_items(
 
 
 def in_sample(metadata: dict[str, Any], manifests: list[Path]) -> bool:
-    """Return whether the detector was trained on any of the evaluated manifests."""
-    trained = {Path(item).as_posix() for item in metadata.get("training_families_manifests", [])}
-    return any(manifest.as_posix() in trained for manifest in manifests)
+    """Return whether the detector was trained on any of the evaluated manifests.
+
+    A manifest matches by content hash when the training run recorded one, and
+    otherwise by location: both paths resolved, a relative training path read
+    against the repository and the working directory, and a path recorded on
+    another machine (a Colab mount) by the part of it inside the repository.
+    Comparing the strings as written let ``data/...`` and ``/abs/.../data/...``
+    pass as different manifests and ``--write`` adopt an in-sample detector.
+    """
+    trained = [Path(item) for item in metadata.get("training_families_manifests", [])]
+    hashes = set(metadata.get("training_manifests_sha256", []))
+    for manifest in manifests:
+        if hashes and manifest.is_file() and file_sha256(manifest) in hashes:
+            return True
+        here = manifest.resolve()
+        try:
+            # Not resolved: data folders are often symlinks out of the repository.
+            inside: tuple[str, ...] = Path(os.path.abspath(manifest)).relative_to(ROOT).parts
+        except ValueError:
+            inside = ()
+        for item in trained:
+            candidates = [item] if item.is_absolute() else [ROOT / item, Path.cwd() / item]
+            if any(candidate.resolve() == here for candidate in candidates):
+                return True
+            if inside and item.parts[-len(inside):] == inside:
+                return True
+    return False
 
 
 def evaluate(
@@ -277,10 +323,33 @@ def verdict(report: dict[str, Any], leaked: bool) -> tuple[bool, list[str]]:
     return not reasons, reasons
 
 
+def operating_points(threshold: float) -> tuple[str, str]:
+    """Return the suspicious and high-confidence thresholds as written to the config.
+
+    The high-confidence threshold sits halfway between the fitted threshold and
+    1. Both are written with six decimals, as the report records them: a
+    fitted threshold such as 0.999557 rounded to four decimals becomes a
+    different operating point, and the old cap of 0.99 on the upper one made
+    it equal to the lower one whenever the fit landed above 0.99.
+
+    Raises:
+        ValueError: If the threshold leaves no room above it for a
+            high-confidence band.
+
+    """
+    suspicious = f"{threshold:.6f}"
+    high = f"{threshold + (1.0 - threshold) / 2.0:.6f}"
+    if not 0.0 <= threshold < 1.0 or float(high) <= float(suspicious):
+        raise ValueError(
+            f"threshold {threshold} leaves no high-confidence band below 1; not adopting"
+        )
+    return suspicious, high
+
+
 def adopt(alias: str, onnx_path: Path, metadata: dict[str, Any], threshold: float,
           source: Path) -> None:
     """Make the detector the configured backend and mark its threshold calibrated."""
-    high = max(threshold, min(0.99, threshold + (1.0 - threshold) / 2.0))
+    suspicious, high = operating_points(threshold)
     default_path = ROOT / "configs" / "default.yaml"
     text = default_path.read_text(encoding="utf-8")
     block = (
@@ -304,8 +373,8 @@ def adopt(alias: str, onnx_path: Path, metadata: dict[str, Any], threshold: floa
     text = thresholds_path.read_text(encoding="utf-8")
     block = (
         "deepfake:\n"
-        f"  suspicious_threshold: {threshold:.4f}\n"
-        f"  high_confidence_threshold: {high:.4f}\n"
+        f"  suspicious_threshold: {suspicious}\n"
+        f"  high_confidence_threshold: {high}\n"
         "  calibrated: true\n"
         f"  calibration_source: {source.as_posix()}\n"
     )
@@ -313,7 +382,7 @@ def adopt(alias: str, onnx_path: Path, metadata: dict[str, Any], threshold: floa
     _, _, tail = rest.partition("\n\n")
     thresholds_path.write_text(head + block + "\n" + tail, encoding="utf-8")
     print(f"updated {thresholds_path}; {alias} can now raise an identity match "
-          f"to 'synthetic_suspected' at {threshold:.4f}")
+          f"to 'synthetic_suspected' at {suspicious}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -337,6 +406,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--tag", default=None, help="suffix for the report file name")
     parser.add_argument("--write", action="store_true",
                         help="adopt the best detector that passes the gate")
+    parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default=None,
+                        help="where ONNX Runtime scores; defaults to runtime.device")
     args = parser.parse_args(argv)
 
     if "clean" not in args.conditions:
@@ -371,6 +442,7 @@ def main(argv: list[str] | None = None) -> int:
                          "scripts/fetch_deepfake_detector.py first")
 
     config = load_config()
+    device = args.device or config.runtime.device
     face_detector = build_detector(config.face.detector)
     halves = [item["half"] for item in items]
     print(f"{len(items)} images ({sum(r['label'] == 'fake' for r in items)} fake), "
@@ -388,8 +460,10 @@ def main(argv: list[str] | None = None) -> int:
                 input_size=metadata["input_size"],
                 positive_index=metadata["positive_index"],
                 training_dataset=metadata["repo"],
-            )
+            ),
+            device=device,
         )
+        print(f"  scoring on {detector.execution_provider}", flush=True)
         scores = {
             degradation: score_items(detector, face_detector, items, degradation)
             for degradation in args.conditions
@@ -399,6 +473,7 @@ def main(argv: list[str] | None = None) -> int:
         usable, reasons = verdict(report, leaked)
         results[alias] = {
             "repo": metadata["repo"],
+            "execution_provider": detector.execution_provider,
             "in_sample": leaked,
             "usable": usable,
             "reasons": reasons,
@@ -418,10 +493,16 @@ def main(argv: list[str] | None = None) -> int:
     args.output.mkdir(parents=True, exist_ok=True)
     suffix = f"_{args.tag}" if args.tag else ""
     report_path = args.output / f"deepfake_detector_gate{suffix}.json"
+    run_environment = environment(config)
+    # The configured device is what the library would default to, not what scored:
+    # record the ONNX Runtime providers the sessions actually held.
+    run_environment["device"] = ",".join(
+        sorted({result["execution_provider"] for result in results.values()})
+    )
     report_path.write_text(
         json.dumps(
             {
-                "environment": environment(config),
+                "environment": run_environment,
                 "manifests": [manifest.as_posix() for manifest in args.manifest],
                 "genuine_source": None if args.genuine is None else args.genuine.as_posix(),
                 "gate": {
@@ -452,7 +533,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     onnx_path = next(path for name, path, _ in models if name == alias)
     metadata = next(meta for name, _, meta in models if name == alias)
-    adopt(alias, onnx_path, metadata, result["threshold"], report_path)
+    try:
+        adopt(alias, onnx_path, metadata, result["threshold"], report_path)
+    except ValueError as error:
+        print(f"\nnot adopting {alias}: {error}")
     return 0
 
 

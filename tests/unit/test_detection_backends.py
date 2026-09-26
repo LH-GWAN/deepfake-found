@@ -194,14 +194,48 @@ def test_onnx_adapter_prefers_cuda_when_onnxruntime_has_it(tmp_path, monkeypatch
         def get_inputs(self) -> list[object]:
             return [type("Input", (), {"name": "pixel_values"})()]
 
+        def get_providers(self) -> list[str]:
+            return seen["providers"]
+
     monkeypatch.setattr(onnxruntime, "InferenceSession", Session)
     monkeypatch.setattr(
         onnxruntime, "get_available_providers",
         lambda: ["CUDAExecutionProvider", "CPUExecutionProvider"],
     )
-    OnnxDeepfakeDetector(DeepfakeDetectorConfig(model_path=path))
+    detector = OnnxDeepfakeDetector(DeepfakeDetectorConfig(model_path=path))
     assert seen["providers"] == ["CUDAExecutionProvider", "CPUExecutionProvider"]
+    assert detector.execution_provider == "CUDAExecutionProvider"
 
     monkeypatch.setattr(onnxruntime, "get_available_providers", lambda: ["CPUExecutionProvider"])
     OnnxDeepfakeDetector(DeepfakeDetectorConfig(model_path=path))
     assert seen["providers"] == ["CPUExecutionProvider"]
+
+
+def test_onnx_adapter_stays_on_the_cpu_when_the_device_says_so(tmp_path, monkeypatch) -> None:
+    """``runtime.device: cpu`` holds even on a machine with a GPU build of ONNX Runtime."""
+    onnxruntime = pytest.importorskip("onnxruntime")
+    path = tmp_path / "model.onnx"
+    path.write_bytes(b"read by the stub session only")
+
+    class Session:
+        def __init__(self, model: str, providers: list[str]) -> None:
+            self.providers = providers
+
+        def get_inputs(self) -> list[object]:
+            return [type("Input", (), {"name": "pixel_values"})()]
+
+        def get_providers(self) -> list[str]:
+            return ["CPUExecutionProvider"]
+
+    monkeypatch.setattr(onnxruntime, "InferenceSession", Session)
+    monkeypatch.setattr(
+        onnxruntime, "get_available_providers",
+        lambda: ["CUDAExecutionProvider", "CPUExecutionProvider"],
+    )
+    on_cpu = OnnxDeepfakeDetector(DeepfakeDetectorConfig(model_path=path), device="cpu")
+    assert on_cpu.execution_provider == "CPUExecutionProvider"
+    # Asked for CUDA, but the session fell back: the record says what really ran.
+    fell_back = OnnxDeepfakeDetector(DeepfakeDetectorConfig(model_path=path), device="cuda")
+    assert fell_back.execution_provider == "CPUExecutionProvider"
+    with pytest.raises(ModelNotAvailableError, match="unsupported device"):
+        OnnxDeepfakeDetector(DeepfakeDetectorConfig(model_path=path), device="tpu")

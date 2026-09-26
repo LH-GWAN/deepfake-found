@@ -277,6 +277,8 @@ def command_doctor(config: DeepShieldConfig, as_json: bool) -> int:
         "cv2": "face detection, alignment and video decoding",
         "onnxruntime": "ONNX model execution",
         "insightface": "SCRFD detection and ArcFace embeddings",
+        "torch": "protect --mode shield (the swap shield)",
+        "onnx": "protect --mode shield (runs the ArcFace graph in torch)",
         "c2pa": "C2PA content credential verification",
         "fastapi": "REST API",
         "uvicorn": "REST API server",
@@ -293,11 +295,24 @@ def command_doctor(config: DeepShieldConfig, as_json: bool) -> int:
         status[module] = {"available": available, "purpose": purpose}
 
     models = available_models(config.runtime.model_dir)
+    shield_settings = config.protection.shield
+    encoder = Path(config.runtime.model_dir) / shield_settings.encoder_model
+    landmarks = encoder.parent / "det_10g.onnx"
+    shield = {
+        "encoder": encoder.is_file(),
+        "landmark_detector": (
+            landmarks.is_file() if shield_settings.landmark_detector == "insightface" else None
+        ),
+        "torch": status["torch"]["available"],
+        "onnx": status["onnx"]["available"],
+    }
+    shield["ready"] = all(value is not False for value in shield.values())
     payload = {
         "python": sys.version.split()[0],
         "optional_dependencies": status,
         "models": models,
         "model_dir": str(config.runtime.model_dir),
+        "shield_mode": shield,
     }
     lines = [
         f"python {payload['python']}",
@@ -312,6 +327,14 @@ def command_doctor(config: DeepShieldConfig, as_json: bool) -> int:
         *(
             f"  [{'x' if info['present'] else ' '}] {name:<14} {info['description']}"
             for name, info in models.items()
+        ),
+        "",
+        f"shield mode: {'ready' if shield['ready'] else 'not ready'}",
+        f"  [{'x' if shield['encoder'] else ' '}] {shield_settings.encoder_model}",
+        *(
+            [f"  [{'x' if shield['landmark_detector'] else ' '}] buffalo_l det_10g.onnx (SCRFD)"]
+            if shield["landmark_detector"] is not None
+            else []
         ),
     ]
     _emit(payload, as_json, lines)

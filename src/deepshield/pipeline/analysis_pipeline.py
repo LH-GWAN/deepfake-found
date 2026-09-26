@@ -32,20 +32,22 @@ identity. When a registered asset of the subject matches but their face cannot
 be confirmed in the content, the protected file recorded for that asset is
 re-analysed to learn whether it showed their face in the first place. Nothing
 new is stored for this; the file is the one the protection pipeline already
-wrote.
+wrote. Its faces are compared one by one with the content's, so in a group
+photograph a neighbour who is still there is not mistaken for the subject,
+and a face that was put in is found wherever it is.
 """
 
 from __future__ import annotations
 
 import time
 from abc import ABC, abstractmethod
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-from deepshield.config import DeepShieldConfig
+from deepshield.config import DeepShieldConfig, FaceSimilarityThresholds
 from deepshield.detection.deepfake import DeepfakeDetector, build_deepfake_detector
 from deepshield.exceptions import InvalidMediaError, ModelNotAvailableError
 from deepshield.face.aligner import FaceAligner, build_aligner
@@ -102,6 +104,46 @@ ASPECT_TOLERANCE = 0.02
 MAX_RESTORED_SIZES = 3
 
 
+@dataclass(frozen=True)
+class FaceProbe:
+    """One detected face with its embedding, as every comparison of it reads it."""
+
+    face: DetectedFace
+    vector: np.ndarray
+    quality: float
+    pixels: float
+
+
+@dataclass(frozen=True)
+class RegisteredFaceCheck:
+    """How the faces of a copy line up with the faces of the registered file it descends from.
+
+    Each face of the copy is compared on its own with each face of the
+    registered file. A face that was kept matches the face it was, wherever it
+    now is; a face that was put in matches none of them. That is what tells a
+    replaced face from a neighbour who is still in the picture, and what keeps
+    a small face in the background from standing in for the owner's.
+
+    ``owner_face_in_original`` says whether the registered file shows the
+    owner's face (``None`` for a shielded file, whose faces match no one by
+    design, or when the match is borderline). ``owner_face_kept`` says whether
+    a face of the copy is that face of the registered file. ``faces_kept`` is
+    ``True`` when every face of the copy is a face of the registered file,
+    ``False`` when one matches none of them, and ``None`` when a face resembles
+    them only weakly. ``replaced_face_pixels`` is the size of the largest face
+    that matches none of them. ``face_scale`` is the copy's scale relative to
+    the registered file, read from the faces rather than the canvas, so a crop
+    at full resolution is not mistaken for a shrunk copy.
+    """
+
+    compared: bool
+    owner_face_in_original: bool | None = None
+    owner_face_kept: bool | None = None
+    faces_kept: bool | None = None
+    replaced_face_pixels: float | None = None
+    face_scale: float | None = None
+
+
 def _restorable(copy: tuple[int, int], original: tuple[int, int]) -> bool:
     """Return whether ``copy`` looks like ``original`` scaled, and not already at its size."""
     (width, height), (target_width, target_height) = copy, original
@@ -111,6 +153,59 @@ def _restorable(copy: tuple[int, int], original: tuple[int, int]) -> bool:
     )
     aspect, target_aspect = width / height, target_width / target_height
     return not same and abs(aspect - target_aspect) <= ASPECT_TOLERANCE * target_aspect
+
+
+def _nearest(
+    probe: FaceProbe,
+    shape: tuple[int, ...],
+    candidates: list[FaceProbe],
+    candidate_shape: tuple[int, ...],
+) -> FaceProbe:
+    """Return the candidate face whose centre sits closest, relative to its canvas."""
+
+    def centre(face: DetectedFace, size: tuple[int, ...]) -> np.ndarray:
+        box = face.bbox
+        return np.array(
+            [(box.x1 + box.x2) / 2 / size[1], (box.y1 + box.y2) / 2 / size[0]]
+        )
+
+    here = centre(probe.face, shape)
+    return min(
+        candidates,
+        key=lambda other: float(np.linalg.norm(centre(other.face, candidate_shape) - here)),
+    )
+
+
+def threshold_raise_note(
+    probe_quality: float | None, thresholds: FaceSimilarityThresholds
+) -> str | None:
+    """Return how far a low-quality probe raised the similarity thresholds, if noticeably.
+
+    The matcher caps both thresholds at 1.0, so the raise reported is the one
+    applied, not the uncapped penalty.
+    """
+    if probe_quality is None:
+        return None
+    adjustment = thresholds.low_quality_penalty * max(0.0, 1.0 - probe_quality)
+    review = min(1.0, thresholds.candidate_threshold + adjustment)
+    confident = min(1.0, thresholds.high_confidence_threshold + adjustment)
+    raised = (
+        review - thresholds.candidate_threshold,
+        confident - thresholds.high_confidence_threshold,
+    )
+    if max(raised) < 0.001:
+        return None
+    amount = (
+        f"by {raised[0]:.3f}"
+        if abs(raised[0] - raised[1]) < 0.0005
+        else f"by {raised[0]:.3f} (review) and {raised[1]:.3f} (confidence)"
+    )
+    capped = " Both are capped at 1.0." if confident >= 1.0 else ""
+    return (
+        f"Probe face quality was {probe_quality:.2f} of the reference resolution and "
+        f"sharpness, so the similarity thresholds were raised {amount} for this "
+        f"comparison.{capped}"
+    )
 
 
 def subject_result(
@@ -235,7 +330,7 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
             config.face.matcher, config.thresholds.face_similarity
         )
         self.deepfake_detector = deepfake_detector or build_deepfake_detector(
-            config.detection.deepfake
+            config.detection.deepfake, config.runtime.device
         )
         self.watermarker = watermarker or build_watermarker(config.protection.watermark)
         self.fingerprinter = DefaultFingerprinter(config.protection.fingerprint)
@@ -251,6 +346,17 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
             return [self.identities.require(user_id)]
         return self.identities.load_all()
 
+    def _probe(self, image: np.ndarray, face: DetectedFace) -> FaceProbe:
+        """Align and embed one detected face."""
+        aligned = self.aligner.align(image, face)
+        pixels = float(min(face.bbox.width, face.bbox.height))
+        return FaceProbe(
+            face=face,
+            vector=self.embedder.embed(aligned.image).vector,
+            quality=face_quality_score(pixels, aligned.image),
+            pixels=pixels,
+        )
+
     def _analyse_faces(
         self, image: np.ndarray, profiles: list[IdentityProfile]
     ) -> tuple[
@@ -258,18 +364,22 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
         SimilarityResult | None,
         DetectedFace | None,
         list[list[SimilarityResult]],
+        list[FaceProbe],
     ]:
         """Detect, embed and match every face.
 
         Returns the per-face report rows, the best identity hit with its face,
-        and every face's full ranking over the compared identities, from which
-        the decision for any one subject can be read.
+        every face's full ranking over the compared identities, from which the
+        decision for any one subject can be read, and the embedded faces, so a
+        later comparison does not detect and embed them again. Faces are only
+        embedded when there is an identity to compare them with.
         """
         faces = self.detector.detect(image)
         records: list[dict[str, Any]] = []
         best_result: SimilarityResult | None = None
         best_face: DetectedFace | None = None
         face_matches: list[list[SimilarityResult]] = []
+        probes: list[FaceProbe] = []
 
         for index, face in enumerate(faces):
             entry: dict[str, Any] = {
@@ -286,19 +396,17 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
                 records.append(entry)
                 continue
 
-            aligned = self.aligner.align(image, face)
-            embedding = self.embedder.embed(aligned.image)
-            face_pixels = float(min(face.bbox.width, face.bbox.height))
-            quality = face_quality_score(face_pixels, aligned.image)
+            probe = self._probe(image, face)
+            probes.append(probe)
+            face_pixels, quality = probe.pixels, probe.quality
             entry["probe_quality"] = round(quality, 4)
-            logger.debug(
-                "probe embedding %s", safe_embedding_repr(embedding.vector.tolist())
-            )
+            entry["face_pixels"] = face_pixels
+            logger.debug("probe embedding %s", safe_embedding_repr(probe.vector.tolist()))
 
             comparable = [
                 profile
                 for profile in profiles
-                if profile.embedding_dimension == embedding.dimension
+                if profile.embedding_dimension == probe.vector.shape[0]
             ]
             skipped = len(profiles) - len(comparable)
             if skipped:
@@ -309,7 +417,7 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
 
             ranked = [
                 replace(result, probe_face_pixels=face_pixels)
-                for result in self.matcher.match_many(embedding.vector, comparable, quality)
+                for result in self.matcher.match_many(probe.vector, comparable, quality)
             ]
             face_matches.append(ranked)
             result = ranked[0]
@@ -334,74 +442,103 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
             if best_result is None or result.similarity > best_result.similarity:
                 best_result, best_face = result, face
 
-        return records, best_result, best_face, face_matches
+        return records, best_result, best_face, face_matches, probes
 
-    def _owner_face_in_original(self, asset: AssetRecord) -> bool | None:
-        """Re-analyse an asset's protected file to learn whether it showed its owner.
+    def check_registered_faces(
+        self,
+        asset: AssetRecord,
+        image: np.ndarray,
+        probes: list[FaceProbe] | None = None,
+    ) -> RegisteredFaceCheck | None:
+        """Compare the content's faces one by one with the faces of an asset's registered file.
 
-        Returns ``True`` when a face matches the owner at high confidence,
-        ``False`` when no face reaches even the candidate threshold, and
-        ``None`` when the file is gone, unreadable, the owner is not enrolled,
-        or the only resemblance is borderline.
-        """
-        profile = self.identities.get(asset.user_id)
-        if profile is None or not asset.protected_path:
-            return None
-        try:
-            original = validate_rgb(load_image(Path(asset.protected_path)))
-            _, _, _, face_matches = self._analyse_faces(original, [profile])
-        except (InvalidMediaError, ModelNotAvailableError) as exc:
-            logger.info("could not re-check asset %s: %s", asset.asset_id, exc)
-            return None
-        best = subject_result(face_matches, asset.user_id)
-        if best is None or best.decision == "no_match":
-            return False
-        if best.decision == "high_confidence":
-            return True
-        return None
+        The registered file is the one the protection pipeline wrote; nothing
+        new is stored. For a traced asset its faces are also matched with the
+        owner's enrollment, to learn which of them is the owner's. A shielded
+        file's faces match no one by design, so there the owner's face is not
+        known and any face that was put in counts.
 
-    def face_in_registered_file(self, asset: AssetRecord, image: np.ndarray) -> bool | None:
-        """Compare the content's faces with the faces in a shielded asset's registered file.
-
-        A shielded photo matches no one by face, its owner included, so whether
-        a copy still shows the face that was published is read against the
-        registered file itself: the perturbation travels with the copy and the
-        two faces embed alike. Returns ``True`` for a high-confidence match,
-        ``False`` when no face reaches even the candidate threshold, and
-        ``None`` when the file is gone or unreadable, holds no face, or the
-        resemblance is borderline.
+        ``probes`` are the content's faces already embedded, if any. Returns
+        ``None`` when the file is gone or unreadable.
         """
         if not asset.protected_path:
             return None
         try:
-            registered = validate_rgb(load_image(Path(asset.protected_path)))
-        except InvalidMediaError as exc:
-            logger.info("could not re-check shielded asset %s: %s", asset.asset_id, exc)
+            original = validate_rgb(load_image(Path(asset.protected_path)))
+            registered = [self._probe(original, face) for face in self.detector.detect(original)]
+            content = (
+                probes
+                if probes is not None
+                else [self._probe(image, face) for face in self.detector.detect(image)]
+            )
+        except (InvalidMediaError, ModelNotAvailableError) as exc:
+            logger.info("could not re-check asset %s: %s", asset.asset_id, exc)
             return None
-        vectors = []
-        for face in self.detector.detect(registered):
-            vectors.append(self.embedder.embed(self.aligner.align(registered, face).image).vector)
-        if not vectors:
-            return None
-        stacked = np.vstack(vectors).astype(np.float32)
-        stacked /= np.maximum(np.linalg.norm(stacked, axis=1, keepdims=True), 1e-12)
-        centroid = stacked.mean(axis=0)
-        label = f"registered-file:{asset.asset_id}"
-        profile = IdentityProfile(
-            user_id=label,
-            reference_embeddings=stacked,
-            centroid_embedding=centroid / max(float(np.linalg.norm(centroid)), 1e-12),
-            image_count=int(stacked.shape[0]),
-            model=self.embedder.model_info,
-            embedding_dimension=int(stacked.shape[1]),
+
+        owner_shown: bool | None = None
+        owner_index: int | None = None
+        profile = None if asset.shielded else self.identities.get(asset.user_id)
+        if profile is not None:
+            ranked = [
+                (index, self.matcher.match_many(probe.vector, [profile], probe.quality)[0])
+                for index, probe in enumerate(registered)
+                if probe.vector.shape[0] == profile.embedding_dimension
+            ]
+            best = max(
+                ranked,
+                key=lambda item: (DECISION_RANK[item[1].decision], item[1].similarity),
+                default=None,
+            )
+            if best is None or best[1].decision == "no_match":
+                owner_shown = False
+            elif best[1].decision == "high_confidence":
+                owner_shown, owner_index = True, best[0]
+        if not registered or not content:
+            return RegisteredFaceCheck(compared=False, owner_face_in_original=owner_shown)
+
+        references = [
+            IdentityProfile(
+                user_id=f"registered-face:{index}",
+                reference_embeddings=probe.vector[None, :].astype(np.float32),
+                centroid_embedding=probe.vector.astype(np.float32),
+                image_count=1,
+                model=self.embedder.model_info,
+                embedding_dimension=int(probe.vector.shape[0]),
+            )
+            for index, probe in enumerate(registered)
+        ]
+        kept: list[tuple[FaceProbe, int]] = []
+        replaced: list[FaceProbe] = []
+        weak = 0
+        for probe in content:
+            top = self.matcher.match_many(probe.vector, references, probe.quality)[0]
+            if top.decision == "high_confidence" and top.matched_user_id is not None:
+                kept.append((probe, int(top.matched_user_id.rsplit(":", 1)[1])))
+            elif top.decision == "no_match":
+                replaced.append(probe)
+            else:
+                weak += 1
+
+        largest = max(replaced, key=lambda probe: probe.pixels, default=None)
+        ratios = [probe.pixels / registered[index].pixels for probe, index in kept]
+        scale: float | None = float(np.median(ratios)) if ratios else None
+        if scale is None and largest is not None:
+            anchor = (
+                registered[owner_index]
+                if owner_index is not None
+                else _nearest(largest, image.shape, registered, original.shape)
+            )
+            scale = largest.pixels / anchor.pixels
+        return RegisteredFaceCheck(
+            compared=True,
+            owner_face_in_original=owner_shown,
+            owner_face_kept=(
+                None if owner_index is None else any(index == owner_index for _, index in kept)
+            ),
+            faces_kept=False if replaced else (True if not weak else None),
+            replaced_face_pixels=None if largest is None else largest.pixels,
+            face_scale=None if scale is None else round(scale, 4),
         )
-        _, _, _, face_matches = self._analyse_faces(image, [profile])
-        best = subject_result(face_matches, label)
-        if best is None or best.decision == "no_match":
-            return False if face_matches else None
-        if best.decision == "high_confidence":
-            return True
-        return None
 
     def registered_size(self, asset: AssetRecord) -> tuple[int, int] | None:
         """Return the ``(width, height)`` a registered asset was protected at, if known."""
@@ -533,7 +670,7 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
             fingerprint, registered, file_digest, watermark.watermark_code
         )
         credentials = self.c2pa.verify(path)
-        face_records, best_result, best_face, face_matches = self._analyse_faces(
+        face_records, best_result, best_face, face_matches, probes = self._analyse_faces(
             image, profiles
         )
 
@@ -561,21 +698,21 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
         compared = (
             any(profile.user_id == subject for profile in profiles) if subject else bool(profiles)
         ) and (bool(face_matches) or not face_records)
-        owner_face_in_original: bool | None = None
-        face_in_registered: bool | None = None
+        check: RegisteredFaceCheck | None = None
         if (
             asset is not None
             and asset.user_id == subject
             and attribution["provenance_basis"] != EXACT_MATCH_BASIS
             and (subject_match is None or subject_match.decision != "high_confidence")
         ):
-            if asset.shielded:
-                face_in_registered = self.face_in_registered_file(asset, image)
-            else:
-                owner_face_in_original = self._owner_face_in_original(asset)
+            check = self.check_registered_faces(
+                asset, image, probes if len(probes) == len(face_records) else None
+            )
         registered_at = self.registered_size(asset) if asset is not None else None
         copy_scale = (
-            round(min(image.shape[1] / registered_at[0], image.shape[0] / registered_at[1]), 4)
+            check.face_scale
+            if check is not None and check.face_scale is not None
+            else round(min(image.shape[1] / registered_at[0], image.shape[0] / registered_at[1]), 4)
             if registered_at
             else None
         )
@@ -606,9 +743,12 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
                     attribution["provenance_basis"] if asset is not None else None
                 ),
                 distribution_id=attribution["distribution_id"],
-                owner_face_in_original=owner_face_in_original,
+                owner_face_in_original=check.owner_face_in_original if check else None,
                 asset_shielded=bool(asset is not None and asset.shielded),
-                face_in_registered_file=face_in_registered,
+                registered_faces_compared=bool(check and check.compared),
+                owner_face_kept=check.owner_face_kept if check else None,
+                face_in_registered_file=check.faces_kept if check else None,
+                replaced_face_pixels=check.replaced_face_pixels if check else None,
                 deepfake_score=(
                     deepfake_score
                     if best_result is not None and best_result.matched_user_id == subject
@@ -653,16 +793,12 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
                 f"{best_result.runner_up_similarity:.3f} against another enrolled identity. "
                 "That margin is too small to identify either of them."
             )
-        if best_result is not None and best_result.probe_quality is not None:
-            raised = self.config.thresholds.face_similarity.low_quality_penalty * max(
-                0.0, 1.0 - best_result.probe_quality
-            )
-            if raised >= 0.001:
-                limitations.append(
-                    f"Probe face quality was {best_result.probe_quality:.2f} of the reference "
-                    "resolution and sharpness, so both similarity thresholds were raised by "
-                    f"{raised:.3f} for this comparison."
-                )
+        raised = threshold_raise_note(
+            best_result.probe_quality if best_result is not None else None,
+            self.config.thresholds.face_similarity,
+        )
+        if raised is not None:
+            limitations.append(raised)
         if not profiles:
             limitations.append(
                 "No identity is enrolled, so no identity comparison was possible."

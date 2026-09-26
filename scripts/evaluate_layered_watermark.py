@@ -454,7 +454,8 @@ def summarise(rows: list[dict[str, Any]], calibration: set[int]) -> dict[str, An
             decoder = decoder_of[row["config"]]
             owner, victim = row["truth"], row["victim"]
             learned = seen.get(decoder) if decoder else None
-            dct_owner = row["config"] in has_dct and seen["dct_crc"] == owner
+            dct_named = seen["dct_crc"] if row["config"] in has_dct else None
+            dct_owner = dct_named == owner
             union = dct_owner or learned == owner
             cell = table.setdefault(f"{row['config']}|{row['attack']}", {"n": 0})
             cell["n"] += 1 if rule == "deployed" else 0
@@ -470,7 +471,10 @@ def summarise(rows: list[dict[str, Any]], calibration: set[int]) -> dict[str, An
                 ("learned_wrong", learned is not None and learned != owner),
                 ("learned_victim", learned == victim),
                 ("union_survives", union),
-                ("conflict_caught", learned == victim and dct_owner),
+                # Two marks naming two different people is a contradiction a reader
+                # can flag, whichever of them was forged.
+                ("conflict_caught", learned is not None and dct_named is not None
+                 and learned != dct_named),
                 ("inconclusive", learned == victim and seen["dct_crc"] is None),
             )
             prefix = "" if rule == "deployed" else "per_attack_"
@@ -542,6 +546,17 @@ def summarise(rows: list[dict[str, Any]], calibration: set[int]) -> dict[str, An
     }
 
 
+def write_atomically(path: Path, text: str) -> None:
+    """Write ``text`` to ``path`` through a temporary name and a rename.
+
+    An interrupted run then never leaves a truncated part that a resumed run
+    would skip as done, nor a ``matched.json`` it would fail to read.
+    """
+    staging = path.with_name(path.name + ".partial")
+    staging.write_text(text, encoding="utf-8")
+    os.replace(staging, path)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Build, attack and read every photograph, then tabulate the test half."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -584,7 +599,7 @@ def main(argv: list[str] | None = None) -> int:
             matched = json.loads(settings.read_text(encoding="utf-8"))
         else:
             matched = matching(marks, [own for _, own in kept])
-            settings.write_text(json.dumps(matched, indent=2), encoding="utf-8")
+            write_atomically(settings, json.dumps(matched, indent=2))
         print(f"{len(kept)} photographs; matched settings {matched}", flush=True)
         started = time.time()
         for position, (index, own) in enumerate(kept):
@@ -594,7 +609,9 @@ def main(argv: list[str] | None = None) -> int:
             if part.is_file():
                 continue
             rows = attack_photo(marks, index, own, matched)
-            part.write_text(json.dumps(rows) + "\n", encoding="utf-8")
+            for row in rows:
+                row["device"] = device
+            write_atomically(part, json.dumps(rows) + "\n")
             print(f"{position + 1}/{len(kept)} photo {index}: {len(rows)} readings, "
                   f"{time.time() - started:.0f}s", flush=True)
 
@@ -613,7 +630,13 @@ def main(argv: list[str] | None = None) -> int:
         if (args.work / "matched.json").is_file() else None,
         "lpips": any(row.get("lpips_vs_original") is not None for row in rows),
         **summarise(rows, calibration),
-        "environment": environment(load_config()),
+        "environment": {
+            **environment(load_config()),
+            # Where the parts were measured, which --report-only need not be;
+            # "unrecorded" marks parts written before rows carried it.
+            "device": ",".join(sorted({str(row.get("device", "unrecorded")) for row in rows}))
+            or device,
+        },
     }
     args.output.mkdir(parents=True, exist_ok=True)
     destination = args.output / "layered_watermark.json"

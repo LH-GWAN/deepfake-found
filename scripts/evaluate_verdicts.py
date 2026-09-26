@@ -20,9 +20,15 @@ gan_source          the user's face swapped onto another identity's photograph
 gan_target          another identity's face swapped onto the user's protected photograph
 gan_target_orphan   the same, with the protected file removed from disk first
 unrelated           another identity's genuine photograph
+group_repost        a two-person photograph, the user beside a small face of another
+                    identity, protected and re-encoded as JPEG quality 70
+group_target        the same photograph with the user's face swapped for a third identity's
 
 The expected verdicts are own_copy, own_copy, own_copy or own_unverified,
-identity_match, identity_match, own_altered, own_unverified and unrelated.
+identity_match, identity_match, own_altered, own_unverified, unrelated, own_copy
+and own_altered. The two group situations exist because a verdict that reads
+the best-scoring face in the picture can be decided by the neighbour rather
+than by the face where the user's was.
 ``genuine`` and ``gan_source`` are expected to be indistinguishable: without a
 calibrated synthetic-media detector the engine is designed to say so rather than
 guess, and the table shows whether it does. ``shrunk_repost`` is the user's own
@@ -76,8 +82,11 @@ EXPECTED: dict[str, tuple[str, ...]] = {
     "gan_target": ("own_altered",),
     "gan_target_orphan": ("own_unverified",),
     "unrelated": ("unrelated",),
+    "group_repost": ("own_copy",),
+    "group_target": ("own_altered",),
 }
-SWAPPED = {"gan_source", "gan_target", "gan_target_orphan"}
+SWAPPED = {"gan_source", "gan_target", "gan_target_orphan", "group_target"}
+NEIGHBOUR_SCALE = 0.5
 SHRUNK = Transformation("shrunk_repost", "video_compression", {"scale": 0.55, "crf": 35})
 
 
@@ -170,6 +179,30 @@ def enroll(pipeline: DefaultAnalysisPipeline, user_id: str, paths: list[Path]) -
     return True
 
 
+def group_photo(user: np.ndarray, neighbour: np.ndarray) -> np.ndarray:
+    """Return the user's photograph with a smaller photograph of someone else beside it.
+
+    The neighbour is shrunk until their face is under 80 pixels, the size at
+    which a missed match stops counting as someone else's face; that is the
+    face an earlier rule could be decided by.
+    """
+    from PIL import Image
+
+    height, width = user.shape[:2]
+    small = np.asarray(
+        Image.fromarray(neighbour).resize(
+            (int(neighbour.shape[1] * NEIGHBOUR_SCALE), int(neighbour.shape[0] * NEIGHBOUR_SCALE)),
+            Image.Resampling.LANCZOS,
+        )
+    )
+    canvas = np.empty((height, width + small.shape[1] + 24, 3), dtype=np.uint8)
+    canvas[:] = user.reshape(-1, 3).mean(axis=0).astype(np.uint8)
+    canvas[:, :width] = user
+    top = (height - small.shape[0]) // 2
+    canvas[top : top + small.shape[0], width + 12 : width + 12 + small.shape[1]] = small
+    return canvas
+
+
 def scenarios(
     user: str,
     own: list[Path],
@@ -234,6 +267,7 @@ def main(argv: list[str] | None = None) -> int:
     outcomes: dict[str, Counter[str]] = defaultdict(Counter)
     levels: dict[str, Counter[str]] = defaultdict(Counter)
     decisions: dict[str, Counter[str]] = defaultdict(Counter)
+    face_counts: dict[str, Counter[str]] = defaultdict(Counter)
     failures: Counter[str] = Counter()
 
     with tempfile.TemporaryDirectory() as scratch:
@@ -261,6 +295,7 @@ def main(argv: list[str] | None = None) -> int:
                 outcomes[situation][risk.verdict.value] += 1
                 levels[situation][risk.risk_level.value] += 1
                 decisions[situation][str(risk.signals.get("identity_decision"))] += 1
+                face_counts[situation][str(risk.signals.get("faces_detected"))] += 1
 
             for situation, path in built.items():
                 if situation in wanted:
@@ -270,6 +305,28 @@ def main(argv: list[str] | None = None) -> int:
                 protected.rename(stash)
                 judge("gan_target_orphan", built["gan_target"])
                 stash.rename(protected)
+            if {"group_repost", "group_target"} & set(wanted):
+                from PIL import Image
+
+                group = save_image(
+                    group_photo(load_image(own[-1]), load_image(other)),
+                    workspace / f"{user}_group.png",
+                )
+                group_report = protection.protect(group, user, "evaluation-group")
+                published = load_image(Path(group_report["protected_path"]))
+                if "group_repost" in wanted:
+                    repost = workspace / f"{user}_group_repost.jpg"
+                    Image.fromarray(published).save(repost, quality=70)
+                    judge("group_repost", repost)
+                if "group_target" in wanted and swapper is not None:
+                    third = load_image(grouped[names[(index + 2) % len(names)]][0])
+                    swapped = swapper(third, published)
+                    judge(
+                        "group_target",
+                        None
+                        if swapped is None
+                        else save_image(swapped, workspace / f"{user}_group_target.png"),
+                    )
             print(f"{index + 1}/{len(names)} {user}", flush=True)
 
     table = {
@@ -280,6 +337,7 @@ def main(argv: list[str] | None = None) -> int:
             "verdicts": dict(outcomes[situation]),
             "levels": dict(levels[situation]),
             "identity_decisions": dict(decisions[situation]),
+            "faces_detected": dict(face_counts[situation]),
         }
         for situation in wanted
     }

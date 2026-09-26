@@ -57,6 +57,12 @@ data/test/manipulated_inswapper/
 # Research-only GAN swapper weights fetched by scripts/fetch_inswapper.py
 models/inswapper/
 
+# FaceForensics++ face crops (real, named people under the FF++ EULA) and the
+# ~49 MB training checkpoint scripts/train_deepfake_cnn.py --checkpoint writes
+#   python scripts/build_ffpp_manifest.py --output data/test/ffpp
+data/test/ffpp/
+*_checkpoint.pt
+
 # LoRA-defence experiment: LFW photos of real people and what is generated from them
 experiments/lora_defense/*.zip
 experiments/lora_defense/generated/

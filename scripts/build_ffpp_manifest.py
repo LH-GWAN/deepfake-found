@@ -28,8 +28,11 @@ group identities
 Reading from a zip extracts one video at a time into a temporary file and
 deletes it straight after, so the disk never holds more than the zip, the
 crops and one video. Crops already on disk are kept, so an interrupted run
-resumes. ``--survey`` only reports what the source holds, which is the first
-thing to run on a mirror whose layout is unknown.
+resumes; the settings that shape a crop are written next to them, and a run
+with different settings refuses to mix its crops with the old ones. A clip
+found twice (a mask video beside the real one, or two compressions under
+``--compression any``) is kept once. ``--survey`` only reports what the source
+holds, which is the first thing to run on a mirror whose layout is unknown.
 
 Usage:
     python scripts/build_ffpp_manifest.py --source ffpp.zip --survey
@@ -47,7 +50,7 @@ import sys
 import tempfile
 import zipfile
 from collections import Counter
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -70,6 +73,11 @@ METHODS: dict[str, str] = {
 DEFAULT_METHODS = ("deepfakes", "face2face", "faceswap", "neuraltextures")
 REAL_MARKERS = ("original", "real", "youtube")
 COMPRESSIONS = ("raw", "c0", "c23", "c40")
+# Under --compression any, the clip kept when a mirror ships several: the
+# benchmark's own c23 first, then the lossless copies, then c40.
+COMPRESSION_PREFERENCE = ("c23", "c0", "raw", "c40")
+MASK_FOLDERS = ("mask", "masks")
+PARAMETERS_FILE = "crop_parameters.json"
 VIDEO_SUFFIXES = {".mp4", ".avi", ".mov", ".mkv"}
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg"}
 CONTEXT_MARGIN = 0.6
@@ -100,6 +108,10 @@ def classify(name: str, compression: str | None = "c23") -> tuple[str, str] | No
     """
     path = PurePosixPath(name)
     parts = [_normalise(part) for part in path.parts]
+    if any(part in MASK_FOLDERS for part in parts[:-1]):
+        # FaceForensics++ ships each manipulation's binary masks as videos with
+        # the clip's own name; they are not faces.
+        return None
     if compression is not None:
         named = {part for part in parts for level in COMPRESSIONS if part == level}
         named |= {level for part in parts for level in COMPRESSIONS if part.endswith(level)}
@@ -121,13 +133,29 @@ def classify(name: str, compression: str | None = "c23") -> tuple[str, str] | No
     return (method or "real"), video
 
 
+def _compression_rank(name: str) -> int:
+    """Rank a path by the compression it names, best first; unnamed ranks last."""
+    parts = [_normalise(part) for part in PurePosixPath(name).parts]
+    for rank, level in enumerate(COMPRESSION_PREFERENCE):
+        if any(part == level or part.endswith(level) for part in parts):
+            return rank
+    return len(COMPRESSION_PREFERENCE)
+
+
 def find_clips(
     names: Iterable[str], methods: Iterable[str], compression: str | None
 ) -> list[Clip]:
-    """Group a download's files into clips of the wanted kinds."""
+    """Group a download's files into clips of the wanted kinds, one clip per video.
+
+    A mirror can hold the same clip more than once: as a video and as a folder
+    of frames, or, under ``--compression any``, at several compressions. Each
+    copy would add the clip's frames again and weight that clip, and so that
+    person, twice, so one is kept: a video over a frame folder, then the
+    preferred compression, then the first path in sorted order.
+    """
     wanted = set(methods) | {"real"}
-    videos: list[Clip] = []
-    frames: dict[tuple[str, str], list[str]] = {}
+    videos: dict[tuple[str, str], list[str]] = {}
+    frames: dict[tuple[str, str], dict[str, list[str]]] = {}
     for name in names:
         suffix = PurePosixPath(name).suffix.lower()
         if suffix not in VIDEO_SUFFIXES and suffix not in IMAGE_SUFFIXES:
@@ -135,16 +163,20 @@ def find_clips(
         found = classify(name, compression)
         if found is None or found[0] not in wanted:
             continue
-        kind, video = found
         if suffix in VIDEO_SUFFIXES:
-            videos.append(Clip(kind, video, (name,), True))
+            videos.setdefault(found, []).append(name)
         else:
-            frames.setdefault((kind, video), []).append(name)
-    clips = videos + [
-        Clip(kind, video, tuple(sorted(members)), False)
-        for (kind, video), members in frames.items()
-    ]
-    return sorted(clips, key=lambda clip: (clip.kind, clip.video))
+            folder = PurePosixPath(name).parent.as_posix()
+            frames.setdefault(found, {}).setdefault(folder, []).append(name)
+    clips = []
+    for key in sorted(set(videos) | set(frames)):
+        if key in videos:
+            best = min(videos[key], key=lambda name: (_compression_rank(name), name))
+            clips.append(Clip(key[0], key[1], (best,), True))
+        else:
+            folder = min(frames[key], key=lambda name: (_compression_rank(name), name))
+            clips.append(Clip(key[0], key[1], tuple(sorted(frames[key][folder])), False))
+    return clips
 
 
 def identity_groups(videos: Iterable[str]) -> dict[str, str]:
@@ -215,7 +247,21 @@ class Source:
             shutil.rmtree(folder, ignore_errors=True)
 
 
-def video_frames(path: Path, count: int, window: float = 0.5) -> list[np.ndarray]:
+def frame_total(reported: int, count: Callable[[], int]) -> tuple[int, bool]:
+    """Return a video's frame count and whether its header had to be bypassed.
+
+    Some containers report zero or a negative number of frames. Sampling from
+    that would read one frame and move on, so the frames are counted by
+    decoding instead, which costs one extra pass over that video only.
+    """
+    if reported > 0:
+        return reported, False
+    return max(0, count()), True
+
+
+def video_frames(
+    path: Path, count: int, window: float = 0.5, notes: Counter[str] | None = None
+) -> list[np.ndarray]:
     """Return ``count`` RGB frames spread over the first ``window`` of a video.
 
     The video is read once from the start and stops at the last frame wanted.
@@ -223,13 +269,29 @@ def video_frames(path: Path, count: int, window: float = 0.5) -> list[np.ndarray
     the previous keyframe on every seek, which measured 0.74 s per frame
     against 0.17 s for the face detector, so eight seeks cost several full
     decodes. Sampling the first half keeps a clip's frames distinct while
-    halving what has to be decoded.
+    halving what has to be decoded. A header without a usable frame count is
+    counted by decoding and tallied in ``notes`` under ``frame_count_unknown``.
     """
     import cv2
 
+    def decode_count() -> int:
+        counter = cv2.VideoCapture(str(path))
+        try:
+            frames = 0
+            while counter.grab():
+                frames += 1
+            return frames
+        finally:
+            counter.release()
+
     capture = cv2.VideoCapture(str(path))
     try:
-        total = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+        total, counted = frame_total(int(capture.get(cv2.CAP_PROP_FRAME_COUNT)), decode_count)
+        if counted:
+            print(f"warning: {path.name} reports no frame count; counted {total} by decoding",
+                  flush=True)
+            if notes is not None:
+                notes["frame_count_unknown"] += 1
         wanted = set(spread(max(1, int(total * window)), count))
         frames = []
         for index in range(max(wanted, default=-1) + 1):
@@ -260,6 +322,38 @@ def context_crop(detector: Any, image: np.ndarray, max_side: int) -> np.ndarray 
             Image.Resampling.LANCZOS,
         )
     return np.asarray(crop)
+
+
+def check_parameters(output: Path, parameters: dict[str, Any]) -> None:
+    """Refuse to add crops to a folder whose crops were made another way.
+
+    Crops on disk are reused so an interrupted run resumes, which is only
+    right when they were cut with the same settings. The settings are written
+    beside the crops on the first run and compared on every later one.
+
+    Raises:
+        SystemExit: If the folder's recorded settings differ from these.
+
+    """
+    record = output / PARAMETERS_FILE
+    if record.is_file():
+        previous = json.loads(record.read_text(encoding="utf-8"))
+        changed = {
+            key: (previous.get(key), value)
+            for key, value in parameters.items() if previous.get(key) != value
+        }
+        if changed:
+            detail = "; ".join(f"{key}: {old!r} -> {new!r}" for key, (old, new) in changed.items())
+            raise SystemExit(
+                f"{output} holds crops made with other settings ({detail}); "
+                "choose another --output or remove the old crops first"
+            )
+        return
+    if any(output.glob("*/*/f*.png")):
+        print(f"warning: {output} holds crops from a run that did not record its settings; "
+              "they are reused as if they matched these", flush=True)
+    output.mkdir(parents=True, exist_ok=True)
+    record.write_text(json.dumps(parameters, indent=2) + "\n", encoding="utf-8")
 
 
 def survey(clips: list[Clip], names: list[str], compression: str | None) -> dict[str, Any]:
@@ -323,7 +417,18 @@ def main(argv: list[str] | None = None) -> int:
     from deepshield.config import load_config
     from deepshield.face.detector import build_detector
 
-    detector = build_detector(load_config().face.detector)
+    detector_config = load_config().face.detector
+    check_parameters(args.output, {
+        "compression": args.compression,
+        "frames_real": args.frames_real,
+        "frames_fake": args.frames_fake,
+        "max_side": args.max_side,
+        "window": args.window,
+        "context_margin": CONTEXT_MARGIN,
+        "face_detector": detector_config.backend,
+    })
+    detector = build_detector(detector_config)
+    notes: Counter[str] = Counter()
     groups = identity_groups(clip.video for clip in clips)
     records: dict[str, list[dict[str, str]]] = {}
     for position, clip in enumerate(clips, start=1):
@@ -333,7 +438,7 @@ def main(argv: list[str] | None = None) -> int:
         if not all(path.is_file() for path in wanted):
             if clip.is_video:
                 with source.local(clip.members[0]) as local:
-                    frames = video_frames(local, count, args.window)
+                    frames = video_frames(local, count, args.window, notes)
             else:
                 frames = [source.image(clip.members[i])
                           for i in spread(len(clip.members), count)]
@@ -358,6 +463,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{position}/{len(clips)} clips, {sum(map(len, records.values()))} crops",
                   flush=True)
 
+    if notes["frame_count_unknown"]:
+        print(f"{notes['frame_count_unknown']} videos reported no frame count and were "
+              "counted by decoding", flush=True)
     reals = records.get("real", [])
     for method in args.methods:
         fakes = records.get(method, [])
@@ -370,6 +478,7 @@ def main(argv: list[str] | None = None) -> int:
             "source_dataset": "FaceForensics++",
             "compression": args.compression,
             "frames_per_clip": {"real": args.frames_real, "fake": args.frames_fake},
+            "videos_without_frame_count": notes["frame_count_unknown"],
             "covers": [f"{METHODS[method]} manipulations as FaceForensics++ ships them"],
             "does_not_cover": [
                 "any generator outside FaceForensics++",

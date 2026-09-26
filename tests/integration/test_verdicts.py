@@ -426,7 +426,203 @@ def test_a_shielded_file_cannot_be_enrolled(config, pipeline, shielded, tmp_path
         enroller.enroll("u2", [path, repost])
 
 
+def test_a_resized_shielded_copy_cannot_be_enrolled(
+    config, pipeline, shielded, tmp_path: Path
+) -> None:
+    """A platform-resized repost is read at the registered size, without the grid search."""
+    from deepshield.face.enrollment import DefaultIdentityEnroller
+
+    path, _ = shielded
+    upload = save_image(jpeg(shrink(load_image(path), 0.7), 90), tmp_path / "upload.png")
+    enroller = DefaultIdentityEnroller(
+        config, detector=pipeline.detector, aligner=pipeline.aligner, embedder=pipeline.embedder
+    )
+    assets = enroller._assets or __import__(
+        "deepshield.storage.repository", fromlist=["build_asset_repository"]
+    ).build_asset_repository(config)
+    refusal = enroller._shielded_refusal(upload, [a for a in assets.list_assets() if a.shielded])
+    assert refusal is not None and "swap-shielded" in refusal
+
+
+def test_an_unreadable_candidate_is_reported_not_raised(
+    config, pipeline, shielded, tmp_path: Path
+) -> None:
+    """With shielded assets registered, a missing file used to abort the whole enrollment."""
+    from deepshield.exceptions import EnrollmentError
+    from deepshield.face.enrollment import DefaultIdentityEnroller
+
+    enroller = DefaultIdentityEnroller(
+        config, detector=pipeline.detector, aligner=pipeline.aligner, embedder=pipeline.embedder
+    )
+    with pytest.raises(EnrollmentError, match="gone.png: unreadable"):
+        enroller.enroll("u2", [tmp_path / "gone.png"])
+
+
 def test_an_unknown_protection_mode_is_refused(config, tmp_path: Path) -> None:
     source = save_image(synthetic_photo(seed=5, size=256), tmp_path / "me.png")
     with pytest.raises(ValueError, match="mode"):
         DefaultProtectionPipeline(config).protect(source, "u1", mode="cloak")  # type: ignore[arg-type]
+
+
+class PlacedFaces:
+    """Finds faces at fixed places around the image centre, each ``(dx, dy, side)`` in pixels.
+
+    Unlike the mock detector's box, which covers half of any canvas, these
+    boxes keep their size when the picture is cropped, as real faces do. With
+    ``relative`` the offsets and sides are fractions of the width instead, so
+    the boxes scale with the picture.
+    """
+
+    def __init__(self, faces: list[tuple[float, float, float]], relative: bool = False) -> None:
+        """Store the face places."""
+        self.faces = faces
+        self.relative = relative
+
+    def detect(self, image: np.ndarray) -> list:
+        from deepshield.types import BoundingBox, DetectedFace
+
+        height, width = image.shape[:2]
+        found = []
+        for dx, dy, side in self.faces:
+            if self.relative:
+                dx, dy, side = dx * width, dy * width, side * width
+            cx, cy = width / 2 + dx, height / 2 + dy
+            found.append(
+                DetectedFace(
+                    bbox=BoundingBox(cx - side / 2, cy - side / 2, cx + side / 2, cy + side / 2),
+                    detection_confidence=0.99,
+                )
+            )
+        return found
+
+
+def paste_face(image: np.ndarray, donor: np.ndarray, face, margin: float = 0.25) -> np.ndarray:
+    """Put the donor's pixels into one face box, past the aligner's margin."""
+    box = face.bbox
+    pad_x, pad_y = box.width * margin, box.height * margin
+    rows = slice(int(box.y1 - pad_y), int(box.y2 + pad_y))
+    cols = slice(int(box.x1 - pad_x), int(box.x2 + pad_x))
+    swapped = image.copy()
+    swapped[rows, cols] = donor[rows, cols]
+    return swapped
+
+
+class BoxShield:
+    """The gradient shield, applied over every face box it is given and the aligner's margin."""
+
+    def shield(self, image: np.ndarray, faces: list) -> tuple[np.ndarray, dict]:
+        out = image.astype(np.float64)
+        for face in faces:
+            box = face.bbox
+            pad_x, pad_y = box.width * 0.25, box.height * 0.25
+            rows = slice(int(box.y1 - pad_y), int(box.y2 + pad_y))
+            cols = slice(int(box.x1 - pad_x), int(box.x2 + pad_x))
+            height, width = rows.stop - rows.start, cols.stop - cols.start
+            ramp = np.add.outer(np.linspace(-150, 150, height), np.linspace(150, -150, width))
+            out[rows, cols] += ramp[:, :, None]
+        return np.clip(out, 0, 255).astype(np.uint8), {"applied": True, "faces": len(faces)}
+
+
+def placed_pipeline(config: DeepShieldConfig, faces: list[tuple[int, int, int]]):
+    return DefaultAnalysisPipeline(
+        config, detector=PlacedFaces(faces), embedder=CoarseLayoutEmbedder()  # type: ignore[arg-type]
+    )
+
+
+def test_a_swap_in_a_group_photo_is_not_excused_by_a_small_neighbour(
+    config: DeepShieldConfig, tmp_path: Path
+) -> None:
+    """The subject's face is replaced; a small face in the background is still there."""
+    pipeline = placed_pipeline(config, [(-100, 0, 160), (150, 0, 60)])
+    source = synthetic_photo(seed=5, size=512)
+    enroll(pipeline, config, source)
+    report = DefaultProtectionPipeline(config).protect(
+        save_image(source, tmp_path / "group.png"), "u1", "instagram"
+    )
+    published = load_image(Path(report["protected_path"]))
+    mine = pipeline.detector.detect(published)[0]
+    swapped = paste_face(published, synthetic_photo(seed=91, size=512), mine)
+    record = analyse(pipeline, swapped, tmp_path / "swapped.png")
+    assert record.matched_asset_id == report["asset_id"]
+    assert record.risk.signals["owner_face_in_original"] is True
+    assert record.risk.signals["owner_face_kept"] is False
+    assert record.risk.signals["replaced_face_pixels"] == 160.0
+    assert record.risk.verdict is Verdict.OWN_ALTERED
+
+
+def test_a_small_swapped_face_in_a_full_size_crop_is_an_alteration(
+    config: DeepShieldConfig, tmp_path: Path
+) -> None:
+    """Cropping the canvas does not shrink the face, so it is not excused as shrunk."""
+    pipeline = placed_pipeline(config, [(0, 0, 64)])
+    source = synthetic_photo(seed=5, size=512)
+    enroll(pipeline, config, source)
+    report = DefaultProtectionPipeline(config).protect(
+        save_image(source, tmp_path / "me.png"), "u1", "instagram"
+    )
+    published = load_image(Path(report["protected_path"]))
+    swapped = paste_face(
+        published, synthetic_photo(seed=91, size=512), pipeline.detector.detect(published)[0]
+    )
+    cropped = swapped[32:-32, 32:-32]
+    record = analyse(pipeline, cropped, tmp_path / "cropped.png")
+    assert record.matched_asset_id == report["asset_id"]
+    assert record.risk.signals["copy_scale"] == pytest.approx(1.0)
+    assert record.risk.verdict is Verdict.OWN_ALTERED
+
+
+def test_the_copy_scale_is_read_from_the_faces(config: DeepShieldConfig, tmp_path: Path) -> None:
+    """A swapped, shrunk copy: its replaced face is 70% of the registered one."""
+    pipeline = DefaultAnalysisPipeline(
+        config,
+        detector=PlacedFaces([(0.0, 0.0, 0.25)], relative=True),  # type: ignore[arg-type]
+        embedder=CoarseLayoutEmbedder(),
+    )
+    source = synthetic_photo(seed=5, size=512)
+    enroll(pipeline, config, source)
+    report = DefaultProtectionPipeline(config).protect(
+        save_image(source, tmp_path / "me.png"), "u1", "instagram"
+    )
+    published = load_image(Path(report["protected_path"]))
+    swapped = paste_face(
+        published, synthetic_photo(seed=91, size=512), pipeline.detector.detect(published)[0]
+    )
+    asset = pipeline.assets.list_assets()[0]
+    check = pipeline.check_registered_faces(asset, jpeg(shrink(swapped, 0.7), 95))
+    assert check is not None and check.compared
+    assert check.owner_face_in_original is True
+    assert check.owner_face_kept is False
+    assert check.replaced_face_pixels == pytest.approx(89.6, abs=1.0)
+    assert check.face_scale == pytest.approx(0.7, abs=0.01)
+
+
+@pytest.fixture
+def shielded_group(config: DeepShieldConfig, tmp_path: Path):
+    pipeline = placed_pipeline(config, [(-100, 0, 150), (140, 0, 110)])
+    source = synthetic_photo(seed=5, size=512)
+    enroll(pipeline, config, source)
+    protection = DefaultProtectionPipeline(config, shield=BoxShield(), detector=pipeline.detector)
+    report = protection.protect(
+        save_image(source, tmp_path / "group.png"), "u1", "instagram", mode="shield"
+    )
+    return pipeline, Path(report["protected_path"]), report
+
+
+def test_a_shielded_group_photo_repost_is_a_copy(shielded_group, tmp_path: Path) -> None:
+    pipeline, path, _ = shielded_group
+    record = analyse(pipeline, jpeg(load_image(path), 90), tmp_path / "repost.png")
+    assert record.risk.signals["face_in_registered_file"] is True
+    assert record.risk.verdict is Verdict.OWN_COPY
+
+
+def test_a_swap_in_a_shielded_group_photo_is_an_alteration(
+    shielded_group, tmp_path: Path
+) -> None:
+    """The neighbour still matches their own face in the file; that must not hide the swap."""
+    pipeline, path, _ = shielded_group
+    published = load_image(path)
+    mine = pipeline.detector.detect(published)[0]
+    swapped = paste_face(published, synthetic_photo(seed=91, size=512), mine)
+    record = analyse(pipeline, swapped, tmp_path / "swapped.png")
+    assert record.risk.signals["face_in_registered_file"] is False
+    assert record.risk.verdict is Verdict.OWN_ALTERED

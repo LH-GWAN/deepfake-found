@@ -31,7 +31,10 @@ Training on FaceForensics++ uses the manifests ``build_ffpp_manifest.py``
 writes, one per manipulation. ``--checkpoint`` saves after every epoch and
 resumes from the last one, which is what a Colab session that can disconnect
 needs; the identity hold-out is drawn from the seed before anything is
-loaded, so a resumed run holds out the same people.
+loaded, so a resumed run holds out the same people. The checkpoint records the
+seed, the manifests' contents, the families, the epochs and the other settings
+that shape training, and a run whose settings differ refuses to resume from it
+rather than silently continuing someone else's model.
 
 Usage:
     python scripts/train_deepfake_cnn.py --manifest data/test/manipulated/manifest.json \\
@@ -43,6 +46,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import random
 import sys
@@ -60,6 +64,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from fetch_deepfake_detector import legacy_exporter
 from learned_watermark import pick_device
 
 from deepshield.config import load_config
@@ -100,6 +105,39 @@ def load_manifests(
             else:
                 reals.setdefault(record["source"], {**record, "family": "real"})
     return fakes, list(reals.values())
+
+
+def run_signature(args: argparse.Namespace) -> dict[str, Any]:
+    """Return every setting a checkpoint must share with the run that resumes it.
+
+    Manifests are compared by content, not by path, so the same files under a
+    different mount point still match and a rebuilt manifest at the same path
+    does not.
+    """
+    return {
+        "seed": args.seed,
+        "manifests_sha256": sorted(
+            hashlib.sha256(path.read_bytes()).hexdigest() for path in args.manifest
+        ),
+        "train": sorted(args.train),
+        "epochs": args.epochs,
+        "holdout": args.holdout,
+        "batch": args.batch,
+        "lr": args.lr,
+        "limit": args.limit,
+    }
+
+
+def resume_mismatches(saved: dict[str, Any], expected: dict[str, Any]) -> list[str]:
+    """Return why a checkpoint cannot be resumed by this run; empty when it can."""
+    recorded = saved.get("run")
+    if recorded is None:
+        return ["the checkpoint predates run settings being recorded, so it cannot be checked"]
+    return [
+        f"{key}: checkpoint has {recorded.get(key)!r}, this run has {value!r}"
+        for key, value in expected.items()
+        if recorded.get(key) != value
+    ]
 
 
 def face_crop(detector: Any, image: np.ndarray) -> np.ndarray | None:
@@ -258,14 +296,23 @@ def main(argv: list[str] | None = None) -> int:
         [positives / max(1, len(train_items) - positives), 1.0], device=device
     ).float()
     first_epoch = 1
+    signature = run_signature(args)
     if args.checkpoint is not None and args.checkpoint.is_file():
         saved = torch.load(args.checkpoint, map_location=device, weights_only=False)
+        mismatches = resume_mismatches(saved, signature)
+        if mismatches:
+            raise SystemExit(
+                f"refusing to resume from {args.checkpoint}: " + "; ".join(mismatches)
+                + ". Pass another --checkpoint path or delete this one to start afresh."
+            )
         model.load_state_dict(saved["model"])
         optimiser.load_state_dict(saved["optimiser"])
         rng.setstate(saved["rng"])
         # map_location moved the CPU generator state to the GPU with everything else;
         # set_rng_state only takes a CPU ByteTensor.
         torch.set_rng_state(saved["torch_rng"].cpu())
+        if saved.get("cuda_rng") and torch.cuda.is_available():
+            torch.cuda.set_rng_state_all([state.cpu() for state in saved["cuda_rng"]])
         first_epoch = saved["epoch"] + 1
         print(f"resuming after epoch {saved['epoch']} from {args.checkpoint}", flush=True)
 
@@ -282,6 +329,8 @@ def main(argv: list[str] | None = None) -> int:
                 "epoch": epoch,
                 "rng": rng.getstate(),
                 "torch_rng": torch.get_rng_state(),
+                "cuda_rng": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else [],
+                "run": signature,
             },
             staging,
         )
@@ -354,7 +403,7 @@ def main(argv: list[str] | None = None) -> int:
         output_names=["logits"],
         dynamic_axes={"pixels": {0: "batch"}, "logits": {0: "batch"}},
         opset_version=17,
-        dynamo=False,
+        **legacy_exporter(torch),
     )
     metadata = {
         "repo": f"deepshield/{args.tag}",
@@ -366,6 +415,9 @@ def main(argv: list[str] | None = None) -> int:
         "preprocessing": "resize and normalise are baked into the graph; feed [0,1] RGB",
         "trained_on": args.train,
         "training_families_manifests": [str(m) for m in args.manifest],
+        # evaluate_deepfake_detectors.py matches these, so a manifest read from
+        # another path or machine is still recognised as in-sample.
+        "training_manifests_sha256": signature["manifests_sha256"],
         "holdout_fraction": args.holdout,
         "note": (
             f"trained on {', '.join(corpora)}; held-out rows are identities it never saw, "
