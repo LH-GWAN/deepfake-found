@@ -102,6 +102,14 @@ def test_the_split_judges_conditions_and_face_widths_at_the_gate_threshold() -> 
     assert rule["abstains_on"] == 0.5
 
 
+def test_only_clean_scores_the_calibration_half() -> None:
+    items = [item("real", "calibration", "lfw", "genuine", "a"),
+             item("fake", "test", "graphics", "m", "b")]
+    assert split.scored(items, "clean").tolist() == [True, True]
+    assert split.scored(items, "down55_crf35").tolist() == [False, True]
+    assert list(split.GRID)[:4] == ["clean", "down55", "crf35", "down55_crf35"]
+
+
 def test_a_cache_is_tied_to_its_items() -> None:
     first = [item("real", "test", "lfw", "genuine", "a")]
     second = [item("real", "test", "lfw", "genuine", "b")]

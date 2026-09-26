@@ -17,8 +17,11 @@ the face alone can scope the detector.
 
 Items, halves and the threshold come from ``evaluate_deepfake_detectors.py``
 itself, including its fix that counts the genuine photographs the manipulation
-sets share only once. Scores are cached per condition under ``--work``, so an
-interrupted run resumes.
+sets share only once. The calibration half is scored clean only, since fitting
+the threshold is its one job; every measurement is on the test half, which
+nearly halves the GPU time. The grid runs the conditions that answer the
+question first, so a run cut short still says something. Scores are cached per
+condition under ``--work``, so an interrupted run resumes.
 
 Usage:
     python scripts/evaluate_detector_conditions.py \
@@ -55,13 +58,13 @@ from deepshield.transforms import Transformation
 
 GRID: dict[str, tuple[str, dict[str, Any]]] = {
     "clean": ("identity", {}),
-    "down75": ("downscale", {"scale": 0.75}),
     "down55": ("downscale", {"scale": 0.55}),
-    "crf23": ("video_compression", {"scale": 1.0, "crf": 23}),
     "crf35": ("video_compression", {"scale": 1.0, "crf": 35}),
+    "down55_crf35": ("video_compression", {"scale": 0.55, "crf": 35}),
+    "down75": ("downscale", {"scale": 0.75}),
+    "crf23": ("video_compression", {"scale": 1.0, "crf": 23}),
     "down75_crf35": ("video_compression", {"scale": 0.75, "crf": 35}),
     "down55_crf23": ("video_compression", {"scale": 0.55, "crf": 23}),
-    "down55_crf35": ("video_compression", {"scale": 0.55, "crf": 35}),
 }
 WIDTH_EDGES = (0, 48, 64, 80, 96, 10_000)
 SIZE_RULES = (64, 80, 96)
@@ -77,6 +80,13 @@ def rate(alarms: int, trials: int) -> dict[str, Any]:
     }
 
 
+def scored(items: list[dict[str, Any]], name: str) -> np.ndarray:
+    """Return which items a condition scores: all of them clean, the test half otherwise."""
+    if name == "clean":
+        return np.ones(len(items), dtype=bool)
+    return np.asarray([item["half"] == "test" for item in items])
+
+
 def signature(items: list[dict[str, Any]]) -> str:
     """Identify the item list so a cache written for other items is never reused."""
     return hashlib.sha256("\n".join(item["path"] for item in items).encode()).hexdigest()[:16]
@@ -89,15 +99,16 @@ def score_condition(
 
     The same steps as the gate's ``score_items``: the transformation with seed
     1, the largest detected face, the pipeline's crop margin. ``nan`` where no
-    face is found.
+    face is found and for items the condition does not score.
     """
     kind, params = GRID[name]
     transformation = Transformation(name, kind, params)
+    wanted = scored(items, name)
     scores = np.full(len(items), np.nan)
     widths = np.full(len(items), np.nan)
     for index, item in enumerate(items):
         path = Path(item["path"])
-        if not path.is_file():
+        if not wanted[index] or not path.is_file():
             continue
         image = load_image(path)
         if name != "clean":
@@ -149,7 +160,7 @@ def summarise(
         }
         for fam in families:
             fakes = test & labels & (family == fam) & found
-            pooled = ((labels & (family == fam)) | shared_real) & found
+            pooled = test & ((labels & (family == fam)) | shared_real) & found
             auc = roc_curve(values[pooled], labels[pooled].astype(int)).auc
             entry["families"][fam] = {
                 "test_fakes": int(fakes.sum()),
@@ -185,8 +196,10 @@ def summarise(
     for minimum in SIZE_RULES:
         kept = pooled_widths >= minimum
         entry = judged(kept)
-        scored = pooled_test & found
-        entry["abstains_on"] = round(float((~kept & scored).sum() / max(int(scored.sum()), 1)), 4)
+        measured = pooled_test & found
+        entry["abstains_on"] = round(
+            float((~kept & measured).sum() / max(int(measured.sum()), 1)), 4
+        )
         report["size_rules"][f"face_at_least_{minimum}px"] = entry
     return report
 
