@@ -19,8 +19,13 @@ quarter of the gap below and above its midpoint. Each recogniser is then judged
 at its own operating point, and also at the strictest fair one: the recall it
 could reach in a condition with no impostor of any condition above it.
 
+The two recognisers are also fused, by averaging their scores for the same
+probe and identity, and judged by the same rule: a recogniser that fails on
+different probes than ArcFace could still help alongside it.
+
 Embeddings are cached per recogniser and condition under ``--work``, so an
-interrupted run resumes.
+interrupted run resumes, and a rerun with every condition cached only
+re-summarises.
 
 Usage:
     python scripts/compare_face_embedders.py --adaface models/adaface_ir101.onnx
@@ -106,8 +111,13 @@ def scores_for(
     work: Path,
     name: str,
 ) -> dict[str, dict[str, Any]]:
-    """Return leave-one-out genuine and impostor scores per condition, cached."""
-    gallery, gallery_failures, per_image = pipeline.embed_all(config, faces, manifest)
+    """Return leave-one-out genuine and impostor scores per condition, cached.
+
+    The clean gallery is embedded only when some condition is not cached yet.
+    """
+    gallery: dict[str, np.ndarray] = {}
+    gallery_failures: list[str] = []
+    per_image: float | None = None
     results: dict[str, dict[str, Any]] = {}
     for condition in conditions:
         cache = work / f"{name}_{condition}.npz"
@@ -118,6 +128,8 @@ def scores_for(
                 "probe_failures": int(saved["probe_failures"]),
             }
             continue
+        if per_image is None:
+            gallery, gallery_failures, per_image = pipeline.embed_all(config, faces, manifest)
         if condition == "clean":
             probes, failures = gallery, gallery_failures
         else:
@@ -131,8 +143,39 @@ def scores_for(
         print(f"  {name} {condition}: {int(labels.sum())} genuine, "
               f"{int((labels == 0).sum())} impostor", flush=True)
     results["_meta"] = {"gallery_failures": len(gallery_failures),
-                        "seconds_per_image": round(per_image, 4)}
+                        "seconds_per_image": None if per_image is None else round(per_image, 4)}
     return results
+
+
+def fuse(first: dict[str, dict[str, Any]], second: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Average two recognisers' scores for the same probes and identities.
+
+    Both score lists come from the same leave-one-out loop over the same
+    photographs, so they line up entry for entry; the labels are checked to
+    make sure they do.
+
+    Raises:
+        ValueError: If a condition's pairs do not line up.
+
+    """
+    fused: dict[str, Any] = {}
+    for condition in first:
+        if condition.startswith("_"):
+            continue
+        a, b = first[condition], second[condition]
+        if a["labels"].shape != b["labels"].shape or not np.array_equal(a["labels"], b["labels"]):
+            raise ValueError(f"{condition}: the two recognisers scored different pairs")
+        fused[condition] = {
+            "scores": (a["scores"] + b["scores"]) / 2.0,
+            "labels": a["labels"],
+            "probe_failures": max(a["probe_failures"], b["probe_failures"]),
+        }
+    fused["_meta"] = {
+        "gallery_failures": max(first["_meta"]["gallery_failures"],
+                                second["_meta"]["gallery_failures"]),
+        "seconds_per_image": None,
+    }
+    return fused
 
 
 def summarise(results: dict[str, dict[str, Any]]) -> dict[str, Any]:
@@ -203,12 +246,16 @@ def main(argv: list[str] | None = None) -> int:
         "identities": len(set(manifest.values())),
         "recognisers": {},
     }
+    scored: dict[str, dict[str, dict[str, Any]]] = {}
     for name in ("arcface", "adaface"):
         print(name, flush=True)
         config = configure(base, name, args.adaface)
-        results = scores_for(config, args.faces, manifest, args.conditions, args.work, name)
+        scored[name] = scores_for(config, args.faces, manifest, args.conditions, args.work, name)
+    scored["arcface+adaface"] = fuse(scored["arcface"], scored["adaface"])
+    for name, results in scored.items():
         report["recognisers"][name] = summarise(results)
         target = report["recognisers"][name]["conditions"][TARGET]
+        print(name)
         print(f"  thresholds {report['recognisers'][name]['thresholds']}")
         print(f"  {TARGET}: {target['bands_at_own_thresholds']}, auc {target['auc']}, "
               f"recall above every impostor {target['recall_above_every_impostor']}",

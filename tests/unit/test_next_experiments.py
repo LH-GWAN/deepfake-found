@@ -39,6 +39,23 @@ def test_genuine_probes_fall_into_three_bands() -> None:
     assert counts == {"high_confidence": 2, "review": 2, "below_candidate": 1}
 
 
+def test_fusion_averages_the_same_pairs_and_refuses_misaligned_ones() -> None:
+    labels = np.array([1, 0, 0])
+    first = {"clean": {"scores": np.array([0.8, 0.2, 0.1]), "labels": labels,
+                       "probe_failures": 0},
+             "_meta": {"gallery_failures": 0, "seconds_per_image": 1.0}}
+    second = {"clean": {"scores": np.array([0.6, 0.4, 0.1]), "labels": labels,
+                        "probe_failures": 1},
+              "_meta": {"gallery_failures": 2, "seconds_per_image": 7.0}}
+    fused = screen.fuse(first, second)
+    assert fused["clean"]["scores"] == pytest.approx([0.7, 0.3, 0.1])
+    assert fused["clean"]["probe_failures"] == 1
+    assert fused["_meta"]["gallery_failures"] == 2
+    second["clean"]["labels"] = np.array([0, 1, 0])
+    with pytest.raises(ValueError, match="different pairs"):
+        screen.fuse(first, second)
+
+
 def test_the_wrapped_checkpoint_is_reduced_to_the_network() -> None:
     weights = {"model.net.input_layer.0.weight": 1, "net.body.0.x": 2, "head.kernel": 3}
     assert adaface.strip_to_network(weights) == {"input_layer.0.weight": 1, "body.0.x": 2}
