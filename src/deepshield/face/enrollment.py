@@ -122,22 +122,53 @@ class DefaultIdentityEnroller(IdentityEnroller):
         owner, so enrolling it would teach the template the wrong face. It is
         recognised by exact bytes, or by carrying the watermark of a shielded
         asset; the clean original carries no watermark and passes.
+
+        Only the cheap reading of the watermark runs here, at the candidate's
+        own size and at the registered size of each shielded photo it resembles
+        by perceptual hash: that covers the file itself, re-encoded reposts and
+        platform-resized copies. The grid and rotation search that analysis
+        uses would cost seconds to a minute per photo, on every enrollment.
         """
         if not shielded:
             return None
-        digest = sha256_file(path)
-        codes = {asset.watermark_code for asset in shielded if asset.watermark_code}
+        try:
+            digest = sha256_file(path)
+            image = load_image(path)
+        except (OSError, InvalidMediaError):
+            return None
         if any(asset.fingerprint.sha256 == digest for asset in shielded):
             return "this is a swap-shielded file; enroll with the original photo instead"
-        if codes:
-            from deepshield.protection.watermark import build_watermarker
+        codes = {asset.watermark_code for asset in shielded if asset.watermark_code}
+        if not codes:
+            return None
 
-            try:
-                detection = build_watermarker(self.config.protection.watermark).detect(
-                    load_image(path)
-                )
-            except InvalidMediaError:
-                return None
+        from deepshield.media import image_size, resize_image
+        from deepshield.protection.fingerprint import DefaultFingerprinter, hash_similarity
+        from deepshield.protection.watermark import build_watermarker
+
+        watermarker = build_watermarker(
+            self.config.protection.watermark.model_copy(update={"resync_enabled": False})
+        )
+        phash = DefaultFingerprinter(self.config.protection.fingerprint).fingerprint_image(
+            image, "enrollment"
+        ).phash
+        floor = self.config.thresholds.fingerprint.evidence_similarity_threshold
+        sizes = [(image.shape[1], image.shape[0])]
+        for asset in shielded:
+            if len(asset.fingerprint.phash) != len(phash):
+                continue
+            if hash_similarity(asset.fingerprint.phash, phash) < floor:
+                continue
+            size = (
+                (asset.fingerprint.width, asset.fingerprint.height)
+                if asset.fingerprint.width and asset.fingerprint.height
+                else image_size(asset.protected_path) if asset.protected_path else None
+            )
+            if size is not None and size not in sizes:
+                sizes.append(size)
+        for size in sizes:
+            restored = image if size == sizes[0] else resize_image(image, *size)
+            detection = watermarker.detect(restored)
             if detection.detected and detection.watermark_code in codes:
                 return (
                     "this carries the watermark of a swap-shielded asset; enroll with the "

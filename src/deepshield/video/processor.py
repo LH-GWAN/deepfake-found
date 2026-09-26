@@ -351,6 +351,7 @@ class DefaultVideoProcessor(VideoProcessor):
             PERCEPTUAL_PROVENANCE_CONFIDENCE,
             WATERMARK_PROVENANCE_CONFIDENCE,
             subject_result,
+            threshold_raise_note,
         )
 
         subject = (
@@ -366,17 +367,14 @@ class DefaultVideoProcessor(VideoProcessor):
         compared = (
             any(profile.user_id == subject for profile in profiles) if subject else bool(profiles)
         ) and (bool(track_matches) or not tracks)
-        owner_face_in_original: bool | None = None
-        face_in_registered: bool | None = None
+        check = None
         if (
             asset is not None
+            and still is not None
             and asset.user_id == subject
             and (subject_match is None or subject_match.decision != "high_confidence")
         ):
-            if asset.shielded and still is not None:
-                face_in_registered = self.analysis.face_in_registered_file(asset, still.region)
-            elif not asset.shielded:
-                owner_face_in_original = self.analysis._owner_face_in_original(asset)
+            check = self.analysis.check_registered_faces(asset, still.region)
         deepfake_scores = subject_scores.get(subject, []) if subject else []
         video_deepfake = (
             aggregate_frame_scores(
@@ -408,9 +406,12 @@ class DefaultVideoProcessor(VideoProcessor):
                 asset_owner=asset.user_id if asset is not None else None,
                 asset_match_basis=asset_basis,
                 distribution_id=asset.distribution_id if asset is not None else None,
-                owner_face_in_original=owner_face_in_original,
+                owner_face_in_original=check.owner_face_in_original if check else None,
                 asset_shielded=bool(asset is not None and asset.shielded),
-                face_in_registered_file=face_in_registered,
+                registered_faces_compared=bool(check and check.compared),
+                owner_face_kept=check.owner_face_kept if check else None,
+                face_in_registered_file=check.faces_kept if check else None,
+                replaced_face_pixels=check.replaced_face_pixels if check else None,
                 deepfake_score=video_deepfake,
                 deepfake_calibrated=self.config.thresholds.deepfake.calibrated,
             )
@@ -441,6 +442,12 @@ class DefaultVideoProcessor(VideoProcessor):
                 f"{gated_tracks} of {len(tracks)} tracks did not reach the identity "
                 "candidate threshold, so no synthetic-media scoring was run on them."
             )
+        raised = threshold_raise_note(
+            best_result.probe_quality if best_result is not None else None,
+            self.config.thresholds.face_similarity,
+        )
+        if raised is not None:
+            limitations.append(raised)
         if still is not None:
             limitations.append(
                 f"A frame at {still.timestamp_seconds:.1f} s resembles registered asset "

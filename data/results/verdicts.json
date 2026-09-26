@@ -16,6 +16,10 @@
       },
       "identity_decisions": {
         "high_confidence": 30
+      },
+      "faces_detected": {
+        "2": 3,
+        "1": 27
       }
     },
     "recompressed": {
@@ -32,6 +36,11 @@
       },
       "identity_decisions": {
         "high_confidence": 30
+      },
+      "faces_detected": {
+        "2": 2,
+        "1": 27,
+        "3": 1
       }
     },
     "shrunk_repost": {
@@ -42,17 +51,20 @@
       "cases": 30,
       "as_expected": 30,
       "verdicts": {
-        "own_unverified": 21,
-        "own_copy": 9
+        "own_unverified": 13,
+        "own_copy": 17
       },
       "levels": {
-        "MEDIUM": 21,
-        "LOW": 9
+        "MEDIUM": 13,
+        "LOW": 17
       },
       "identity_decisions": {
-        "no_match": 17,
+        "no_match": 16,
         "high_confidence": 9,
-        "candidate": 4
+        "candidate": 5
+      },
+      "faces_detected": {
+        "1": 30
       }
     },
     "genuine": {
@@ -69,6 +81,10 @@
       },
       "identity_decisions": {
         "high_confidence": 30
+      },
+      "faces_detected": {
+        "1": 27,
+        "2": 3
       }
     },
     "gan_source": {
@@ -85,6 +101,11 @@
       },
       "identity_decisions": {
         "high_confidence": 30
+      },
+      "faces_detected": {
+        "1": 26,
+        "2": 3,
+        "3": 1
       }
     },
     "gan_target": {
@@ -101,6 +122,11 @@
       },
       "identity_decisions": {
         "no_match": 30
+      },
+      "faces_detected": {
+        "2": 2,
+        "1": 27,
+        "3": 1
       }
     },
     "gan_target_orphan": {
@@ -117,6 +143,11 @@
       },
       "identity_decisions": {
         "no_match": 30
+      },
+      "faces_detected": {
+        "2": 2,
+        "1": 27,
+        "3": 1
       }
     },
     "unrelated": {
@@ -133,24 +164,73 @@
       },
       "identity_decisions": {
         "no_match": 30
+      },
+      "faces_detected": {
+        "1": 26,
+        "2": 3,
+        "3": 1
+      }
+    },
+    "group_repost": {
+      "expected": [
+        "own_copy"
+      ],
+      "cases": 30,
+      "as_expected": 30,
+      "verdicts": {
+        "own_copy": 30
+      },
+      "levels": {
+        "LOW": 30
+      },
+      "identity_decisions": {
+        "high_confidence": 30
+      },
+      "faces_detected": {
+        "3": 3,
+        "2": 26,
+        "1": 1
+      }
+    },
+    "group_target": {
+      "expected": [
+        "own_altered"
+      ],
+      "cases": 30,
+      "as_expected": 30,
+      "verdicts": {
+        "own_altered": 30
+      },
+      "levels": {
+        "HIGH": 30
+      },
+      "identity_decisions": {
+        "no_match": 30
+      },
+      "faces_detected": {
+        "3": 3,
+        "2": 26,
+        "1": 1
       }
     }
   },
   "not_built": {},
   "environment": {
     "deepshield_version": "0.1.0",
-    "git_commit": "6a11691d36df8a0c08e7cf309512f2a63f5a8942",
+    "git_commit": "c54c40f80e025b668928b21d3641f08bff395dc4",
     "python": "3.12.10",
     "platform": "macOS-26.6.2-arm64-arm-64bit",
     "numpy": "2.5.3",
     "random_seed": 42,
-    "device": "cpu",
     "face_detector": "opencv_yunet",
     "face_aligner": "landmark",
     "face_embedder": "insightface",
     "deepfake_detector": "spectral",
     "watermark_backend": "dct",
     "watermark_strength": 0.16,
-    "recorded_at": "2026-09-24T17:47:27.075992+00:00"
+    "recorded_at": "2026-09-26T05:23:34.836344+00:00",
+    "configured_device": "cpu",
+    "git_dirty": true,
+    "provenance_note": "Measured from an uncommitted working tree on top of git_commit, before the git_dirty field existed; the code is the commit that adds this file."
   }
 }

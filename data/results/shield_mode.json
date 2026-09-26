@@ -1,0 +1,130 @@
+{
+  "question": "does protect --mode shield, as shipped, stop inswapper from carrying the owner, and what does the shielded file cost and keep?",
+  "shield": {
+    "epsilon": 0.03137254901960784,
+    "steps": 200,
+    "eot_samples": 4,
+    "seed": 0,
+    "encoder_model": "insightface/models/buffalo_l/w600k_r50.onnx",
+    "landmark_detector": "insightface"
+  },
+  "identities": 30,
+  "unshielded": 0,
+  "arcface_high_confidence": 0.4128,
+  "swaps": {
+    "clean": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "owner_first": 30,
+        "median_owner_similarity": 0.6839,
+        "above_high_confidence": 30
+      },
+      "sface": {
+        "owner_first": 30,
+        "median_owner_similarity": 0.6784
+      }
+    },
+    "shielded": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "owner_first": 0,
+        "median_owner_similarity": -0.3383,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "owner_first": 0,
+        "median_owner_similarity": -0.1224
+      }
+    },
+    "shielded_jpeg85": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "owner_first": 0,
+        "median_owner_similarity": -0.3238,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "owner_first": 0,
+        "median_owner_similarity": -0.0972
+      }
+    },
+    "shielded_jpeg70": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "owner_first": 0,
+        "median_owner_similarity": -0.2639,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "owner_first": 0,
+        "median_owner_similarity": -0.0242
+      }
+    },
+    "shielded_half": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "owner_first": 0,
+        "median_owner_similarity": -0.3323,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "owner_first": 0,
+        "median_owner_similarity": -0.1048
+      }
+    }
+  },
+  "shielded_file_itself": {
+    "scored": 30,
+    "no_face": 0,
+    "arcface": {
+      "owner_first": 0,
+      "median_owner_similarity": -0.3013,
+      "above_high_confidence": 0
+    },
+    "sface": {
+      "owner_first": 13,
+      "median_owner_similarity": 0.2303
+    }
+  },
+  "shielded_file": {
+    "median_seconds": 6.67,
+    "devices": [
+      "mps"
+    ],
+    "median_psnr": 33.1609,
+    "median_ssim": 0.8718,
+    "median_similarity_to_clean_face": -0.6695,
+    "watermark_verified": 30
+  },
+  "verdicts": {
+    "repost_jpeg85": {
+      "own_copy": 30
+    },
+    "gan_target": {
+      "own_altered": 30
+    }
+  },
+  "environment": {
+    "deepshield_version": "0.1.0",
+    "git_commit": "c54c40f80e025b668928b21d3641f08bff395dc4",
+    "python": "3.12.10",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "numpy": "2.5.3",
+    "random_seed": 42,
+    "face_detector": "opencv_yunet",
+    "face_aligner": "landmark",
+    "face_embedder": "insightface",
+    "deepfake_detector": "spectral",
+    "watermark_backend": "dct",
+    "watermark_strength": 0.16,
+    "recorded_at": "2026-09-26T05:17:43.708944+00:00",
+    "configured_device": "cpu",
+    "git_dirty": true,
+    "provenance_note": "Measured from an uncommitted working tree on top of git_commit, before the git_dirty field existed; the code is the commit that adds this file. The shield ran on the device in shielded_file.devices; configured_device is the config value."
+  }
+}

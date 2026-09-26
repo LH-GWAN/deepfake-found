@@ -62,6 +62,18 @@ CLIP_MEAN = (0.48145466, 0.4578275, 0.40821073)
 CLIP_STD = (0.26862954, 0.26130258, 0.27577711)
 
 
+def legacy_exporter(torch: Any) -> dict[str, Any]:
+    """Return the keyword that keeps ``torch.onnx.export`` on the TorchScript exporter.
+
+    ``dynamo`` exists from torch 2.5 and defaults to True from 2.9; older
+    releases, which ``pyproject.toml`` still admits, reject the keyword and
+    only have the TorchScript exporter anyway.
+    """
+    import inspect
+
+    return {"dynamo": False} if "dynamo" in inspect.signature(torch.onnx.export).parameters else {}
+
+
 def export_gend(output: Path, input_size: int) -> int:
     """Export GenD (WACV 2026), a CLIP ViT-L/14 whose normalised features feed a linear head.
 
@@ -105,7 +117,12 @@ def export_gend(output: Path, input_size: int) -> int:
             self.register_buffer("std", torch.tensor(CLIP_STD).view(1, 3, 1, 1))
 
         def forward(self, pixels: torch.Tensor) -> torch.Tensor:
-            """Take ``[0, 1]`` RGB at 224 pixels and return real/fake logits."""
+            """Take ``[0, 1]`` RGB and return real/fake logits.
+
+            The bicubic resize only matters for an ``--input-size`` other than
+            224. At the default it is an identity, and the resampling a face
+            crop really gets is the ``onnx`` adapter's bilinear resize to 224.
+            """
             resized = torch.nn.functional.interpolate(
                 pixels, size=(224, 224), mode="bicubic", align_corners=False
             )
@@ -126,7 +143,7 @@ def export_gend(output: Path, input_size: int) -> int:
         output_names=["logits"],
         dynamic_axes={"pixel_values": {0: "batch"}, "logits": {0: "batch"}},
         opset_version=17,
-        dynamo=False,
+        **legacy_exporter(torch),
     )
     metadata = {
         "repo": GEND_REPOSITORY,
@@ -136,7 +153,11 @@ def export_gend(output: Path, input_size: int) -> int:
         "positive_index": 1,
         "labels": {"0": "Real", "1": "Fake"},
         "training_data": "FaceForensics++ c23 (the GenD paper, Tab. 2)",
-        "preprocessing": "bicubic resize to 224 and CLIP normalisation are baked into the graph",
+        "preprocessing": (
+            "CLIP normalisation is baked into the graph; its bicubic resize to 224 is an "
+            f"identity at input_size {input_size}" if input_size == 224 else
+            f"the graph resizes {input_size} to 224 bicubically and applies CLIP normalisation"
+        ) + "; the onnx adapter resizes each crop to input_size bilinearly first",
     }
     (output / "deepfake_gend.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     print(f"wrote {onnx_path} and {output / 'deepfake_gend.json'}")

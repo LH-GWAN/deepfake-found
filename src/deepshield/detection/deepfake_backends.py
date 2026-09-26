@@ -33,8 +33,11 @@ from PIL import Image
 from deepshield.config import DeepfakeDetectorConfig
 from deepshield.detection.deepfake import DEEPFAKE_REGISTRY, DeepfakeDetector
 from deepshield.exceptions import InvalidMediaError, ModelNotAvailableError
+from deepshield.logging_utils import get_logger
 from deepshield.media import to_grayscale, validate_rgb
 from deepshield.types import DeepfakeResult, ModelInfo
+
+logger = get_logger(__name__)
 
 SPECTRAL_SIDE = 256
 TRIMMED_FRACTION = 0.1
@@ -146,15 +149,18 @@ class OnnxDeepfakeDetector(DeepfakeDetector):
 
     name = "onnx"
 
-    def __init__(self, config: DeepfakeDetectorConfig | None = None) -> None:
-        """Create an inference session for the configured ONNX file."""
+    def __init__(
+        self, config: DeepfakeDetectorConfig | None = None, device: str = "auto"
+    ) -> None:
+        """Create an inference session for the configured ONNX file.
+
+        ``device`` is ``runtime.device`` (``cpu``, ``cuda`` or ``mps``) or
+        ``auto``, which uses a GPU build of ONNX Runtime when one is installed.
+        ONNX Runtime falls back to the CPU without raising when CUDA cannot be
+        loaded, so the providers the session actually holds are kept in
+        :attr:`providers` for results to record, not the ones asked for.
+        """
         self.config = config or DeepfakeDetectorConfig()
-        try:
-            import onnxruntime
-        except ImportError as exc:
-            raise ModelNotAvailableError(
-                "onnxruntime is not installed; install the 'face' extra"
-            ) from exc
         if self.config.model_path is None:
             raise ModelNotAvailableError(
                 "the onnx deepfake backend needs detection.deepfake.model_path"
@@ -162,12 +168,26 @@ class OnnxDeepfakeDetector(DeepfakeDetector):
         path = Path(self.config.model_path)
         if not path.is_file():
             raise ModelNotAvailableError(f"ONNX detector not found: {path}")
+        try:
+            import onnxruntime
+        except ImportError as exc:
+            raise ModelNotAvailableError(
+                "onnxruntime is not installed; install the 'face' extra"
+            ) from exc
         self.model_path = path
-        providers = ["CPUExecutionProvider"]
-        if "CUDAExecutionProvider" in onnxruntime.get_available_providers():
-            providers.insert(0, "CUDAExecutionProvider")
-        self._session = onnxruntime.InferenceSession(str(path), providers=providers)
+        requested = execution_providers(device, onnxruntime.get_available_providers())
+        self._session = onnxruntime.InferenceSession(str(path), providers=requested)
         self._input_name = self._session.get_inputs()[0].name
+        active = getattr(self._session, "get_providers", None)
+        self.providers: list[str] = list(active()) if active is not None else requested
+        if device == "cuda" and "CUDAExecutionProvider" not in self.providers:
+            logger.warning("runtime.device is cuda but ONNX Runtime scores %s on %s",
+                           path.name, self.providers[0])
+
+    @property
+    def execution_provider(self) -> str:
+        """Return the provider that scores this model, e.g. ``CUDAExecutionProvider``."""
+        return self.providers[0]
 
     @property
     def model_info(self) -> ModelInfo:
@@ -181,7 +201,12 @@ class OnnxDeepfakeDetector(DeepfakeDetector):
         )
 
     def _preprocess(self, image: np.ndarray) -> np.ndarray:
-        """Resize and scale an image into the model's expected tensor layout."""
+        """Resize and scale an image into the model's expected tensor layout.
+
+        This bilinear resize is the resampling a face crop actually gets: an
+        exported graph that resizes to its native size again does nothing when
+        ``input_size`` already equals that size, as it does for GenD at 224.
+        """
         side = self.config.input_size
         resized = np.asarray(
             Image.fromarray(validate_rgb(image)).resize(
@@ -228,6 +253,21 @@ class OnnxDeepfakeDetector(DeepfakeDetector):
                 "generalisation to unseen generators is unverified",
             ],
         )
+
+
+def execution_providers(device: str, available: list[str]) -> list[str]:
+    """Return the ONNX Runtime providers to request for ``device``, CPU always last.
+
+    ``cpu`` (and ``mps``, which ONNX Runtime has no provider for) stays on the
+    CPU even on a machine with a GPU build installed; ``cuda`` and ``auto`` put
+    CUDA first when the build has it.
+    """
+    if device not in ("auto", "cpu", "cuda", "mps"):
+        raise ModelNotAvailableError(f"unsupported device '{device}' for the onnx backend")
+    providers = ["CPUExecutionProvider"]
+    if device in ("auto", "cuda") and "CUDAExecutionProvider" in available:
+        providers.insert(0, "CUDAExecutionProvider")
+    return providers
 
 
 def aggregate_frame_scores(scores: list[float], strategy: str = "trimmed_mean") -> float:

@@ -55,16 +55,38 @@ def git_commit() -> str:
         return "not-a-git-repository"
 
 
+def git_dirty() -> bool | None:
+    """Return whether tracked files differ from HEAD, results excluded; ``None`` outside git.
+
+    A commit alone does not say what ran when the tree held uncommitted code,
+    which is how most measurements here are made before being committed with
+    their results.
+    """
+    try:
+        changed = subprocess.check_output(
+            [
+                "git", "status", "--porcelain", "--untracked-files=no", "--", ".",
+                ":(exclude)data/results",
+            ],
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        return None
+    return bool(changed.strip())
+
+
 def environment(config: DeepShieldConfig) -> dict[str, Any]:
     """Capture everything needed to reproduce a run."""
     return {
         "deepshield_version": __version__,
         "git_commit": git_commit(),
+        "git_dirty": git_dirty(),
         "python": sys.version.split()[0],
         "platform": platform.platform(),
         "numpy": np.__version__,
         "random_seed": config.runtime.random_seed,
-        "device": config.runtime.device,
+        "configured_device": config.runtime.device,
         "face_detector": config.face.detector.backend,
         "face_aligner": config.face.aligner.backend,
         "face_embedder": config.face.embedder.backend,

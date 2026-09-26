@@ -42,6 +42,66 @@ def test_a_detector_trained_on_an_evaluated_manifest_is_in_sample() -> None:
     assert not gate.in_sample({}, [Path("data/test/manipulated/manifest.json")])
 
 
+def test_the_leakage_guard_does_not_depend_on_how_a_path_is_written() -> None:
+    """``data/...`` and its absolute form, or a Colab mount of it, are one manifest."""
+    relative = Path("data/test/manipulated/manifest.json")
+    absolute = (gate.ROOT / relative).resolve()
+    assert gate.in_sample({"training_families_manifests": [str(relative)]}, [absolute])
+    assert gate.in_sample({"training_families_manifests": [absolute.as_posix()]}, [relative])
+    mount = "/content/deepshield/data/test/manipulated/manifest.json"
+    colab = {"training_families_manifests": [mount]}
+    assert gate.in_sample(colab, [relative])
+    assert not gate.in_sample(colab, [Path("data/test/manipulated_inswapper/manifest.json")])
+
+
+def test_the_leakage_guard_recognises_a_manifest_by_its_content(tmp_path: Path) -> None:
+    moved = tmp_path / "elsewhere.json"
+    moved.write_text('{"records": []}', encoding="utf-8")
+    metadata = {
+        "training_families_manifests": ["/somewhere/else/manifest.json"],
+        "training_manifests_sha256": [gate.file_sha256(moved)],
+    }
+    assert gate.in_sample(metadata, [moved])
+
+
+def test_genuine_photographs_shared_by_two_manifests_count_once(tmp_path: Path) -> None:
+    """The manipulation sets each keep a byte-identical copy of the same genuine photos."""
+    import json
+
+    manifests = []
+    for name in ("manipulated", "manipulated_inswapper"):
+        folder = tmp_path / name
+        (folder / "real").mkdir(parents=True)
+        (folder / "real" / "ann_0.jpg").write_bytes(b"the same photograph")
+        records = [
+            {"path": (folder / "real" / "ann_0.jpg").as_posix(), "label": "real",
+             "identity": "ann", "source": "ann_0.png"},
+            {"path": (folder / "fake.jpg").as_posix(), "label": "fake", "identity": "ann",
+             "source": "ann_0.png", "donor": "bob_1.png"},
+        ]
+        (folder / "manifest.json").write_text(json.dumps({"records": records}), encoding="utf-8")
+        manifests.append(folder / "manifest.json")
+    records = gate.load_records(manifests)
+    assert [record["label"] for record in records] == ["real", "fake", "fake"]
+    assert {record["family"] for record in records if record["label"] == "fake"} == {
+        "graphics", "inswapper"
+    }
+
+
+@pytest.mark.parametrize("threshold", [0.5, 0.95, 0.9996, 0.999557])
+def test_the_high_confidence_threshold_stays_above_the_suspicious_one(threshold: float) -> None:
+    suspicious, high = gate.operating_points(threshold)
+    assert float(suspicious) == pytest.approx(threshold, abs=5e-7)
+    assert float(high) > float(suspicious)
+    assert float(high) < 1.0
+
+
+@pytest.mark.parametrize("threshold", [1.0, 0.9999995])
+def test_a_threshold_with_no_room_above_it_is_not_adopted(threshold: float) -> None:
+    with pytest.raises(ValueError, match="no high-confidence band"):
+        gate.operating_points(threshold)
+
+
 def scored(
     genuine_test: int, alarms: int, fakes_test: int, caught: int
 ) -> tuple[list[dict[str, Any]], dict[str, np.ndarray]]:

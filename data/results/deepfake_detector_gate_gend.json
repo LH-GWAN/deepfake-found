@@ -13,7 +13,8 @@
     "deepfake_detector": "spectral",
     "watermark_backend": "dct",
     "watermark_strength": 0.16,
-    "recorded_at": "2026-09-25T01:54:16.567531+00:00"
+    "recorded_at": "2026-09-25T01:54:16.567531+00:00",
+    "provenance_note": "git_commit is the HEAD the run started from; the working tree had uncommitted changes, so the exact code is not recoverable from it. device recorded runtime.device from configs/default.yaml, not what ran: the run was on a Colab T4 GPU."
   },
   "manifests": [
     "data/test/manipulated/manifest.json",
@@ -100,5 +101,6 @@
         }
       }
     }
-  }
+  },
+  "counting_note": "The two manifests share 169 byte-identical genuine photographs, which this run counted once per manifest: calibration_genuine 1646 and test_photos 1692 (1691 under video_small) are rows, the distinct photographs are 1574, 1595 and 1594. Per-image scores were not saved, so the threshold, false-positive counts and Clopper-Pearson bounds are as measured; each duplicated false alarm was counted twice. The script now counts each photograph once."
 }

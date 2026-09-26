@@ -20,6 +20,7 @@ unaffected.
 from __future__ import annotations
 
 import tempfile
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -80,6 +81,11 @@ def create_app(config: DeepShieldConfig | None = None) -> Any:
 
     settings = config or load_config()
     max_upload_bytes = settings.api.max_upload_mb * 1024 * 1024
+    # The swap shield is loaded once and run one photo at a time: it takes
+    # seconds per face on a GPU and a minute or more on a CPU, and parallel
+    # runs would only compete for the same device.
+    shield_lock = threading.Lock()
+    shield_parts: dict[str, Any] = {}
 
     app = FastAPI(
         title="DeepShield",
@@ -175,16 +181,28 @@ def create_app(config: DeepShieldConfig | None = None) -> Any:
         mode: str = Form("trace"),
         file: UploadFile = File(...),
     ) -> dict[str, Any]:
-        """Watermark, fingerprint and register one image; ``shield`` also perturbs faces."""
+        """Watermark, fingerprint and register one image; ``shield`` also perturbs faces.
+
+        ``shield`` runs inside the request: about 8 seconds per face on a GPU
+        and 60 to 90 on a CPU. Shield requests are served one at a time.
+        """
         if mode not in ("trace", "shield"):
             raise HTTPException(status_code=422, detail="mode must be 'trace' or 'shield'")
         from deepshield.pipeline.protection_pipeline import DefaultProtectionPipeline
 
         with tempfile.TemporaryDirectory() as raw:
             path = _save_upload(file, Path(raw))
-            return DefaultProtectionPipeline(settings).protect(
-                path, user_id, distribution_id, mode="shield" if mode == "shield" else "trace"
-            )
+            if mode == "trace":
+                return DefaultProtectionPipeline(settings).protect(path, user_id, distribution_id)
+            with shield_lock:
+                pipeline = DefaultProtectionPipeline(
+                    settings,
+                    shield=shield_parts.get("shield"),
+                    detector=shield_parts.get("detector"),
+                )
+                report = pipeline.protect(path, user_id, distribution_id, mode="shield")
+                shield_parts.update(pipeline.shield_components())
+                return report
 
     @app.post("/analyze/image", summary="Analyse one suspect image")
     def analyze_image(

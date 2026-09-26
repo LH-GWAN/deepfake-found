@@ -98,3 +98,48 @@ def test_a_zip_is_read_member_by_member(tmp_path: Path) -> None:
         assert local.read_bytes() == b"not really a video"
         extracted = local
     assert not extracted.exists()
+
+
+def test_a_clip_found_twice_is_kept_once() -> None:
+    """Mask videos and a second compression would weight a clip, and its person, twice."""
+    names = [
+        "manipulated_sequences/Deepfakes/masks/videos/000_003.mp4",
+        "manipulated_sequences/Deepfakes/c40/videos/000_003.mp4",
+        "manipulated_sequences/Deepfakes/c23/videos/000_003.mp4",
+        "original_sequences/youtube/c23/videos/000.mp4",
+        "original_sequences/youtube/raw/videos/000.mp4",
+        "frames/original/000/0001.png",
+    ]
+    clips = ffpp.find_clips(names, ["deepfakes"], None)
+    assert [(c.kind, c.video, c.members) for c in clips] == [
+        ("deepfakes", "000_003", ("manipulated_sequences/Deepfakes/c23/videos/000_003.mp4",)),
+        ("real", "000", ("original_sequences/youtube/c23/videos/000.mp4",)),
+    ]
+    only_masks = ffpp.find_clips(names[:1], ["deepfakes"], "c23")
+    assert only_masks == []
+
+
+def test_frame_folders_at_two_compressions_are_not_merged() -> None:
+    names = [
+        "frames/c40/Deepfakes/000_003/0001.png",
+        "frames/c23/Deepfakes/000_003/0001.png",
+        "frames/c23/Deepfakes/000_003/0002.png",
+    ]
+    (clip,) = ffpp.find_clips(names, ["deepfakes"], None)
+    assert clip.members == (
+        "frames/c23/Deepfakes/000_003/0001.png", "frames/c23/Deepfakes/000_003/0002.png"
+    )
+
+
+def test_crops_made_with_other_settings_are_not_reused(tmp_path: Path) -> None:
+    settings = {"frames_real": 8, "max_side": 512}
+    ffpp.check_parameters(tmp_path, settings)
+    ffpp.check_parameters(tmp_path, dict(settings))
+    with pytest.raises(SystemExit, match="max_side: 512 -> 256"):
+        ffpp.check_parameters(tmp_path, {**settings, "max_side": 256})
+
+
+def test_a_video_without_a_frame_count_is_counted_by_decoding() -> None:
+    assert ffpp.frame_total(300, lambda: 999) == (300, False)
+    assert ffpp.frame_total(0, lambda: 240) == (240, True)
+    assert ffpp.frame_total(-1, lambda: 240) == (240, True)

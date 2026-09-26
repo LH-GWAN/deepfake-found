@@ -17,7 +17,13 @@ The attack is projected gradient descent on the cosine similarity between
 each face's embedding and its clean embedding, optimised in the photograph
 itself through a differentiable warp onto the 112-pixel aligned frame, with
 an expectation over small alignment jitter, resampling, blur and noise,
-because the swapper re-detects and re-aligns the face on its own.
+because the swapper re-detects and re-aligns the face on its own. The frame
+comes from SCRFD landmarks, the detector inswapper re-detects with; another
+detector's landmarks put the frame several degrees and pixels off, outside
+the jitter the expectation covers. The jitter, resampling, blur and noise
+are the ones ``scripts/evaluate_source_protection.py`` measured, and
+``scripts/evaluate_shield_mode.py`` measures this code end to end, through
+the protection pipeline, watermark included.
 
 What it costs and what it does not do:
 
@@ -94,6 +100,27 @@ def similarity_matrix(landmarks: np.ndarray) -> np.ndarray:
     return np.hstack([scale * rotation, translation[:, None]])
 
 
+def _unsupported_attributes(op_type: str, attrs: dict[str, Any]) -> str | None:
+    """Return why a node's attributes fall outside what the executor implements, if they do.
+
+    The executor maps Conv onto ``conv2d`` with symmetric padding and Gemm onto
+    ``linear``, which is ``x @ W.T + b``; anything else would run and give
+    wrong embeddings silently, so it is refused instead.
+    """
+    if op_type == "Conv":
+        pads = list(attrs.get("pads", [0, 0, 0, 0]))
+        if attrs.get("auto_pad", b"NOTSET") not in (b"NOTSET", "NOTSET"):
+            return f"auto_pad {attrs['auto_pad']!r}"
+        if len(pads) != 4 or pads[0] != pads[2] or pads[1] != pads[3]:
+            return f"asymmetric pads {pads}"
+    if op_type == "Gemm":
+        if attrs.get("transA", 0) != 0 or attrs.get("transB", 0) != 1:
+            return f"transA={attrs.get('transA', 0)} transB={attrs.get('transB', 0)}"
+        if attrs.get("alpha", 1.0) != 1.0 or attrs.get("beta", 1.0) != 1.0:
+            return f"alpha={attrs.get('alpha', 1.0)} beta={attrs.get('beta', 1.0)}"
+    return None
+
+
 class OnnxGraph:
     """Executes a Conv/BatchNorm/PReLU/Add/Flatten/Gemm ONNX graph with torch operations."""
 
@@ -124,6 +151,12 @@ class OnnxGraph:
             {a.name: onnx.helper.get_attribute_value(a) for a in node.attribute}
             for node in self.nodes
         ]
+        for node, attrs in zip(self.nodes, self.attributes, strict=True):
+            problem = _unsupported_attributes(node.op_type, attrs)
+            if problem:
+                raise ModelNotAvailableError(
+                    f"unsupported {node.op_type} node {node.name}: {problem}"
+                )
         self.input_name = model.graph.input[0].name
         self.output_name = model.graph.output[0].name
         self.weights = {
@@ -193,21 +226,24 @@ def sampling_grid(matrix: np.ndarray, height: int, width: int, jitter: Any) -> A
 
 
 def _blur(frames: Any, sigma: float) -> Any:
-    """Return a separable Gaussian blur of an NCHW batch; ``sigma`` 0 is a no-op."""
+    """Return a separable Gaussian blur of an NCHW batch; ``sigma`` 0 is a no-op.
+
+    This is the blur the measurement used (``scripts/learned_watermark.py``):
+    a radius of ``2 * sigma`` rounded down, at least one, and zero padding.
+    """
     torch = _torch()
-    if sigma <= 0.05:
+    if sigma <= 0:
         return frames
-    radius = max(1, int(round(sigma * 3)))
+    radius = max(1, int(2 * sigma))
     offsets = torch.arange(-radius, radius + 1, dtype=frames.dtype, device=frames.device)
     kernel = torch.exp(-(offsets**2) / (2 * sigma * sigma))
     kernel = kernel / kernel.sum()
     channels = frames.shape[1]
-    horizontal = kernel.view(1, 1, 1, -1).repeat(channels, 1, 1, 1)
-    vertical = kernel.view(1, 1, -1, 1).repeat(channels, 1, 1, 1)
-    padded = torch.nn.functional.pad(frames, (radius, radius, 0, 0), mode="reflect")
-    frames = torch.nn.functional.conv2d(padded, horizontal, groups=channels)
-    padded = torch.nn.functional.pad(frames, (0, 0, radius, radius), mode="reflect")
-    return torch.nn.functional.conv2d(padded, vertical, groups=channels)
+    horizontal = kernel.view(1, 1, 1, -1).expand(channels, 1, 1, -1)
+    vertical = kernel.view(1, 1, -1, 1).expand(channels, 1, -1, 1)
+    functional = torch.nn.functional
+    frames = functional.conv2d(frames, horizontal, padding=(0, radius), groups=channels)
+    return functional.conv2d(frames, vertical, padding=(radius, 0), groups=channels)
 
 
 class SwapShield:

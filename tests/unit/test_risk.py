@@ -396,6 +396,7 @@ def shielded(**overrides: Any) -> RiskEvidence:
         "asset_shielded": True,
         "identity_decision": "no_match",
         "identity_similarity": -0.2,
+        "registered_faces_compared": True,
     }
     fields.update(overrides)
     return own_asset(**fields)
@@ -409,19 +410,100 @@ def test_a_shielded_copy_with_the_registered_face_is_a_copy() -> None:
 
 
 def test_a_shielded_copy_with_another_face_is_an_alteration() -> None:
-    result = assess(shielded(face_in_registered_file=False))
+    result = assess(shielded(face_in_registered_file=False, replaced_face_pixels=120.0))
     assert result.verdict is Verdict.OWN_ALTERED
     assert result.risk_level is RiskLevel.HIGH
 
 
 def test_a_shielded_copy_that_cannot_be_compared_is_unverified() -> None:
-    assert assess(shielded(face_in_registered_file=None)).verdict is Verdict.OWN_UNVERIFIED
+    missing = assess(shielded(registered_faces_compared=False))
+    assert missing.verdict is Verdict.OWN_UNVERIFIED
+    assert any("could not be read" in line for line in missing.explanation)
     assert assess(shielded(faces_detected=0)).verdict is Verdict.OWN_UNVERIFIED
+
+
+def test_a_borderline_shielded_copy_is_not_called_unreadable() -> None:
+    result = assess(shielded(face_in_registered_file=None))
+    assert result.verdict is Verdict.OWN_UNVERIFIED
+    assert any("only weakly" in line for line in result.explanation)
+    assert not any("could not be read" in line for line in result.explanation)
 
 
 def test_a_small_shielded_face_is_not_called_replaced() -> None:
     result = assess(
-        shielded(face_in_registered_file=False, probe_face_pixels=40.0, copy_scale=0.5)
+        shielded(face_in_registered_file=False, replaced_face_pixels=40.0, copy_scale=0.5)
+    )
+    assert result.verdict is Verdict.OWN_UNVERIFIED
+
+
+def compared(**overrides: Any) -> RiskEvidence:
+    """Return a traced copy whose faces were compared one by one with the registered file's."""
+    fields: dict[str, Any] = {
+        "identity_decision": "no_match",
+        "owner_face_in_original": True,
+        "registered_faces_compared": True,
+        "owner_face_kept": False,
+    }
+    fields.update(overrides)
+    return own_asset(**fields)
+
+
+def test_the_owners_face_kept_from_the_original_is_a_copy() -> None:
+    """Degraded past the enrollment threshold, but still the face that was published."""
+    result = assess(compared(owner_face_kept=True, face_in_registered_file=True))
+    assert result.verdict is Verdict.OWN_COPY
+
+
+def test_a_face_that_is_none_of_the_originals_is_an_alteration() -> None:
+    result = assess(
+        compared(face_in_registered_file=False, replaced_face_pixels=150.0, copy_scale=1.0)
+    )
+    assert result.verdict is Verdict.OWN_ALTERED
+
+
+def test_a_small_background_face_does_not_excuse_the_replaced_one() -> None:
+    """The old rule read the best-scoring face, which could be a small neighbour."""
+    result = assess(
+        compared(
+            probe_face_pixels=50.0,
+            face_in_registered_file=False,
+            replaced_face_pixels=150.0,
+            copy_scale=1.0,
+        )
+    )
+    assert result.verdict is Verdict.OWN_ALTERED
+
+
+def test_a_replaced_face_at_the_registered_scale_is_an_alteration_even_when_small() -> None:
+    """A crop at full resolution is not a shrunk copy."""
+    result = assess(
+        compared(face_in_registered_file=False, replaced_face_pixels=60.0, copy_scale=1.0)
+    )
+    assert result.verdict is Verdict.OWN_ALTERED
+
+
+def test_a_small_face_in_a_shrunk_copy_is_not_called_replaced() -> None:
+    result = assess(
+        compared(face_in_registered_file=False, replaced_face_pixels=50.0, copy_scale=0.55)
+    )
+    assert result.verdict is Verdict.OWN_UNVERIFIED
+    assert any("too small" in line for line in result.explanation)
+
+
+def test_the_owner_cropped_out_of_a_group_photo_is_not_an_alteration() -> None:
+    result = assess(compared(face_in_registered_file=True))
+    assert result.verdict is Verdict.OWN_UNVERIFIED
+    assert any("cropped out" in line for line in result.explanation)
+
+
+def test_a_new_face_is_unverified_when_the_original_is_borderline() -> None:
+    result = assess(
+        compared(
+            owner_face_in_original=None,
+            owner_face_kept=None,
+            face_in_registered_file=False,
+            replaced_face_pixels=150.0,
+        )
     )
     assert result.verdict is Verdict.OWN_UNVERIFIED
 

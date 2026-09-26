@@ -1,0 +1,53 @@
+{
+  "question": "which verdict does each real-world situation receive?",
+  "identities": 30,
+  "situations": {
+    "shrunk_repost": {
+      "expected": [
+        "own_copy",
+        "own_unverified"
+      ],
+      "cases": 30,
+      "as_expected": 15,
+      "verdicts": {
+        "own_altered": 15,
+        "own_copy": 11,
+        "own_unverified": 4
+      },
+      "levels": {
+        "HIGH": 15,
+        "LOW": 11,
+        "MEDIUM": 4
+      },
+      "identity_decisions": {
+        "no_match": 15,
+        "high_confidence": 11,
+        "candidate": 4
+      },
+      "faces_detected": {
+        "1": 30
+      }
+    }
+  },
+  "not_built": {},
+  "environment": {
+    "deepshield_version": "0.1.0",
+    "git_commit": "not-a-git-repository",
+    "python": "3.12.10",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "numpy": "2.5.3",
+    "random_seed": 42,
+    "face_detector": "opencv_yunet",
+    "face_aligner": "landmark",
+    "face_embedder": "insightface",
+    "deepfake_detector": "spectral",
+    "watermark_backend": "dct",
+    "watermark_strength": 0.16,
+    "recorded_at": "2026-09-26T05:21:19.648631+00:00",
+    "configured_device": "cpu",
+    "git_dirty": true,
+    "provenance_note": "Measured from an uncommitted working tree on top of git_commit, before the git_dirty field existed; the code is the commit that adds this file."
+  },
+  "note": "The verdict rules before the small-face fix (4c3072f): the current scripts/evaluate_verdicts.py run against the source tree of its parent commit, so the environment's git_commit is not the code that decided these verdicts.",
+  "rules_commit": "6a11691d36df8a0c08e7cf309512f2a63f5a8942"
+}
