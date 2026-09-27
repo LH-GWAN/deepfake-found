@@ -1,11 +1,11 @@
 face_similarity:
   candidate_threshold: 0.3591
-  high_confidence_threshold: 0.4128
+  high_confidence_threshold: 0.4700
   min_margin: 0.0500
   low_quality_penalty: 0.0000
   min_probe_face_pixels: 0
   calibrated: true
-  calibration_source: data/results/calibration_face_similarity.json
+  calibration_source: data/results/calibration_face_similarity.json + korean_thresholds_kodf.json
 
 deepfake:
   suspicious_threshold: 0.5

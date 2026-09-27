@@ -19,8 +19,11 @@ import evaluate_detector_conditions as split  # noqa: E402
 import fetch_face_embedder as adaface  # noqa: E402
 
 
-def test_the_threshold_rule_reproduces_the_deployed_thresholds() -> None:
-    """The deployed pair came from impostor max 0.3323 and genuine min 0.4397."""
+def test_the_threshold_rule_reproduces_the_lfw_thresholds() -> None:
+    """LFW's impostor max 0.3323 and genuine min 0.4397 give 0.3591 and 0.4128.
+
+    The deployed high-confidence threshold is 0.47, raised for Korean impostors.
+    """
     placed = screen.place_thresholds(np.array([0.4397, 0.9]), np.array([0.1, 0.3323]))
     assert placed["separated"]
     assert placed["candidate"] == pytest.approx(0.3591, abs=1e-3)
