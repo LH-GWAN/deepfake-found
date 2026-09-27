@@ -21,9 +21,9 @@ detection; a frame that truly holds no face still returns none.
 
 One kind of first-pass detection is dropped. On a patterned backdrop (the
 pegboard behind KoDF's speakers) YuNet also returns a box covering most of
-the frame at barely passing confidence: 22 of 786 frames, confidence 0.60 to
-0.65 and 68 to 87% of the frame's short side, where every real face scored
-0.92 or more and covered at most 42%. Two such boxes compare with each other
+the frame at barely passing confidence: 23 of 1,920 frames, confidence 0.60
+to 0.68 and 57 to 87% of the frame's short side, where every real face scored
+0.83 or more and covered at most 43%. Two such boxes compare with each other
 at 0.96, so a detection that is both below ``implausible_below_confidence``
 and larger than ``implausible_above_side_fraction`` of the short side is not
 a face. A close-up is large but confident and is kept; the rescue passes,
