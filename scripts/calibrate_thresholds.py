@@ -27,6 +27,13 @@ straight through it. The midpoint is the maximum-margin choice, and the two
 thresholds are offset from it by a quarter of the gap in each direction, so one
 errs toward catching things and the other toward being sure.
 
+The high-confidence threshold is written no lower than ``KOREAN_IMPOSTOR_FLOOR``.
+The evaluation set here is thirty LFW identities, almost all Western, and among
+131 Korean people from KoDF four impostor comparisons passed the value this
+fit gives (0.4128) and none passed 0.47 (``evaluate_korean_thresholds.py``).
+A refit on LFW alone cannot see that, so it may raise the threshold but not
+lower it below the floor.
+
 Usage:
     python scripts/calibrate_thresholds.py --faces data/test/eval_faces --write
 """
@@ -62,6 +69,7 @@ from deepshield.risk.calibration import (
 )
 
 DEFAULT_DEGRADATIONS = ("clean", "jpeg30", "crop_20", "blur_3", "screenshot")
+KOREAN_IMPOSTOR_FLOOR = 0.47
 
 
 def probe_quality_distribution(
@@ -338,6 +346,12 @@ def main(argv: list[str] | None = None) -> int:
     print(f"\nwrote {report_path}")
 
     if args.write:
+        if high_threshold < KOREAN_IMPOSTOR_FLOOR:
+            print(
+                f"high-confidence threshold {high_threshold:.4f} is below the Korean impostor "
+                f"floor; writing {KOREAN_IMPOSTOR_FLOOR:.4f}"
+            )
+            high_threshold = KOREAN_IMPOSTOR_FLOOR
         thresholds_path = ROOT / "configs" / "thresholds.yaml"
         text = thresholds_path.read_text(encoding="utf-8")
         block = (
@@ -350,7 +364,7 @@ def main(argv: list[str] | None = None) -> int:
             f"  min_probe_face_pixels: "
             f"{config.thresholds.face_similarity.min_probe_face_pixels}\n"
             "  calibrated: true\n"
-            f"  calibration_source: {report_path.as_posix()}\n"
+            f"  calibration_source: {report_path.as_posix()} + korean_thresholds_kodf.json\n"
         )
         head, _, rest = text.partition("face_similarity:")
         _, _, tail = rest.partition("\n\n")

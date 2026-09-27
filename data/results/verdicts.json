@@ -18,8 +18,9 @@
         "high_confidence": 30
       },
       "faces_detected": {
-        "2": 3,
-        "1": 27
+        "2": 2,
+        "1": 27,
+        "3": 1
       }
     },
     "recompressed": {
@@ -38,9 +39,8 @@
         "high_confidence": 30
       },
       "faces_detected": {
-        "2": 2,
-        "1": 27,
-        "3": 1
+        "2": 3,
+        "1": 27
       }
     },
     "shrunk_repost": {
@@ -51,17 +51,17 @@
       "cases": 30,
       "as_expected": 30,
       "verdicts": {
-        "own_unverified": 13,
-        "own_copy": 17
+        "own_unverified": 19,
+        "own_copy": 11
       },
       "levels": {
-        "MEDIUM": 13,
-        "LOW": 17
+        "MEDIUM": 19,
+        "LOW": 11
       },
       "identity_decisions": {
-        "no_match": 16,
-        "high_confidence": 9,
-        "candidate": 5
+        "no_match": 14,
+        "candidate": 13,
+        "high_confidence": 3
       },
       "faces_detected": {
         "1": 30
@@ -187,8 +187,9 @@
         "high_confidence": 30
       },
       "faces_detected": {
-        "3": 3,
+        "3": 2,
         "2": 26,
+        "4": 1,
         "1": 1
       }
     },
@@ -217,20 +218,19 @@
   "not_built": {},
   "environment": {
     "deepshield_version": "0.1.0",
-    "git_commit": "c54c40f80e025b668928b21d3641f08bff395dc4",
+    "git_commit": "d72eb04710adbada26e2379db8eec89703478c04",
+    "git_dirty": true,
     "python": "3.12.10",
     "platform": "macOS-26.6.2-arm64-arm-64bit",
     "numpy": "2.5.3",
     "random_seed": 42,
+    "configured_device": "cpu",
     "face_detector": "opencv_yunet",
     "face_aligner": "landmark",
     "face_embedder": "insightface",
     "deepfake_detector": "spectral",
     "watermark_backend": "dct",
     "watermark_strength": 0.16,
-    "recorded_at": "2026-09-26T05:23:34.836344+00:00",
-    "configured_device": "cpu",
-    "git_dirty": true,
-    "provenance_note": "Measured from an uncommitted working tree on top of git_commit, before the git_dirty field existed; the code is the commit that adds this file."
+    "recorded_at": "2026-09-27T11:01:04.147683+00:00"
   }
 }
