@@ -152,48 +152,68 @@ def embed_video(stack: Stack, path: Path, role: str) -> dict[str, Any]:
 
 
 def kodf_embeddings(
-    kodf: Path, meta: Path, work: Path, stack: Stack, rng: np.random.Generator
+    kodf: Path, meta: Path, work: Path, stack: Stack, seed: int
 ) -> dict[str, dict[str, list[dict[str, Any]]]]:
-    """Embed every downloaded KoDF person's enrollment and probe videos, with a cache."""
+    """Embed every KoDF person's enrollment and probe videos, with a cache.
+
+    A person already in the cache keeps the videos embedded for them, so the
+    zips they came from need not be downloaded again when more people are
+    added. A new person's videos are drawn with a seed of their own, so adding
+    people never changes whom anyone else was measured on.
+    """
     members = index_zips(kodf)
     rows = list(csv.DictReader(next(meta.glob("원본영상_*.csv")).open(encoding="utf-8-sig")))
+    owner = {row["영상ID"]: row["UUID"] for row in rows}
     videos: dict[str, list[str]] = defaultdict(list)
     for row in rows:
-        if row["영상ID"] in members:
-            videos[row["UUID"]].append(row["영상ID"])
+        videos[row["UUID"]].append(row["영상ID"])
     cache = work / "threshold_cache"
     cache.mkdir(parents=True, exist_ok=True)
-    people: dict[str, dict[str, list[dict[str, Any]]]] = {}
-    by_archive: dict[Path, list[tuple[str, str, str]]] = defaultdict(list)
+    cached: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    for stored in cache.glob("*.json"):
+        stem, role = stored.stem.rsplit("_", 1)
+        cached[owner[f"{stem}.mp4"]].append((f"{stem}.mp4", role))
+    wanted = ENROLL_VIDEOS + PROBE_VIDEOS
+    picks: dict[str, list[tuple[str, str]]] = {}
     for person in sorted(videos):
-        names = sorted(videos[person])
-        if len(names) < ENROLL_VIDEOS + PROBE_VIDEOS:
+        if len(cached[person]) >= wanted:
+            picks[person] = sorted(cached[person])
             continue
-        chosen = rng.choice(len(names), ENROLL_VIDEOS + PROBE_VIDEOS, replace=False)
-        picked = [names[i] for i in chosen]
-        people[person] = {"enroll": [], "probe": []}
-        for index, name in enumerate(picked):
-            role = "enroll" if index < ENROLL_VIDEOS else "probe"
-            by_archive[members[name][0]].append((person, name, role))
+        names = sorted(n for n in videos[person] if n in members)
+        if len(names) < wanted:
+            continue
+        own = np.random.default_rng([seed, int.from_bytes(person.encode()[:8], "big")])
+        chosen = [names[i] for i in own.choice(len(names), wanted, replace=False)]
+        picks[person] = [
+            (name, "enroll" if index < ENROLL_VIDEOS else "probe")
+            for index, name in enumerate(chosen)
+        ]
+    people: dict[str, dict[str, list[dict[str, Any]]]] = {
+        person: {"enroll": [], "probe": []} for person in picks
+    }
+    by_archive: dict[Path, list[tuple[str, str, str]]] = defaultdict(list)
+    for person, chosen in picks.items():
+        for name, role in chosen:
+            stored = cache / f"{Path(name).stem}_{role}.json"
+            if stored.exists():
+                people[person][role].append(json.loads(stored.read_text()))
+            else:
+                by_archive[members[name][0]].append((person, name, role))
     done = 0
-    for archive, wanted in by_archive.items():
+    for archive, missing in by_archive.items():
         with zipfile.ZipFile(archive) as bundle, tempfile.TemporaryDirectory() as scratch:
-            for person, name, role in wanted:
-                stored = cache / f"{Path(name).stem}_{role}.json"
-                if stored.exists():
-                    record = json.loads(stored.read_text())
-                else:
-                    target = Path(scratch) / "video.mp4"
-                    with bundle.open(members[name][1]) as source, target.open("wb") as sink:
-                        while chunk := source.read(1 << 22):
-                            sink.write(chunk)
-                    record = embed_video(stack, target, role)
-                    target.unlink()
-                    stored.write_text(json.dumps(record))
-                    done += 1
-                    if done % 50 == 0:
-                        print(f"embedded {done} KoDF videos", flush=True)
+            for person, name, role in missing:
+                target = Path(scratch) / "video.mp4"
+                with bundle.open(members[name][1]) as source, target.open("wb") as sink:
+                    while chunk := source.read(1 << 22):
+                        sink.write(chunk)
+                record = embed_video(stack, target, role)
+                target.unlink()
+                (cache / f"{Path(name).stem}_{role}.json").write_text(json.dumps(record))
                 people[person][role].append(record)
+                done += 1
+                if done % 50 == 0:
+                    print(f"embedded {done} KoDF videos", flush=True)
     return people
 
 
@@ -275,7 +295,7 @@ def main(argv: list[str] | None = None) -> int:
     rng = np.random.default_rng(args.seed)
     stack = Stack()
     people = kodf_embeddings(
-        args.kodf.expanduser(), args.meta.expanduser(), args.work.expanduser(), stack, rng
+        args.kodf.expanduser(), args.meta.expanduser(), args.work.expanduser(), stack, args.seed
     )
     genuine_lfw = lfw_genuine(args.faces, stack)
     cohort = cohort_vectors(args.lfw, args.faces, stack, args.cohort)
