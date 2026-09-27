@@ -97,3 +97,32 @@ def test_upscale_targets_the_shorter_side(shape: tuple[int, int]) -> None:
     enlarged, factor = FaceDetector.upscale_for_detection(image, 160)
     assert min(enlarged.shape[:2]) == 160
     assert factor == pytest.approx(160 / 62)
+
+
+class FixedBoxes(FaceDetector):
+    """Returns the given (box, confidence) pairs on every call."""
+
+    name = "fixed"
+
+    def __init__(self, config: FaceDetectorConfig, boxes: list[tuple[BoundingBox, float]]) -> None:
+        """Remember the detections to return."""
+        self.config = config
+        self.boxes = boxes
+
+    def _detect_once(self, image: np.ndarray) -> list[DetectedFace]:
+        return [DetectedFace(bbox=box, detection_confidence=c) for box, c in self.boxes]
+
+
+def test_a_huge_unsure_box_is_not_a_face() -> None:
+    """The KoDF backdrop: most of the frame at barely passing confidence."""
+    face = (BoundingBox(800, 300, 1100, 600), 0.94)
+    backdrop = (BoundingBox(560, 100, 1400, 940), 0.61)
+    detector = FixedBoxes(FaceDetectorConfig(), [face, backdrop])
+    found = detector.detect(np.zeros((1080, 1920, 3), dtype=np.uint8))
+    assert [f.detection_confidence for f in found] == [0.94]
+
+
+@pytest.mark.parametrize(("side", "confidence"), [(840, 0.93), (300, 0.62)])
+def test_a_confident_close_up_or_a_small_unsure_face_is_kept(side: int, confidence: float) -> None:
+    detector = FixedBoxes(FaceDetectorConfig(), [(BoundingBox(0, 0, side, side), confidence)])
+    assert len(detector.detect(np.zeros((1080, 1920, 3), dtype=np.uint8))) == 1
