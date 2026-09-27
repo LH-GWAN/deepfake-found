@@ -92,6 +92,8 @@ class FaceDetectorConfig(_Base):
     rescue_enabled: bool = True
     rescue_min_side: int = Field(default=160, gt=0)
     rescue_pad_fraction: float = Field(default=0.25, ge=0.0, le=1.0)
+    implausible_below_confidence: float = Field(default=0.7, ge=0.0, le=1.0)
+    implausible_above_side_fraction: float = Field(default=0.6, gt=0.0, le=1.0)
 
 
 class FaceAlignerConfig(_Base):

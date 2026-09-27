@@ -18,6 +18,16 @@ outside the range of face-to-image ratios they expect. When a first pass finds
 nothing, the detector is rerun on an enlarged copy of a small image and then on
 a padded copy, and the boxes are mapped back. Both passes only ever add a
 detection; a frame that truly holds no face still returns none.
+
+One kind of first-pass detection is dropped. On a patterned backdrop (the
+pegboard behind KoDF's speakers) YuNet also returns a box covering most of
+the frame at barely passing confidence: 22 of 786 frames, confidence 0.60 to
+0.65 and 68 to 87% of the frame's short side, where every real face scored
+0.92 or more and covered at most 42%. Two such boxes compare with each other
+at 0.96, so a detection that is both below ``implausible_below_confidence``
+and larger than ``implausible_above_side_fraction`` of the short side is not
+a face. A close-up is large but confident and is kept; the rescue passes,
+whose faces fill the frame by design, are not filtered.
 """
 
 from __future__ import annotations
@@ -60,7 +70,7 @@ class FaceDetector(ABC):
 
         """
         original = self.validate_image(image)
-        faces = self._detect_once(original)
+        faces = self.drop_implausible(self._detect_once(original), original)
         if faces or not self.config.rescue_enabled:
             return faces
 
@@ -79,6 +89,25 @@ class FaceDetector(ABC):
             if faces:
                 logger.debug("detector rescued a face by padding the frame")
         return faces
+
+    def drop_implausible(
+        self, faces: list[DetectedFace], image: np.ndarray
+    ) -> list[DetectedFace]:
+        """Remove low-confidence detections that cover most of the frame."""
+        shortest = float(min(image.shape[:2]))
+        below = getattr(self.config, "implausible_below_confidence", 0.0)
+        above = getattr(self.config, "implausible_above_side_fraction", 1.0)
+        kept = [
+            face
+            for face in faces
+            if not (
+                face.detection_confidence < below
+                and min(face.bbox.width, face.bbox.height) > above * shortest
+            )
+        ]
+        if len(kept) != len(faces):
+            logger.debug("dropped %d implausible detection(s)", len(faces) - len(kept))
+        return kept
 
     @abstractmethod
     def _detect_once(self, image: np.ndarray) -> list[DetectedFace]:

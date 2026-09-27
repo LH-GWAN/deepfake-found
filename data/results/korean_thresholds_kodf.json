@@ -1,0 +1,158 @@
+{
+  "question": "which high-confidence threshold keeps Korean impostors out while recognising people in other photographs, and does cohort normalisation help?",
+  "data": "KoDF training split (AI Hub '딥페이크 변조 영상', National Information Society Agency) for impostors; the LFW evaluation set for genuine scores. Subject IDs are not reported.",
+  "kodf_people": 131,
+  "fit_half_people": 65,
+  "test_half_people": 66,
+  "lfw_photos": 170,
+  "cohort": "253 LFW East Asian identities, top-10 mean",
+  "margin": 0.01,
+  "methods": {
+    "raw": {
+      "fit_impostor_max": 0.403,
+      "test_impostor_max": {
+        "clean": 0.4591,
+        "video_small": 0.3517
+      },
+      "test_impostor_comparisons": {
+        "clean": 12870,
+        "video_small": 12870
+      },
+      "lfw_genuine_min": {
+        "clean": 0.5663,
+        "video_small": 0.1853
+      },
+      "separation_gap_clean": 0.1633,
+      "operating_points": {
+        "fitted_on_half": {
+          "threshold": 0.413,
+          "lfw_genuine_recall": {
+            "clean": 1.0,
+            "video_small": 0.4412
+          },
+          "kodf_same_session_genuine_recall": {
+            "clean": 1.0,
+            "video_small": 0.6616
+          },
+          "kodf_test_impostors_at_or_above": {
+            "clean": 4,
+            "video_small": 0
+          }
+        },
+        "current": {
+          "threshold": 0.4128,
+          "lfw_genuine_recall": {
+            "clean": 1.0,
+            "video_small": 0.4412
+          },
+          "kodf_same_session_genuine_recall": {
+            "clean": 1.0,
+            "video_small": 0.6616
+          },
+          "kodf_test_impostors_at_or_above": {
+            "clean": 4,
+            "video_small": 0
+          }
+        }
+      }
+    },
+    "cohort_normalised": {
+      "fit_impostor_max": 0.2613,
+      "test_impostor_max": {
+        "clean": 0.3312,
+        "video_small": 0.1991
+      },
+      "test_impostor_comparisons": {
+        "clean": 12870,
+        "video_small": 12870
+      },
+      "lfw_genuine_min": {
+        "clean": 0.4328,
+        "video_small": 0.0424
+      },
+      "separation_gap_clean": 0.1715,
+      "operating_points": {
+        "fitted_on_half": {
+          "threshold": 0.2713,
+          "lfw_genuine_recall": {
+            "clean": 1.0,
+            "video_small": 0.5176
+          },
+          "kodf_same_session_genuine_recall": {
+            "clean": 1.0,
+            "video_small": 0.6364
+          },
+          "kodf_test_impostors_at_or_above": {
+            "clean": 2,
+            "video_small": 0
+          }
+        }
+      }
+    }
+  },
+  "detections": {
+    "frames": 786,
+    "frames_with_more_than_one": 22,
+    "chosen": {
+      "confidence": {
+        "min": 0.921,
+        "median": 0.945,
+        "max": 0.961
+      },
+      "side_over_frame_height": {
+        "min": 0.207,
+        "median": 0.287,
+        "max": 0.416
+      },
+      "eye_distance_over_width": {
+        "min": 0.409,
+        "median": 0.453,
+        "max": 0.497
+      },
+      "eye_to_mouth_over_height": {
+        "min": 0.335,
+        "median": 0.363,
+        "max": 0.416
+      }
+    },
+    "others": {
+      "confidence": {
+        "min": 0.6,
+        "median": 0.608,
+        "max": 0.649
+      },
+      "side_over_frame_height": {
+        "min": 0.683,
+        "median": 0.757,
+        "max": 0.867
+      },
+      "eye_distance_over_width": {
+        "min": 0.367,
+        "median": 0.411,
+        "max": 0.491
+      },
+      "eye_to_mouth_over_height": {
+        "min": 0.362,
+        "median": 0.41,
+        "max": 0.493
+      }
+    }
+  },
+  "environment": {
+    "deepshield_version": "0.1.0",
+    "git_commit": "16175d11fea5d11f058189a8ae87bfc3ee9bd924",
+    "git_dirty": true,
+    "python": "3.12.10",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "numpy": "2.5.3",
+    "random_seed": 42,
+    "configured_device": "cpu",
+    "face_detector": "opencv_yunet",
+    "face_aligner": "landmark",
+    "face_embedder": "insightface",
+    "deepfake_detector": "spectral",
+    "watermark_backend": "dct",
+    "watermark_strength": 0.16,
+    "recorded_at": "2026-09-27T09:16:28.695808+00:00"
+  }
+}
