@@ -1,0 +1,347 @@
+{
+  "question": "do a detector's false alarms follow face size or compression?",
+  "detector": "gend",
+  "repo": "yermandy/GenD_CLIP_L_14",
+  "execution_provider": "CUDAExecutionProvider",
+  "images": 3507,
+  "grid": {
+    "clean": {
+      "kind": "identity"
+    },
+    "down55": {
+      "kind": "downscale",
+      "scale": 0.55
+    },
+    "crf35": {
+      "kind": "video_compression",
+      "scale": 1.0,
+      "crf": 35
+    },
+    "down55_crf35": {
+      "kind": "video_compression",
+      "scale": 0.55,
+      "crf": 35
+    },
+    "down75": {
+      "kind": "downscale",
+      "scale": 0.75
+    },
+    "crf23": {
+      "kind": "video_compression",
+      "scale": 1.0,
+      "crf": 23
+    },
+    "down75_crf35": {
+      "kind": "video_compression",
+      "scale": 0.75,
+      "crf": 35
+    },
+    "down55_crf23": {
+      "kind": "video_compression",
+      "scale": 0.55,
+      "crf": 23
+    }
+  },
+  "fp_bound": 0.01,
+  "min_family_recall": 0.2,
+  "threshold": 0.956173,
+  "calibration_genuine": 1574,
+  "conditions": {
+    "clean": {
+      "median_genuine_face_width": 96.4,
+      "no_face": 0,
+      "genuine": {
+        "n": 1595,
+        "false_positives": 5,
+        "rate": 0.003135,
+        "upper_95": 0.0073
+      },
+      "families": {
+        "graphics": {
+          "test_fakes": 53,
+          "recall": 0.9245,
+          "separation_auc": 0.9955
+        },
+        "inswapper": {
+          "test_fakes": 53,
+          "recall": 0.3774,
+          "separation_auc": 0.8975
+        }
+      }
+    },
+    "down55": {
+      "median_genuine_face_width": 54.1,
+      "no_face": 0,
+      "genuine": {
+        "n": 1595,
+        "false_positives": 10,
+        "rate": 0.00627,
+        "upper_95": 0.0115
+      },
+      "families": {
+        "graphics": {
+          "test_fakes": 53,
+          "recall": 0.8113,
+          "separation_auc": 0.9712
+        },
+        "inswapper": {
+          "test_fakes": 53,
+          "recall": 0.2075,
+          "separation_auc": 0.8306
+        }
+      }
+    },
+    "crf35": {
+      "median_genuine_face_width": 96.5,
+      "no_face": 0,
+      "genuine": {
+        "n": 1595,
+        "false_positives": 272,
+        "rate": 0.170533,
+        "upper_95": 0.189906
+      },
+      "families": {
+        "graphics": {
+          "test_fakes": 53,
+          "recall": 0.717,
+          "separation_auc": 0.8771
+        },
+        "inswapper": {
+          "test_fakes": 53,
+          "recall": 0.3208,
+          "separation_auc": 0.6615
+        }
+      }
+    },
+    "down55_crf35": {
+      "median_genuine_face_width": 53.9,
+      "no_face": 1,
+      "genuine": {
+        "n": 1594,
+        "false_positives": 712,
+        "rate": 0.446675,
+        "upper_95": 0.471474
+      },
+      "families": {
+        "graphics": {
+          "test_fakes": 53,
+          "recall": 0.6981,
+          "separation_auc": 0.6839
+        },
+        "inswapper": {
+          "test_fakes": 53,
+          "recall": 0.6415,
+          "separation_auc": 0.5763
+        }
+      }
+    },
+    "down75": {
+      "median_genuine_face_width": 73.1,
+      "no_face": 0,
+      "genuine": {
+        "n": 1595,
+        "false_positives": 2,
+        "rate": 0.001254,
+        "upper_95": 0.004522
+      },
+      "families": {
+        "graphics": {
+          "test_fakes": 53,
+          "recall": 0.8302,
+          "separation_auc": 0.9903
+        },
+        "inswapper": {
+          "test_fakes": 53,
+          "recall": 0.2642,
+          "separation_auc": 0.8909
+        }
+      }
+    },
+    "crf23": {
+      "median_genuine_face_width": 96.3,
+      "no_face": 0,
+      "genuine": {
+        "n": 1595,
+        "false_positives": 24,
+        "rate": 0.015047,
+        "upper_95": 0.022306
+      },
+      "families": {
+        "graphics": {
+          "test_fakes": 53,
+          "recall": 0.6415,
+          "separation_auc": 0.9761
+        },
+        "inswapper": {
+          "test_fakes": 53,
+          "recall": 0.1321,
+          "separation_auc": 0.7397
+        }
+      }
+    },
+    "down75_crf35": {
+      "median_genuine_face_width": 72.5,
+      "no_face": 0,
+      "genuine": {
+        "n": 1595,
+        "false_positives": 506,
+        "rate": 0.317241,
+        "upper_95": 0.340716
+      },
+      "families": {
+        "graphics": {
+          "test_fakes": 53,
+          "recall": 0.6792,
+          "separation_auc": 0.7131
+        },
+        "inswapper": {
+          "test_fakes": 53,
+          "recall": 0.434,
+          "separation_auc": 0.5703
+        }
+      }
+    },
+    "down55_crf23": {
+      "median_genuine_face_width": 54.0,
+      "no_face": 0,
+      "genuine": {
+        "n": 1595,
+        "false_positives": 51,
+        "rate": 0.031975,
+        "upper_95": 0.041829
+      },
+      "families": {
+        "graphics": {
+          "test_fakes": 53,
+          "recall": 0.4717,
+          "separation_auc": 0.9226
+        },
+        "inswapper": {
+          "test_fakes": 53,
+          "recall": 0.0755,
+          "separation_auc": 0.6724
+        }
+      }
+    }
+  },
+  "by_face_width": {
+    "0-48": {
+      "genuine": {
+        "n": 212,
+        "false_positives": 27,
+        "rate": 0.127358,
+        "upper_95": 0.179867
+      },
+      "graphics_recall": 0.6923,
+      "graphics_fakes": 13,
+      "inswapper_recall": 0.2727,
+      "inswapper_fakes": 11
+    },
+    "48-64": {
+      "genuine": {
+        "n": 4552,
+        "false_positives": 750,
+        "rate": 0.164763,
+        "upper_95": 0.175863
+      },
+      "graphics_recall": 0.6712,
+      "graphics_fakes": 146,
+      "inswapper_recall": 0.2993,
+      "inswapper_fakes": 147
+    },
+    "64-80": {
+      "genuine": {
+        "n": 3038,
+        "false_positives": 481,
+        "rate": 0.158328,
+        "upper_95": 0.171801
+      },
+      "graphics_recall": 0.74,
+      "graphics_fakes": 100,
+      "inswapper_recall": 0.3524,
+      "inswapper_fakes": 105
+    },
+    "80-96": {
+      "genuine": {
+        "n": 2408,
+        "false_positives": 182,
+        "rate": 0.075581,
+        "upper_95": 0.086871
+      },
+      "graphics_recall": 0.7429,
+      "graphics_fakes": 105,
+      "inswapper_recall": 0.2347,
+      "inswapper_fakes": 98
+    },
+    "96-": {
+      "genuine": {
+        "n": 2549,
+        "false_positives": 142,
+        "rate": 0.055708,
+        "upper_95": 0.065331
+      },
+      "graphics_recall": 0.7833,
+      "graphics_fakes": 60,
+      "inswapper_recall": 0.3651,
+      "inswapper_fakes": 63
+    }
+  },
+  "size_rules": {
+    "face_at_least_64px": {
+      "genuine": {
+        "n": 7995,
+        "false_positives": 805,
+        "rate": 0.100688,
+        "upper_95": 0.107493
+      },
+      "graphics_recall": 0.7509,
+      "graphics_fakes": 265,
+      "inswapper_recall": 0.312,
+      "inswapper_fakes": 266,
+      "abstains_on": 0.3734
+    },
+    "face_at_least_80px": {
+      "genuine": {
+        "n": 4957,
+        "false_positives": 324,
+        "rate": 0.065362,
+        "upper_95": 0.072603
+      },
+      "graphics_recall": 0.7576,
+      "graphics_fakes": 165,
+      "inswapper_recall": 0.2857,
+      "inswapper_fakes": 161,
+      "abstains_on": 0.6117
+    },
+    "face_at_least_96px": {
+      "genuine": {
+        "n": 2549,
+        "false_positives": 142,
+        "rate": 0.055708,
+        "upper_95": 0.065331
+      },
+      "graphics_recall": 0.7833,
+      "graphics_fakes": 60,
+      "inswapper_recall": 0.3651,
+      "inswapper_fakes": 63,
+      "abstains_on": 0.8036
+    }
+  },
+  "environment": {
+    "deepshield_version": "0.1.0",
+    "git_commit": "not-a-git-repository",
+    "git_dirty": null,
+    "python": "3.13.15",
+    "platform": "Linux-6.6.122+-x86_64-with-glibc2.39",
+    "numpy": "2.1.3",
+    "random_seed": 42,
+    "configured_device": "cpu",
+    "face_detector": "opencv_yunet",
+    "face_aligner": "landmark",
+    "face_embedder": "insightface",
+    "deepfake_detector": "spectral",
+    "watermark_backend": "dct",
+    "watermark_strength": 0.16,
+    "recorded_at": "2026-09-27T07:38:04.801160+00:00"
+  }
+}
