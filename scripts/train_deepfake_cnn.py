@@ -36,6 +36,14 @@ seed, the manifests' contents, the families, the epochs and the other settings
 that shape training, and a run whose settings differ refuses to resume from it
 rather than silently continuing someone else's model.
 
+``--h264`` is the share of training crops that go through the condition every
+detector so far has failed on: shrunk so the face is 40 to 112 pixels wide, then
+round-tripped through H.264 at crf 18 to 40, with the same ``video_compression``
+transformation the evaluations apply. The network resizes the small crop back
+to 224 inside its graph, exactly as it does a small face at inference. The
+held-out report then adds that condition (a 55-pixel face at crf 35) next to
+clean and JPEG q50.
+
 Usage:
     python scripts/train_deepfake_cnn.py --manifest data/test/manipulated/manifest.json \\
         data/test/manipulated_inswapper/manifest.json \\
@@ -51,6 +59,7 @@ import json
 import random
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -79,6 +88,12 @@ IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 MIN_USEFUL_AUC = 0.75
 MAX_TOLERABLE_FPR = 0.10
+# A face fills 1 / (1 + 2 * margin) of the pipeline's loose crop.
+FACE_IN_CROP = SIDE / (1 + 2 * DEEPFAKE_CROP_MARGIN)
+H264_FACE_WIDTH = (40.0, 112.0)
+H264_CRF = (18, 40)
+HELD_OUT_FACE_WIDTH = 55.0
+HELD_OUT_CRF = 35
 
 
 def family_of(manifest: Path, payload: dict[str, Any]) -> str:
@@ -125,6 +140,7 @@ def run_signature(args: argparse.Namespace) -> dict[str, Any]:
         "batch": args.batch,
         "lr": args.lr,
         "limit": args.limit,
+        "h264": args.h264,
     }
 
 
@@ -154,6 +170,15 @@ def jpeg(image: np.ndarray, quality: int) -> np.ndarray:
     return Transformation("jpeg", "jpeg_compression", {"quality": quality}).apply(image, seed=1)
 
 
+def video(image: np.ndarray, face_width: float, crf: int) -> np.ndarray:
+    """Shrink a crop until its face is ``face_width`` pixels wide and round-trip it through H.264.
+
+    The crop is not restored to its size; the network's own resize does that.
+    """
+    params = {"scale": min(1.0, face_width / FACE_IN_CROP), "crf": crf}
+    return Transformation("video", "video_compression", params).apply(image, seed=1)
+
+
 class Detector(nn.Module):
     """EfficientNet-B0 with a two-way head and the preprocessing inside the graph."""
 
@@ -175,23 +200,46 @@ class Detector(nn.Module):
         return logits
 
 
-def augment(image: np.ndarray, rng: random.Random) -> np.ndarray:
+def plan_augment(rng: random.Random, h264: float = 0.0) -> dict[str, Any]:
+    """Draw one crop's augmentation, so the random stream does not depend on threads."""
+    plan: dict[str, Any] = {"flip": rng.random() < 0.5}
+    if h264 > 0 and rng.random() < h264:
+        plan["video"] = (rng.uniform(*H264_FACE_WIDTH), rng.randint(*H264_CRF))
+    elif rng.random() < 0.5:
+        plan["jpeg"] = rng.randint(50, 95)
+    if rng.random() < 0.5:
+        plan["gain"] = rng.uniform(0.85, 1.15)
+    return plan
+
+
+def apply_augment(image: np.ndarray, plan: dict[str, Any]) -> np.ndarray:
     """Flip, jitter and re-encode so the network cannot key on one encoder."""
-    out = image
-    if rng.random() < 0.5:
-        out = out[:, ::-1]
-    if rng.random() < 0.5:
-        out = jpeg(np.ascontiguousarray(out), rng.randint(50, 95))
-    if rng.random() < 0.5:
-        gain = rng.uniform(0.85, 1.15)
-        out = np.clip(out.astype(np.float32) * gain, 0, 255).astype(np.uint8)
+    out = image[:, ::-1] if plan["flip"] else image
+    if "video" in plan:
+        out = video(np.ascontiguousarray(out), *plan["video"])
+    elif "jpeg" in plan:
+        out = jpeg(np.ascontiguousarray(out), plan["jpeg"])
+    if "gain" in plan:
+        out = np.clip(out.astype(np.float32) * plan["gain"], 0, 255).astype(np.uint8)
     return np.ascontiguousarray(out)
 
 
+def augment(image: np.ndarray, rng: random.Random, h264: float = 0.0) -> np.ndarray:
+    """Draw and apply one crop's augmentation."""
+    return apply_augment(image, plan_augment(rng, h264))
+
+
 def to_tensor(images: list[np.ndarray], device: str) -> torch.Tensor:
-    """Stack uint8 crops into a [0, 1] batch."""
-    array = np.stack(images).astype(np.float32) / 255.0
-    return torch.from_numpy(array).permute(0, 3, 1, 2).to(device)
+    """Stack uint8 crops into a [0, 1] batch, resizing any smaller crop as the graph does."""
+    tensors = []
+    for image in images:
+        pixels = torch.from_numpy(np.ascontiguousarray(image)).permute(2, 0, 1).float() / 255.0
+        if pixels.shape[1:] != (SIDE, SIDE):
+            pixels = F.interpolate(
+                pixels[None], size=(SIDE, SIDE), mode="bilinear", align_corners=False
+            )[0]
+        tensors.append(pixels)
+    return torch.stack(tensors).to(device)
 
 
 def scores_for(model: Detector, crops: list[np.ndarray], device: str) -> np.ndarray:
@@ -241,6 +289,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--limit", type=int, default=None, help="cap records per family")
     parser.add_argument("--checkpoint", type=Path, default=None,
                         help="save after every epoch and resume from it if it exists")
+    parser.add_argument("--h264", type=float, default=0.0,
+                        help="share of training crops shrunk and round-tripped through H.264")
     args = parser.parse_args(argv)
 
     fakes, reals = load_manifests(args.manifest)
@@ -337,13 +387,18 @@ def main(argv: list[str] | None = None) -> int:
         staging.replace(args.checkpoint)
 
     started = time.time()
+    # ffmpeg runs in its own process, so threads overlap the H.264 round trips.
+    pool = ThreadPoolExecutor(max_workers=4)
     for epoch in range(first_epoch, args.epochs + 1):
         model.train()
         rng.shuffle(train_items)
         total = 0.0
         for start in range(0, len(train_items), args.batch):
             chunk = train_items[start : start + args.batch]
-            batch = to_tensor([augment(crop, rng) for crop, _ in chunk], device)
+            plans = [plan_augment(rng, args.h264) for _ in chunk]
+            batch = to_tensor(
+                list(pool.map(apply_augment, [crop for crop, _ in chunk], plans)), device
+            )
             labels = torch.tensor([label for _, label in chunk], device=device)
             loss = F.cross_entropy(model(batch), labels, weight=weight)
             optimiser.zero_grad()
@@ -365,18 +420,27 @@ def main(argv: list[str] | None = None) -> int:
         "per_family": {},
         "criteria": {"min_auc": MIN_USEFUL_AUC, "max_false_positive_rate": MAX_TOLERABLE_FPR},
     }
-    real_scores = {"clean": scores_for(model, held_real, device),
-                   "jpeg50": scores_for(model, [jpeg(c, 50) for c in held_real], device)}
+    conditions: dict[str, Any] = {
+        "clean": lambda crop: crop,
+        "jpeg50": lambda crop: jpeg(crop, 50),
+    }
+    if args.h264 > 0:
+        conditions["video_face55_crf35"] = lambda crop: video(
+            crop, HELD_OUT_FACE_WIDTH, HELD_OUT_CRF
+        )
+    report["h264"] = args.h264
+    real_scores = {
+        name: scores_for(model, list(pool.map(transform, held_real)), device)
+        for name, transform in conditions.items()
+    }
     for family, crops in fake_crops.items():
         held_fake = [crop for crop, identity, _ in crops if identity in held]
         entry: dict[str, Any] = {
             "seen_in_training": family in args.train,
             "held_out_fake": len(held_fake),
         }
-        for condition, transform in (("clean", None), ("jpeg50", 50)):
-            fake_scores = scores_for(
-                model, [jpeg(c, transform) if transform else c for c in held_fake], device
-            )
+        for condition, transform in conditions.items():
+            fake_scores = scores_for(model, list(pool.map(transform, held_fake)), device)
             scores = np.concatenate([real_scores[condition], fake_scores])
             labels = np.concatenate([np.zeros(len(held_real)), np.ones(len(held_fake))])
             entry[condition] = evaluate(scores, labels)
@@ -390,7 +454,8 @@ def main(argv: list[str] | None = None) -> int:
         report["per_family"][family] = entry
         seen = "seen" if family in args.train else "unseen"
         print(f"{family:10s} ({seen}) clean {entry['clean']}", flush=True)
-        print(f"{'':10s} {'':8s} jpeg50 {entry['jpeg50']}", flush=True)
+        for condition in list(conditions)[1:]:
+            print(f"{'':10s} {'':8s} {condition} {entry[condition]}", flush=True)
 
     args.models.mkdir(parents=True, exist_ok=True)
     onnx_path = args.models / f"deepfake_{args.tag}.onnx"
@@ -419,6 +484,7 @@ def main(argv: list[str] | None = None) -> int:
         # another path or machine is still recognised as in-sample.
         "training_manifests_sha256": signature["manifests_sha256"],
         "holdout_fraction": args.holdout,
+        "h264_augmentation": args.h264,
         "note": (
             f"trained on {', '.join(corpora)}; held-out rows are identities it never saw, "
             "and only evaluate_deepfake_detectors.py on other corpora speaks to deployment"
