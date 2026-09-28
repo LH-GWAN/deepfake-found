@@ -256,6 +256,9 @@ def evaluate(
     halves = np.asarray([item["half"] for item in items])
     families = sorted({item["family"] for item in items if item["label"] == "fake"})
     of_family = np.asarray([item["family"] for item in items])
+    # The manipulation sets share one set of genuine photographs, kept once under the
+    # first manifest's family, so each family's fakes are separated from all of them.
+    shared_real = ~labels & np.asarray([item["manifest"] != "genuine" for item in items])
 
     clean = scores["clean"]
     fitting = clean[(halves == "calibration") & ~labels & np.isfinite(clean)]
@@ -280,7 +283,7 @@ def evaluate(
             "undetected": int(((halves == "test") & ~labels & ~np.isfinite(values)).sum()),
         }
     for family in families:
-        member = of_family == family
+        member = (labels & (of_family == family)) | shared_real
         entry: dict[str, Any] = {}
         for degradation, values in scores.items():
             fakes = (halves == "test") & labels & (of_family == family) & np.isfinite(values)

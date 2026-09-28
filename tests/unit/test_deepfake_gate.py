@@ -128,6 +128,27 @@ def test_the_threshold_is_fitted_on_calibration_genuine_photos_only() -> None:
     assert report["families"]["inswapper"]["clean"]["test_recall"] == 0.4
 
 
+
+def test_every_family_is_separated_from_the_genuine_photos_the_sets_share() -> None:
+    """Shared genuine photos sit under the first set's family; the second set needs them too."""
+    items: list[dict[str, Any]] = []
+    values: list[float] = []
+    for index in range(10):
+        items.append({**item("real", [f"c{index}"], "graphics"), "half": "calibration"})
+        values.append(0.5)
+    for index in range(4):
+        items.append({**item("real", [f"g{index}"], "graphics"), "half": "test"})
+        values.append(0.1)
+        # LFW photos are not the sets' own, so scoring them high must not lower the AUC.
+        items.append({**item("real", [f"l{index}"], "lfw"), "manifest": "genuine", "half": "test"})
+        values.append(0.9)
+        for family in ("graphics", "inswapper"):
+            items.append({**item("fake", [f"{family}{index}"], family), "half": "test"})
+            values.append(0.7)
+    report = gate.evaluate(items, {"clean": np.asarray(values)})
+    for family in ("graphics", "inswapper"):
+        assert report["families"][family]["clean"]["separation_auc"] == 1.0
+
 def test_the_gate_needs_enough_genuine_photos_to_bound_false_alarms() -> None:
     items, scores = scored(genuine_test=100, alarms=0, fakes_test=50, caught=20)
     usable, reasons = gate.verdict(gate.evaluate(items, scores), leaked=False)
