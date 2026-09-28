@@ -20,7 +20,7 @@ import train_deepfake_cnn as trainer  # noqa: E402
 def arguments(manifest: Path, **overrides: object) -> argparse.Namespace:
     settings = {
         "manifest": [manifest], "train": ["inswapper", "graphics"], "seed": 42, "epochs": 12,
-        "holdout": 0.3, "batch": 32, "lr": 1e-4, "limit": None,
+        "holdout": 0.3, "batch": 32, "lr": 1e-4, "limit": None, "h264": 0.0,
     }
     settings.update(overrides)
     return argparse.Namespace(**settings)
@@ -36,7 +36,8 @@ def test_the_same_run_resumes(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    "change", [{"seed": 7}, {"epochs": 20}, {"train": ["inswapper"]}, {"holdout": 0.2}]
+    "change",
+    [{"seed": 7}, {"epochs": 20}, {"train": ["inswapper"]}, {"holdout": 0.2}, {"h264": 0.5}],
 )
 def test_a_different_run_refuses_the_checkpoint(tmp_path: Path, change: dict[str, object]) -> None:
     manifest = tmp_path / "manifest.json"

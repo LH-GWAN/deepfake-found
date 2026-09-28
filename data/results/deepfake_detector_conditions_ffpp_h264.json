@@ -1,0 +1,347 @@
+{
+  "question": "do a detector's false alarms follow face size or compression?",
+  "detector": "ffpp_h264",
+  "repo": "deepshield/ffpp_h264",
+  "execution_provider": "CPUExecutionProvider",
+  "images": 3507,
+  "grid": {
+    "clean": {
+      "kind": "identity"
+    },
+    "down55": {
+      "kind": "downscale",
+      "scale": 0.55
+    },
+    "crf35": {
+      "kind": "video_compression",
+      "scale": 1.0,
+      "crf": 35
+    },
+    "down55_crf35": {
+      "kind": "video_compression",
+      "scale": 0.55,
+      "crf": 35
+    },
+    "down75": {
+      "kind": "downscale",
+      "scale": 0.75
+    },
+    "crf23": {
+      "kind": "video_compression",
+      "scale": 1.0,
+      "crf": 23
+    },
+    "down75_crf35": {
+      "kind": "video_compression",
+      "scale": 0.75,
+      "crf": 35
+    },
+    "down55_crf23": {
+      "kind": "video_compression",
+      "scale": 0.55,
+      "crf": 23
+    }
+  },
+  "fp_bound": 0.01,
+  "min_family_recall": 0.2,
+  "threshold": 0.997736,
+  "calibration_genuine": 1574,
+  "conditions": {
+    "clean": {
+      "median_genuine_face_width": 96.4,
+      "no_face": 0,
+      "genuine": {
+        "n": 1595,
+        "false_positives": 14,
+        "rate": 0.008777,
+        "upper_95": 0.014683
+      },
+      "families": {
+        "graphics": {
+          "test_fakes": 53,
+          "recall": 0.3396,
+          "separation_auc": 0.9448
+        },
+        "inswapper": {
+          "test_fakes": 53,
+          "recall": 0.0189,
+          "separation_auc": 0.8119
+        }
+      }
+    },
+    "down55": {
+      "median_genuine_face_width": 54.1,
+      "no_face": 0,
+      "genuine": {
+        "n": 1595,
+        "false_positives": 9,
+        "rate": 0.005643,
+        "upper_95": 0.010684
+      },
+      "families": {
+        "graphics": {
+          "test_fakes": 53,
+          "recall": 0.2264,
+          "separation_auc": 0.8279
+        },
+        "inswapper": {
+          "test_fakes": 53,
+          "recall": 0.0,
+          "separation_auc": 0.6757
+        }
+      }
+    },
+    "crf35": {
+      "median_genuine_face_width": 96.5,
+      "no_face": 0,
+      "genuine": {
+        "n": 1595,
+        "false_positives": 2,
+        "rate": 0.001254,
+        "upper_95": 0.004522
+      },
+      "families": {
+        "graphics": {
+          "test_fakes": 53,
+          "recall": 0.0,
+          "separation_auc": 0.7609
+        },
+        "inswapper": {
+          "test_fakes": 53,
+          "recall": 0.0,
+          "separation_auc": 0.4983
+        }
+      }
+    },
+    "down55_crf35": {
+      "median_genuine_face_width": 53.9,
+      "no_face": 1,
+      "genuine": {
+        "n": 1594,
+        "false_positives": 0,
+        "rate": 0.0,
+        "upper_95": 0.002312
+      },
+      "families": {
+        "graphics": {
+          "test_fakes": 53,
+          "recall": 0.0,
+          "separation_auc": 0.6631
+        },
+        "inswapper": {
+          "test_fakes": 53,
+          "recall": 0.0,
+          "separation_auc": 0.4834
+        }
+      }
+    },
+    "down75": {
+      "median_genuine_face_width": 73.1,
+      "no_face": 0,
+      "genuine": {
+        "n": 1595,
+        "false_positives": 11,
+        "rate": 0.006897,
+        "upper_95": 0.012306
+      },
+      "families": {
+        "graphics": {
+          "test_fakes": 53,
+          "recall": 0.2642,
+          "separation_auc": 0.893
+        },
+        "inswapper": {
+          "test_fakes": 53,
+          "recall": 0.0377,
+          "separation_auc": 0.7746
+        }
+      }
+    },
+    "crf23": {
+      "median_genuine_face_width": 96.3,
+      "no_face": 0,
+      "genuine": {
+        "n": 1595,
+        "false_positives": 9,
+        "rate": 0.005643,
+        "upper_95": 0.010684
+      },
+      "families": {
+        "graphics": {
+          "test_fakes": 53,
+          "recall": 0.0755,
+          "separation_auc": 0.8319
+        },
+        "inswapper": {
+          "test_fakes": 53,
+          "recall": 0.0189,
+          "separation_auc": 0.5869
+        }
+      }
+    },
+    "down75_crf35": {
+      "median_genuine_face_width": 72.5,
+      "no_face": 0,
+      "genuine": {
+        "n": 1595,
+        "false_positives": 0,
+        "rate": 0.0,
+        "upper_95": 0.00231
+      },
+      "families": {
+        "graphics": {
+          "test_fakes": 53,
+          "recall": 0.0,
+          "separation_auc": 0.6619
+        },
+        "inswapper": {
+          "test_fakes": 53,
+          "recall": 0.0,
+          "separation_auc": 0.5215
+        }
+      }
+    },
+    "down55_crf23": {
+      "median_genuine_face_width": 54.0,
+      "no_face": 0,
+      "genuine": {
+        "n": 1595,
+        "false_positives": 3,
+        "rate": 0.001881,
+        "upper_95": 0.005487
+      },
+      "families": {
+        "graphics": {
+          "test_fakes": 53,
+          "recall": 0.0377,
+          "separation_auc": 0.8063
+        },
+        "inswapper": {
+          "test_fakes": 53,
+          "recall": 0.0,
+          "separation_auc": 0.5456
+        }
+      }
+    }
+  },
+  "by_face_width": {
+    "0-48": {
+      "genuine": {
+        "n": 212,
+        "false_positives": 0,
+        "rate": 0.0,
+        "upper_95": 0.01725
+      },
+      "graphics_recall": 0.0,
+      "graphics_fakes": 13,
+      "inswapper_recall": 0.0,
+      "inswapper_fakes": 11
+    },
+    "48-64": {
+      "genuine": {
+        "n": 4552,
+        "false_positives": 12,
+        "rate": 0.002636,
+        "upper_95": 0.0046
+      },
+      "graphics_recall": 0.0959,
+      "graphics_fakes": 146,
+      "inswapper_recall": 0.0,
+      "inswapper_fakes": 147
+    },
+    "64-80": {
+      "genuine": {
+        "n": 3038,
+        "false_positives": 12,
+        "rate": 0.00395,
+        "upper_95": 0.00689
+      },
+      "graphics_recall": 0.11,
+      "graphics_fakes": 100,
+      "inswapper_recall": 0.019,
+      "inswapper_fakes": 105
+    },
+    "80-96": {
+      "genuine": {
+        "n": 2408,
+        "false_positives": 3,
+        "rate": 0.001246,
+        "upper_95": 0.003637
+      },
+      "graphics_recall": 0.1714,
+      "graphics_fakes": 105,
+      "inswapper_recall": 0.0102,
+      "inswapper_fakes": 98
+    },
+    "96-": {
+      "genuine": {
+        "n": 2549,
+        "false_positives": 21,
+        "rate": 0.008239,
+        "upper_95": 0.012566
+      },
+      "graphics_recall": 0.1167,
+      "graphics_fakes": 60,
+      "inswapper_recall": 0.0159,
+      "inswapper_fakes": 63
+    }
+  },
+  "size_rules": {
+    "face_at_least_64px": {
+      "genuine": {
+        "n": 7995,
+        "false_positives": 36,
+        "rate": 0.004503,
+        "upper_95": 0.006228
+      },
+      "graphics_recall": 0.1358,
+      "graphics_fakes": 265,
+      "inswapper_recall": 0.015,
+      "inswapper_fakes": 266,
+      "abstains_on": 0.3734
+    },
+    "face_at_least_80px": {
+      "genuine": {
+        "n": 4957,
+        "false_positives": 24,
+        "rate": 0.004842,
+        "upper_95": 0.007195
+      },
+      "graphics_recall": 0.1515,
+      "graphics_fakes": 165,
+      "inswapper_recall": 0.0124,
+      "inswapper_fakes": 161,
+      "abstains_on": 0.6117
+    },
+    "face_at_least_96px": {
+      "genuine": {
+        "n": 2549,
+        "false_positives": 21,
+        "rate": 0.008239,
+        "upper_95": 0.012566
+      },
+      "graphics_recall": 0.1167,
+      "graphics_fakes": 60,
+      "inswapper_recall": 0.0159,
+      "inswapper_fakes": 63,
+      "abstains_on": 0.8036
+    }
+  },
+  "environment": {
+    "deepshield_version": "0.1.0",
+    "git_commit": "not-a-git-repository",
+    "git_dirty": null,
+    "python": "3.13.15",
+    "platform": "Linux-6.6.122+-x86_64-with-glibc2.39",
+    "numpy": "2.1.3",
+    "random_seed": 42,
+    "configured_device": "cpu",
+    "face_detector": "opencv_yunet",
+    "face_aligner": "landmark",
+    "face_embedder": "insightface",
+    "deepfake_detector": "spectral",
+    "watermark_backend": "dct",
+    "watermark_strength": 0.16,
+    "recorded_at": "2026-09-28T08:45:28.421012+00:00"
+  }
+}

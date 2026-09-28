@@ -1,0 +1,108 @@
+{
+  "environment": {
+    "deepshield_version": "0.1.0",
+    "git_commit": "not-a-git-repository",
+    "git_dirty": null,
+    "python": "3.13.15",
+    "platform": "Linux-6.6.122+-x86_64-with-glibc2.39",
+    "numpy": "2.1.3",
+    "random_seed": 42,
+    "configured_device": "cpu",
+    "face_detector": "opencv_yunet",
+    "face_aligner": "landmark",
+    "face_embedder": "insightface",
+    "deepfake_detector": "spectral",
+    "watermark_backend": "dct",
+    "watermark_strength": 0.16,
+    "recorded_at": "2026-09-28T08:04:16.434162+00:00",
+    "device": "CUDAExecutionProvider"
+  },
+  "manifests": [
+    "data/test/manipulated/manifest.json",
+    "data/test/manipulated_inswapper/manifest.json"
+  ],
+  "genuine_source": "data/sklearn/lfw_home/lfw_funneled",
+  "gate": {
+    "threshold": "99.5% quantile of calibration genuine scores",
+    "max_false_positive_rate_upper_95": 0.01,
+    "min_recall_per_family": 0.2,
+    "conditions": [
+      "clean",
+      "jpeg50",
+      "video_small"
+    ]
+  },
+  "detectors": {
+    "ffpp_h264": {
+      "repo": "deepshield/ffpp_h264",
+      "execution_provider": "CUDAExecutionProvider",
+      "in_sample": false,
+      "usable": false,
+      "reasons": [
+        "clean: false-positive rate could be as high as 1.47% (14/1595), above 1%",
+        "inswapper: flags 2% of test fakes, below 20%"
+      ],
+      "threshold": 0.997736,
+      "calibration_genuine": 1574,
+      "genuine": {
+        "clean": {
+          "test_photos": 1595,
+          "false_positives": 14,
+          "false_positive_rate": 0.008777,
+          "false_positive_rate_upper_95": 0.014683,
+          "undetected": 0
+        },
+        "jpeg50": {
+          "test_photos": 1595,
+          "false_positives": 1,
+          "false_positive_rate": 0.000627,
+          "false_positive_rate_upper_95": 0.003488,
+          "undetected": 0
+        },
+        "video_small": {
+          "test_photos": 1594,
+          "false_positives": 0,
+          "false_positive_rate": 0.0,
+          "false_positive_rate_upper_95": 0.002312,
+          "undetected": 1
+        }
+      },
+      "families": {
+        "graphics": {
+          "clean": {
+            "separation_auc": 0.928644,
+            "test_fakes": 53,
+            "test_recall": 0.339623
+          },
+          "jpeg50": {
+            "separation_auc": 0.846889,
+            "test_fakes": 53,
+            "test_recall": 0.037736
+          },
+          "video_small": {
+            "separation_auc": 0.654459,
+            "test_fakes": 53,
+            "test_recall": 0.0
+          }
+        },
+        "inswapper": {
+          "clean": {
+            "separation_auc": null,
+            "test_fakes": 53,
+            "test_recall": 0.018868
+          },
+          "jpeg50": {
+            "separation_auc": null,
+            "test_fakes": 53,
+            "test_recall": 0.0
+          },
+          "video_small": {
+            "separation_auc": null,
+            "test_fakes": 53,
+            "test_recall": 0.0
+          }
+        }
+      }
+    }
+  }
+}
