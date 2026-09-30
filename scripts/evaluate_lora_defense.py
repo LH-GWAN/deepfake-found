@@ -80,6 +80,9 @@ def main(argv: list[str] | None = None) -> int:
         identities = sorted({i for v, by in generated.items() if v != "base" for i in by})
 
         rows: dict[str, list[dict[str, Any] | None]] = defaultdict(list)
+        per_identity: dict[str, dict[str, list[dict[str, Any] | None]]] = defaultdict(
+            lambda: defaultdict(list)
+        )
         for variant, by_identity in generated.items():
             for identity, names in by_identity.items():
                 for name in names:
@@ -89,6 +92,7 @@ def main(argv: list[str] | None = None) -> int:
                             rows[f"base_vs_{person}"].append(score(probe, galleries, person, ""))
                     else:
                         rows[variant].append(score(probe, galleries, identity, ""))
+                        per_identity[variant][identity].append(rows[variant][-1])
 
         quality: dict[str, list[tuple[float, float]]] = defaultdict(list)
         clean = {n: n for n in faces.namelist() if n.startswith("clean/") and n.endswith(".png")}
@@ -98,11 +102,18 @@ def main(argv: list[str] | None = None) -> int:
             if twin in faces.namelist():
                 changed = read_png(faces, twin)
                 quality["arcface8"].append((psnr(original, changed), ssim(original, changed)))
-            for variant in ("encoder8", "encoder16", "fsmg8", "fsmg16"):
+            for variant in sorted({n.split("/")[1] for n in results.namelist()
+                                   if n.startswith("protected/")}):
                 protected = f"protected/{variant}/" + name.split("/", 1)[1]
                 if protected in results.namelist():
                     changed = read_png(results, protected)
-                    quality[variant].append((psnr(original, changed), ssim(original, changed)))
+                    # Mist and ASPL return 512-pixel images; compare against the
+                    # original scaled the same way.
+                    reference = original
+                    if changed.shape != original.shape:
+                        reference = np.asarray(Image.fromarray(original).resize(
+                            changed.shape[1::-1], Image.BICUBIC))
+                    quality[variant].append((psnr(reference, changed), ssim(reference, changed)))
 
     def summarise(entries: list[dict[str, Any] | None]) -> dict[str, Any]:
         scored = [e for e in entries if e is not None]
@@ -123,6 +134,21 @@ def main(argv: list[str] | None = None) -> int:
         "gallery_identities": len(galleries),
         "arcface_high_confidence": recognise.high,
         "variants": {variant: summarise(entries) for variant, entries in sorted(rows.items())},
+        "per_identity": {
+            variant: {
+                identity: {
+                    "with_a_face": len(scored := [e for e in entries if e is not None]),
+                    "arcface_person_first": int(sum(e["arcface"]["donor_first"] for e in scored)),
+                    "arcface_median_similarity": (
+                        round(float(np.median([e["arcface"]["donor_similarity"]
+                                               for e in scored])), 4)
+                        if scored else None
+                    ),
+                }
+                for identity, entries in sorted(by_identity.items())
+            }
+            for variant, by_identity in sorted(per_identity.items())
+        },
         "image_quality": {
             variant: {
                 "psnr": round(float(np.mean([q[0] for q in values])), 2),

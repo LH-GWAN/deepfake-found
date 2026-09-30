@@ -1,0 +1,131 @@
+{
+  "question": "does the swap shield still stop inswapper when it is stacked on Mist v2?",
+  "people": [
+    "abdullah_gul",
+    "al_gore",
+    "anna_kournikova",
+    "bill_graham",
+    "gordon_brown",
+    "gray_davis",
+    "hamid_karzai",
+    "hugo_chavez",
+    "jeb_bush",
+    "jennifer_lopez",
+    "john_kerry",
+    "julie_gerberding",
+    "megawati_sukarnoputri",
+    "nicole_kidman",
+    "pete_sampras",
+    "renee_zellweger",
+    "roger_federer",
+    "sergey_lavrov",
+    "tom_hanks",
+    "vladimir_putin"
+  ],
+  "gallery_identities": 47,
+  "arcface_high_confidence": 0.47,
+  "unshielded": {},
+  "swaps": {
+    "clean": {
+      "swaps": 160,
+      "with_a_face": 160,
+      "arcface": {
+        "owner_first": 160,
+        "median_owner_similarity": 0.6977,
+        "above_high_confidence": 158
+      },
+      "sface": {
+        "owner_first": 160,
+        "median_owner_similarity": 0.7088
+      }
+    },
+    "mist16": {
+      "swaps": 160,
+      "with_a_face": 160,
+      "arcface": {
+        "owner_first": 160,
+        "median_owner_similarity": 0.6628,
+        "above_high_confidence": 157
+      },
+      "sface": {
+        "owner_first": 160,
+        "median_owner_similarity": 0.6867
+      }
+    },
+    "shield": {
+      "swaps": 160,
+      "with_a_face": 159,
+      "arcface": {
+        "owner_first": 1,
+        "median_owner_similarity": -0.3065,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "owner_first": 0,
+        "median_owner_similarity": -0.0866
+      }
+    },
+    "mist16_shield": {
+      "swaps": 160,
+      "with_a_face": 160,
+      "arcface": {
+        "owner_first": 0,
+        "median_owner_similarity": -0.292,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "owner_first": 0,
+        "median_owner_similarity": -0.0849
+      }
+    },
+    "mist16_shield_jpeg85": {
+      "swaps": 160,
+      "with_a_face": 160,
+      "arcface": {
+        "owner_first": 0,
+        "median_owner_similarity": -0.2926,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "owner_first": 0,
+        "median_owner_similarity": -0.0778
+      }
+    },
+    "mist16_shield_jpeg70": {
+      "swaps": 160,
+      "with_a_face": 160,
+      "arcface": {
+        "owner_first": 0,
+        "median_owner_similarity": -0.2894,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "owner_first": 0,
+        "median_owner_similarity": -0.0722
+      }
+    },
+    "mist16_shield_half": {
+      "swaps": 160,
+      "with_a_face": 160,
+      "arcface": {
+        "owner_first": 0,
+        "median_owner_similarity": -0.2926,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "owner_first": 0,
+        "median_owner_similarity": -0.0836
+      }
+    }
+  },
+  "photo_quality_vs_clean_at_512": {
+    "mist16_shield": {
+      "psnr": 30.3,
+      "ssim": 0.7255
+    },
+    "mist16": {
+      "psnr": 33.22,
+      "ssim": 0.8264
+    }
+  }
+}
