@@ -31,6 +31,7 @@ DeepShield는 사용자의 얼굴 이미지에 서로 독립적인 보호 계층
 | **내 얼굴이 합성된 딥페이크 영상** | 30명 × 샘플 클립: 전체 교체, 한 장면만 교체, 2초·1초 부분 교체, H.264 crf 35 압축까지 전부 30/30 `identity_match`. 0.5초 교체는 1fps에서 0/30, 기본값 2fps에서 30/30. 실제 NASA 인터뷰 영상(10명)에서도 0.5초 교체까지 10/10, crf 35 압축은 8/10. 두 사람이 나란히 나오는 화면(10명)에서 모든 상황 10/10 |
 | **내 얼굴로 만든 GAN 딥페이크에서 나를 찾기** (소스 방향) | inswapper 가짜 169장 전부에서 재료가 된 사람이 30명 중 1위, 전부 고신뢰 임계값 통과. 스왑기와 무관한 SFace로도 169/169 |
 | **내 사진을 스왑 재료로 못 쓰게 하는 노이즈** (`protect --mode shield`) | 스왑기가 쓰는 ArcFace를 직접 겨냥한 8/255 노이즈: 배포된 방어 모드 그대로 inswapper 스왑이 원래 사람으로 식별 30/30 → **0/30**, 공격 안 한 SFace로도 0/30, JPEG 85·70·절반 축소 뒤에도 0/30. 워터마크 포함 33.2dB, 워터마크는 30/30 그대로 읽힘 |
+| **사진 한 장으로 얼굴을 복제하는 생성기** (같은 `protect --mode shield`) | 20명, 원본이면 IP-Adapter FaceID 80/80·FaceID Plus v2 80/80·InstantID 20/20이 그 사람을 그림 → shield 사진이면 **1/78·0/79·0/18**, 공격 안 한 SFace로도 0. shield가 겨냥하지 않은 다른 ArcFace(InstantID의 antelopev2)에도 통함. PhotoMaker류(CLIP만)는 재지 않음 |
 | 워터마크 재배포 추적 | 4,250회 중 잘못된 코드 0건 |
 | 워터마크 — **회전** | 2°·5°·10°에서 170장 중 169·167·167 복원, 15°는 158, 잘못된 코드 0 |
 | 워터마크 — **회전 + 크롭** | 5°+10% 크롭 169, 10°+10% 154, 5°+20% 167 (170장 중), 잘못된 코드 0 |
@@ -441,6 +442,41 @@ python scripts/evaluate_shield_mode.py     # data/results/shield_mode.json
 방어 모드에는 PyTorch(`torch` extra), `onnx`, buffalo_l 가중치(`w600k_r50`, `det_10g`)가
 필요하고, `deepshield doctor`가 준비됐는지 알려 줍니다. API의 `/protect/image`는 방어 모드를 요청
 안에서 한 번에 한 장씩 돌립니다. 추적 모드(기본값)는 지금과 같습니다.
+
+**사진 한 장으로 얼굴을 복제하는 생성기도 막습니다 — 20명, 47명 갤러리:** LoRA처럼 학습하지
+않고 사진 한 장만 넣으면 그 사람을 그리는 도구들은, 사진에서 얼굴을 ArcFace로 읽어 그 임베딩으로
+생성 모델을 조건화합니다. IP-Adapter FaceID는 shield가 공격하는 바로 그 `buffalo_l` ArcFace를,
+InstantID는 다른 ArcFace(`antelopev2`)와 얼굴 랜드마크를 씁니다. 원본, shield 사진, Mist +
+shield 사진(LoRA 방어 3차)을 각각 넣고 생성해, 결과가 그 사람인지 봤습니다. 프롬프트는 공격자가
+아는 성별을 넣은 "a photo of a man/woman, portrait"이고, 로컬 MPS에서 생성만 했습니다.
+
+| 도구 (기반 모델) | 넣은 사진 | 생성 | 그 사람이 47명 중 1위 (ArcFace) | 고신뢰 | ArcFace 유사도 중앙값 | SFace 1위 |
+|---|---|---|---|---|---|---|
+| IP-Adapter FaceID (SD 1.5), 사람당 4장 | 원본 | 80 | **80/80** | 39 | 0.47 | 78 |
+| | shield | 79 | **1/78** | 0 | −0.20 | 0 |
+| | Mist + shield | 80 | 1/79 | 0 | −0.19 | 0 |
+| IP-Adapter FaceID Plus v2 (SD 1.5, CLIP 얼굴 특징 추가) | 원본 | 80 | **80/80** | 66 | 0.55 | 80 |
+| | shield | 79 | **0/79** | 0 | −0.20 | 0 |
+| | Mist + shield | 80 | 0/80 | 0 | −0.19 | 0 |
+| InstantID (SDXL, antelopev2), 사람당 1장 | 원본 | 20 | **20/20** | 19 | 0.64 | 19 |
+| | shield | 19 | **0/18** | 0 | −0.12 | 0 |
+| | Mist + shield | 20 | 0/19 | 0 | −0.08 | 1 |
+
+"생성"이 사진 수보다 적은 것은 도구가 shield 사진 한 장에서 얼굴을 찾지 못해 생성 자체를 못 한
+경우이고, "1위"의 분모가 더 적은 것은 생성된 그림에 얼굴이 없던 경우입니다. 원본에서는 세 도구
+모두 거의 매번 그 사람을 그렸고, shield 사진에서는 세 도구 모두 사실상 한 번도 그리지 못했습니다.
+공격하지 않은 SFace로도 같습니다. shield가 겨냥한 모델과 다른 ArcFace(antelopev2)를 쓰는
+InstantID, CLIP으로 얼굴을 한 번 더 보는 Plus v2에도 통했다는 점이 스왑 측정에 더해진 것입니다.
+
+한계: 세 도구만 쟀고, 얼굴을 CLIP으로만 읽는 PhotoMaker류는 재지 않았습니다. InstantID는 SDXL이
+Mac에서 한 장에 약 3분이라 사람당 1장입니다. 공격자가 쓸 법한 사실적 파인튜닝 모델이 아니라 기반
+모델(SD 1.5, SDXL)로 생성했고, IP-Adapter FaceID의 권장 LoRA는 쓰지 않았습니다. 사진은 LFW 250픽셀
+이고, 작정한 정화는 재지 않았습니다.
+
+```bash
+python experiments/idgen/evaluate_idgen.py --tool faceid --refs 4    # 도구마다; InstantID는 --refs 1
+python experiments/idgen/evaluate_idgen.py --score                   # data/results/idgen/idgen.json
+```
 
 **LoRA 방어 1차 — 3명(각 8장), Stable Diffusion 1.5 LoRA(rank 8, 400스텝), LoRA마다 16장 생성:**
 
