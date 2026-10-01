@@ -1,0 +1,121 @@
+{
+  "question": "does a LoRA trained on perturbed photographs still generate the person?",
+  "identities": [
+    "hugo_chavez",
+    "jennifer_lopez",
+    "tom_hanks"
+  ],
+  "gallery_identities": 30,
+  "arcface_high_confidence": 0.47,
+  "variants": {
+    "aspl": {
+      "images": 48,
+      "with_a_face": 45,
+      "arcface": {
+        "person_first": 40,
+        "median_similarity": 0.2766,
+        "above_high_confidence": 1
+      },
+      "sface": {
+        "person_first": 41,
+        "median_similarity": 0.4102
+      }
+    },
+    "base_vs_hugo_chavez": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 1,
+        "median_similarity": 0.0298,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 1,
+        "median_similarity": 0.1361
+      }
+    },
+    "base_vs_jennifer_lopez": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 2,
+        "median_similarity": 0.0558,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 0,
+        "median_similarity": 0.1202
+      }
+    },
+    "base_vs_tom_hanks": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 0,
+        "median_similarity": 0.0621,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 0,
+        "median_similarity": 0.1445
+      }
+    },
+    "clean": {
+      "images": 48,
+      "with_a_face": 46,
+      "arcface": {
+        "person_first": 42,
+        "median_similarity": 0.4,
+        "above_high_confidence": 7
+      },
+      "sface": {
+        "person_first": 42,
+        "median_similarity": 0.5312
+      }
+    },
+    "mist": {
+      "images": 48,
+      "with_a_face": 48,
+      "arcface": {
+        "person_first": 34,
+        "median_similarity": 0.1949,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 30,
+        "median_similarity": 0.3353
+      }
+    },
+    "mist16": {
+      "images": 48,
+      "with_a_face": 42,
+      "arcface": {
+        "person_first": 6,
+        "median_similarity": 0.0818,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 8,
+        "median_similarity": 0.2079
+      }
+    }
+  },
+  "image_quality": {
+    "arcface8": {
+      "psnr": 36.19,
+      "ssim": 0.9564
+    },
+    "aspl": {
+      "psnr": 34.72,
+      "ssim": 0.8654
+    },
+    "mist": {
+      "psnr": 38.58,
+      "ssim": 0.9303
+    },
+    "mist16": {
+      "psnr": 33.23,
+      "ssim": 0.8254
+    }
+  }
+}
