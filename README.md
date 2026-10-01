@@ -590,7 +590,8 @@ LoRA — 20명, LoRA마다 16장 생성, 47명 갤러리:
 않았으니(160/160) 스왑 쪽은 shield 몫입니다. 그런데 LoRA 쪽은 1위가 32%에서 63%로 되돌아갔고,
 20명 전원에서 Mist만일 때보다 나빠졌습니다. shield의 8/255 노이즈와 워터마크가 Mist의 노이즈
 일부를 덮어쓰는 것으로 보입니다. 그래서 LoRA 방어는 `protect --mode shield`에 넣지 않았습니다.
-순서를 바꾸는 것(shield 뒤에 Mist)과 두 노이즈를 한 번에 최적화하는 것은 재지 않았습니다.
+순서를 바꾸는 것(shield 뒤에 Mist)과 두 노이즈를 한 번에 최적화하는 것은 3차에서는 재지 않았고,
+아래 4차에서 쟀습니다. 순서를 바꾸면 한 사진이 스왑 방어와 Mist의 LoRA 방어를 함께 지닙니다.
 
 한계는 2차와 같습니다. 노이즈를 만든 모델과 LoRA 모델이 같은 SD 1.5인 방어 쪽 최선 조건이고,
 정화는 재지 않았고, **SD 1.5 계열 LoRA에 대해서만 잰 것이라 SDXL이나 Flux 같은 최신 모델로
@@ -616,6 +617,62 @@ python experiments/lora_defense/generate_local.py --loras <v3·v4 출력의 lora
 python scripts/evaluate_lora_defense.py --results experiments/lora_defense/v3/results_v3.zip \
     --faces experiments/lora_defense/v3/faces_all_v3.zip --gallery experiments/lora_defense/v3/gallery \
     --output data/results/lora_defense_v3
+```
+
+**LoRA 방어 4차 — 순서를 바꾸면 한 사진에 두 방어가 함께:** 3차에서 재지 않은 두 가지를 쟀습니다.
+- **shield → Mist**: 워터마크와 shield를 먼저 입힌 사진 위에 Mist v2 8/255를 돌립니다.
+- **합동 8/255**: Mist의 PGD 걸음마다 shield의 ArcFace 손실 걸음을 더해, 8/255 한 예산 안에서 함께
+  최적화합니다.
+
+3차에서 겹치기로 LoRA가 가장 많이 되돌아온 4명으로 먼저 가렸습니다. 합동 8/255는 스왑은 막았지만
+LoRA 1위가 40%(25/63)라 탈락했습니다. shield → Mist는 11%(6/57)로 통과해 20명 전체로 늘렸습니다.
+설정은 3차와 같고(20명, LoRA마다 16장, 47명 갤러리), 비교 조건은 3차의 생성 이미지를 다시 채점한
+것입니다.
+
+| 사진 | 사진 PSNR / SSIM | LoRA: 그 사람이 1위 (ArcFace) | LoRA 고신뢰 | 스왑: 원래 사람이 1위 (ArcFace) | 스왑 고신뢰 |
+|---|---|---|---|---|---|
+| Mist v2 8/255 | 33.2dB / 0.826 | 92/288 (32%) | 0 | 160/160 | 157 |
+| Mist v2 8/255 + shield (3차, Mist 먼저) | 30.3dB / 0.726 | 199/315 (63%) | 0 | 0/160 | 0 |
+| **shield → Mist v2 8/255** | 30.7dB / 0.759 | **70/289 (24%)** | **0** | **2/160** | **0** |
+
+**순서만 바꾸면 한 사진이 두 방어를 모두 지닙니다.**
+- **LoRA**: shield → Mist는 20명 전원에서 3차 겹치기보다 1위가 낮았습니다. Mist만과 비교하면 13명은
+  낮고 6명은 높았는데, 사람 단위로는 차이를 말할 수 없는 수준입니다(부호 검정 p ≈ 0.17).
+- **스왑**: JPEG 85·70, 절반 축소 뒤에도 2/160 그대로였습니다. 새는 2장(gray_davis)은 Mist를 넣기 전
+  shield 사진에서도 이미 샌 것입니다. 원래 사람과의 유사도는 0.15~0.19로 고신뢰 0.47보다 낮고,
+  shield만일 때(1/159)와 같은 수준입니다.
+- **워터마크**: 160장 모두 JPEG 85 뒤에도 읽혔습니다.
+- **LoRA를 "막는" 것은 여전히 아닙니다.** 1위 24%는 대조군(3%)의 8배이고, john_kerry(11/15)처럼 거의
+  그대로인 사람도 있습니다.
+- **대가**: 원본 대비 최대 16/255(shield 8 + Mist 8)라 화질이 30.7dB입니다. Mist는 사진 8장에 T4로 약
+  19분이 걸립니다. `protect`에 기능으로는 아직 넣지 않았습니다.
+- **한계**: 3차와 같습니다. **SD 1.5 계열 LoRA만 잰 것이라 SDXL이나 Flux 같은 최신 모델로 학습하는
+  LoRA에 대한 효과는 추후 연구가 필요합니다.** 예산이 Mist만의 두 배라, LoRA 쪽 차이가 순서 덕인지
+  예산 덕인지도 가르지 않았습니다.
+
+단계별 기록과 사람별 표는 [Mist + shield 연구.md](Mist%20+%20shield%20연구.md)에 있습니다.
+
+실행은 Kaggle 두 번입니다.
+- v5(1시간 53분): 파일럿 4명의 shield → Mist와 합동 8/255.
+- v6(3시간 21분): 나머지 16명의 shield → Mist.
+
+두 실행 모두 Mist는 1라운드 뒤, LoRA는 150스텝에서 일부러 멈췄다가 이어 도는 것을 실행 안에서
+확인했습니다. shield 사진은 로컬에서 입혔고, 생성과 채점도 로컬입니다.
+
+```bash
+python experiments/lora_defense/prepare_joint_inputs.py --clean experiments/lora_defense/v3/clean \
+    --work experiments/lora_defense/v3 --shield-people <쉼표로 이은 20명>   # 워터마크·shield 512픽셀 사진
+bash experiments/lora_defense/kaggle_run_v5.sh      # Kaggle: 파일럿 4명, shield → Mist와 합동 8/255
+bash experiments/lora_defense/kaggle_run_v6.sh      # Kaggle: 나머지 16명, shield → Mist
+python experiments/lora_defense/evaluate_joint_pilot.py --work experiments/lora_defense/v3 \
+    --clean experiments/lora_defense/v3/clean --gallery experiments/lora_defense/v3/gallery \
+    --people <쉼표로 이은 20명> --variants shield_mist16 --output data/results/lora_defense_v6 \
+    --report shield_mist16_photos.json               # 스왑, 워터마크, 화질
+python experiments/lora_defense/generate_local.py --loras <v5·v6 출력의 lora 폴더> \
+    --output experiments/lora_defense/v3/generated
+python scripts/evaluate_lora_defense.py --results experiments/lora_defense/v3/results_v6.zip \
+    --faces experiments/lora_defense/v3/faces_all_v3.zip --gallery experiments/lora_defense/v3/gallery \
+    --output data/results/lora_defense_v6
 ```
 
 ### 3. 워터마크의 한계
@@ -3182,7 +3239,7 @@ make clean
 | 9 | 워터마크 (타일 DCT + 재동기화) | MEDIUM | 완료 |
 | 10 | 판정 엔진과 캘리브레이션 | MEDIUM/HARD | 완료 (임계값은 잠정). 가중합 점수는 측정 뒤 판정 범주로 교체 |
 | 11 | 보호 파이프라인 | MEDIUM | 완료 |
-| 12 | 적대적 보호 연구 | HARD | 완료. 인식 회피 클로킹은 부정적 결과, 스왑기 인코더를 겨냥한 노이즈는 `protect --mode shield`로 제공, LoRA 방어는 Mist v2 8/255가 줄이기만 함(20명, 최선 조건), 스왑 방어와 겹치면 약해져 기능으로 넣지 않음 |
+| 12 | 적대적 보호 연구 | HARD | 완료. 인식 회피 클로킹은 부정적 결과, 스왑기 인코더를 겨냥한 노이즈는 `protect --mode shield`로 제공, LoRA 방어는 Mist v2 8/255가 줄이기만 함(20명, 최선 조건). Mist 위에 shield를 겹치면 약해지지만, shield 뒤에 Mist를 넣으면 한 사진으로 스왑(2/160)과 LoRA(1위 24%)를 함께 줄임(4차). 기능으로는 아직 넣지 않음 |
 | 13 | 강건성 벤치마크 | MEDIUM | 완료 |
 | 14 | REST API | MEDIUM | 완료 |
 | 15 | 출처(Provenance), C2PA 어댑터 | MEDIUM | 완료. C2PA 읽기·검증 구현, 서명은 신원이 없어 미구현 |

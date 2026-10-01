@@ -1,0 +1,424 @@
+{
+  "question": "which part of the stacked swap shield undoes Mist v2 in the VAE latent?",
+  "people": 20,
+  "vae": "stable-diffusion-v1-5/stable-diffusion-v1-5 (forward only, latent_dist.mean x scaling factor)",
+  "from_mist": {
+    "mist16_wm": {
+      "all_photos": {
+        "kept": {
+          "photos": 160,
+          "median": 0.906,
+          "iqr": [
+            0.893,
+            0.921
+          ],
+          "mean": 0.906
+        },
+        "moved": {
+          "photos": 160,
+          "median": 0.517,
+          "iqr": [
+            0.501,
+            0.537
+          ],
+          "mean": 0.519
+        }
+      },
+      "same_photos_as_shieldonly": {
+        "kept": {
+          "photos": 80,
+          "median": 0.904,
+          "iqr": [
+            0.892,
+            0.917
+          ],
+          "mean": 0.903
+        },
+        "moved": {
+          "photos": 80,
+          "median": 0.521,
+          "iqr": [
+            0.503,
+            0.54
+          ],
+          "mean": 0.523
+        }
+      }
+    },
+    "mist16_shieldonly": {
+      "all_photos": {
+        "kept": {
+          "photos": 80,
+          "median": 0.947,
+          "iqr": [
+            0.941,
+            0.951
+          ],
+          "mean": 0.946
+        },
+        "moved": {
+          "photos": 80,
+          "median": 0.309,
+          "iqr": [
+            0.296,
+            0.323
+          ],
+          "mean": 0.309
+        }
+      },
+      "same_photos_as_shieldonly": {
+        "kept": {
+          "photos": 80,
+          "median": 0.947,
+          "iqr": [
+            0.941,
+            0.951
+          ],
+          "mean": 0.946
+        },
+        "moved": {
+          "photos": 80,
+          "median": 0.309,
+          "iqr": [
+            0.296,
+            0.323
+          ],
+          "mean": 0.309
+        }
+      }
+    },
+    "mist16_shield": {
+      "all_photos": {
+        "kept": {
+          "photos": 160,
+          "median": 0.856,
+          "iqr": [
+            0.842,
+            0.867
+          ],
+          "mean": 0.854
+        },
+        "moved": {
+          "photos": 160,
+          "median": 0.615,
+          "iqr": [
+            0.596,
+            0.632
+          ],
+          "mean": 0.616
+        }
+      },
+      "same_photos_as_shieldonly": {
+        "kept": {
+          "photos": 80,
+          "median": 0.853,
+          "iqr": [
+            0.841,
+            0.865
+          ],
+          "mean": 0.852
+        },
+        "moved": {
+          "photos": 80,
+          "median": 0.617,
+          "iqr": [
+            0.601,
+            0.633
+          ],
+          "mean": 0.619
+        }
+      }
+    },
+    "mist16_random8": {
+      "all_photos": {
+        "kept": {
+          "photos": 160,
+          "median": 0.871,
+          "iqr": [
+            0.853,
+            0.89
+          ],
+          "mean": 0.871
+        },
+        "moved": {
+          "photos": 160,
+          "median": 0.661,
+          "iqr": [
+            0.641,
+            0.683
+          ],
+          "mean": 0.663
+        }
+      },
+      "same_photos_as_shieldonly": {
+        "kept": {
+          "photos": 80,
+          "median": 0.87,
+          "iqr": [
+            0.85,
+            0.886
+          ],
+          "mean": 0.869
+        },
+        "moved": {
+          "photos": 80,
+          "median": 0.666,
+          "iqr": [
+            0.647,
+            0.687
+          ],
+          "mean": 0.667
+        }
+      }
+    }
+  },
+  "from_clean": {
+    "wm512": {
+      "size": {
+        "photos": 160,
+        "median": 0.855,
+        "iqr": [
+          0.842,
+          0.874
+        ],
+        "mean": 0.857
+      },
+      "cosine_with_mist": {
+        "photos": 160,
+        "median": 0.457,
+        "iqr": [
+          0.434,
+          0.477
+        ],
+        "mean": 0.457
+      }
+    },
+    "shield512": {
+      "size": {
+        "photos": 32,
+        "median": 0.889,
+        "iqr": [
+          0.877,
+          0.901
+        ],
+        "mean": 0.89
+      },
+      "cosine_with_mist": {
+        "photos": 32,
+        "median": 0.452,
+        "iqr": [
+          0.436,
+          0.471
+        ],
+        "mean": 0.454
+      }
+    }
+  },
+  "stack_kept_vs_lora_recovery": {
+    "note": "per person: mean kept of mist16_shield against the rise in the share of generations ranking the person first, mist16_shield minus mist16",
+    "pearson": -0.053,
+    "spearman": -0.014
+  },
+  "per_person": {
+    "abdullah_gul": {
+      "kept": {
+        "mist16_wm": 0.899,
+        "mist16_shieldonly": 0.95,
+        "mist16_shield": 0.843,
+        "mist16_random8": 0.858
+      },
+      "lora_first_mist16": 0.8,
+      "lora_first_mist16_shield": 0.875
+    },
+    "al_gore": {
+      "kept": {
+        "mist16_wm": 0.906,
+        "mist16_shieldonly": 0.943,
+        "mist16_shield": 0.856,
+        "mist16_random8": 0.873
+      },
+      "lora_first_mist16": 0.357,
+      "lora_first_mist16_shield": 0.625
+    },
+    "anna_kournikova": {
+      "kept": {
+        "mist16_wm": 0.911,
+        "mist16_shieldonly": 0.945,
+        "mist16_shield": 0.87,
+        "mist16_random8": 0.889
+      },
+      "lora_first_mist16": 0.286,
+      "lora_first_mist16_shield": 0.533
+    },
+    "bill_graham": {
+      "kept": {
+        "mist16_wm": 0.905,
+        "mist16_shieldonly": 0.955,
+        "mist16_shield": 0.865,
+        "mist16_random8": 0.865
+      },
+      "lora_first_mist16": 0.385,
+      "lora_first_mist16_shield": 0.625
+    },
+    "gordon_brown": {
+      "kept": {
+        "mist16_wm": 0.886,
+        "mist16_shieldonly": 0.945,
+        "mist16_shield": 0.838,
+        "mist16_random8": 0.85
+      },
+      "lora_first_mist16": 0.062,
+      "lora_first_mist16_shield": 0.333
+    },
+    "gray_davis": {
+      "kept": {
+        "mist16_wm": 0.908,
+        "mist16_shieldonly": 0.947,
+        "mist16_shield": 0.851,
+        "mist16_random8": 0.871
+      },
+      "lora_first_mist16": 0.077,
+      "lora_first_mist16_shield": 0.4
+    },
+    "hamid_karzai": {
+      "kept": {
+        "mist16_wm": 0.902,
+        "mist16_shieldonly": 0.948,
+        "mist16_shield": 0.853,
+        "mist16_random8": 0.863
+      },
+      "lora_first_mist16": 0.4,
+      "lora_first_mist16_shield": 0.812
+    },
+    "hugo_chavez": {
+      "kept": {
+        "mist16_wm": 0.897,
+        "mist16_shieldonly": 0.944,
+        "mist16_shield": 0.843,
+        "mist16_random8": 0.86
+      },
+      "lora_first_mist16": 0.2,
+      "lora_first_mist16_shield": 0.867
+    },
+    "jeb_bush": {
+      "kept": {
+        "mist16_wm": 0.904,
+        "mist16_shieldonly": 0.946,
+        "mist16_shield": 0.855,
+        "mist16_random8": 0.86
+      },
+      "lora_first_mist16": 0.267,
+      "lora_first_mist16_shield": 0.812
+    },
+    "jennifer_lopez": {
+      "kept": {
+        "mist16_wm": 0.913,
+        "mist16_shieldonly": 0.948,
+        "mist16_shield": 0.856,
+        "mist16_random8": 0.885
+      },
+      "lora_first_mist16": 0.077,
+      "lora_first_mist16_shield": 0.5
+    },
+    "john_kerry": {
+      "kept": {
+        "mist16_wm": 0.906,
+        "mist16_shieldonly": 0.939,
+        "mist16_shield": 0.85,
+        "mist16_random8": 0.872
+      },
+      "lora_first_mist16": 0.857,
+      "lora_first_mist16_shield": 0.875
+    },
+    "julie_gerberding": {
+      "kept": {
+        "mist16_wm": 0.903,
+        "mist16_shieldonly": 0.948,
+        "mist16_shield": 0.849,
+        "mist16_random8": 0.865
+      },
+      "lora_first_mist16": 0.438,
+      "lora_first_mist16_shield": 0.812
+    },
+    "megawati_sukarnoputri": {
+      "kept": {
+        "mist16_wm": 0.907,
+        "mist16_shieldonly": 0.939,
+        "mist16_shield": 0.851,
+        "mist16_random8": 0.874
+      },
+      "lora_first_mist16": 0.467,
+      "lora_first_mist16_shield": 0.75
+    },
+    "nicole_kidman": {
+      "kept": {
+        "mist16_wm": 0.904,
+        "mist16_shieldonly": 0.954,
+        "mist16_shield": 0.855,
+        "mist16_random8": 0.867
+      },
+      "lora_first_mist16": 0.0,
+      "lora_first_mist16_shield": 0.562
+    },
+    "pete_sampras": {
+      "kept": {
+        "mist16_wm": 0.902,
+        "mist16_shieldonly": 0.939,
+        "mist16_shield": 0.844,
+        "mist16_random8": 0.867
+      },
+      "lora_first_mist16": 0.533,
+      "lora_first_mist16_shield": 0.688
+    },
+    "renee_zellweger": {
+      "kept": {
+        "mist16_wm": 0.925,
+        "mist16_shieldonly": 0.944,
+        "mist16_shield": 0.866,
+        "mist16_random8": 0.894
+      },
+      "lora_first_mist16": 0.143,
+      "lora_first_mist16_shield": 0.375
+    },
+    "roger_federer": {
+      "kept": {
+        "mist16_wm": 0.918,
+        "mist16_shieldonly": 0.948,
+        "mist16_shield": 0.856,
+        "mist16_random8": 0.891
+      },
+      "lora_first_mist16": 0.312,
+      "lora_first_mist16_shield": 0.812
+    },
+    "sergey_lavrov": {
+      "kept": {
+        "mist16_wm": 0.909,
+        "mist16_shieldonly": 0.95,
+        "mist16_shield": 0.861,
+        "mist16_random8": 0.879
+      },
+      "lora_first_mist16": 0.462,
+      "lora_first_mist16_shield": 0.75
+    },
+    "tom_hanks": {
+      "kept": {
+        "mist16_wm": 0.907,
+        "mist16_shieldonly": 0.938,
+        "mist16_shield": 0.854,
+        "mist16_random8": 0.866
+      },
+      "lora_first_mist16": 0.0,
+      "lora_first_mist16_shield": 0.188
+    },
+    "vladimir_putin": {
+      "kept": {
+        "mist16_wm": 0.912,
+        "mist16_shieldonly": 0.947,
+        "mist16_shield": 0.865,
+        "mist16_random8": 0.881
+      },
+      "lora_first_mist16": 0.2,
+      "lora_first_mist16_shield": 0.4
+    }
+  }
+}

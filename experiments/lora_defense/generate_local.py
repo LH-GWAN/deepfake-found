@@ -78,8 +78,13 @@ def main() -> None:
                            output_type='latent').images
             with torch.no_grad():
                 image = pipe.vae.decode(latents.float() / pipe.vae.config.scaling_factor).sample
+            # Through a temporary name, so a stop mid-write never leaves a broken image
+            # that a rerun would take as done.
+            target = out_dir / f'{p}_{seed}.png'
+            partial = target.with_suffix('.part')
             pipe.image_processor.postprocess(image, output_type='pil')[0].save(
-                out_dir / f'{p}_{seed}.png')
+                partial, format='PNG')
+            partial.replace(target)
         print(f'{variant}/{identity}: {len(todo)} images in {time.time() - started:.0f}s',
               flush=True)
     print('generation done')

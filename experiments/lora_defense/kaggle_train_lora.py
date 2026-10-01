@@ -9,8 +9,10 @@ from it. If a run dies, attach its output as an input of the next version: LoRAs
 under ``/kaggle/input/*/lora`` are copied in first, so finished ones are skipped.
 
 ``STOP_AT_STEP=n`` stops the first LoRA it trains after step n, to test the resume; once a
-resume has been seen (``lora_resume_tested``) it is ignored. Photos protected by
-kaggle_aspl.py or kaggle_mist.py under ``/kaggle/working/protected`` are read too.
+resume has been seen (``lora_resume_tested``, with ``RESUME_TAG`` appended so that a new
+run tests afresh instead of inheriting an earlier run's mark) it is ignored. Photos
+protected by kaggle_aspl.py or kaggle_mist.py under ``/kaggle/working/protected`` are
+read too.
 
 ``LORA_IDENTITIES`` names the people (comma-separated) instead of the first three,
 ``LORA_VARIANTS`` picks the variants (comma-separated), and
@@ -47,7 +49,7 @@ RANK = 8
 WORK = '/kaggle/working'
 OUT = f'{WORK}/lora'
 LOG = f'{WORK}/log.txt'
-TESTED = f'{WORK}/lora_resume_tested'
+TESTED = f"{WORK}/lora_resume_tested{os.environ.get('RESUME_TAG', '')}"
 STOP_AT_STEP = int(os.environ.get('STOP_AT_STEP', '0'))
 
 
@@ -59,15 +61,16 @@ def log(message):
 
 
 def carry_over_previous_output():
-    """Copy LoRAs from an attached earlier version's output, finished or partial."""
-    for path in glob.glob('/kaggle/input/**/lora/*/*.pt', recursive=True):
+    """Copy the chosen variants' LoRAs from an attached earlier version's output, finished or partial."""
+    for path in [p for variant in VARIANTS
+                 for p in glob.glob(f'/kaggle/input/**/lora/{variant}/*.pt', recursive=True)]:
         variant, name = path.split('/')[-2:]
         target = f'{OUT}/{variant}/{name}'
         if not os.path.exists(target):
             os.makedirs(os.path.dirname(target), exist_ok=True)
             shutil.copy(path, target)
             log(f'carried over {variant}/{name}')
-    for path in glob.glob('/kaggle/input/**/lora_resume_tested', recursive=True):
+    for path in glob.glob(f'/kaggle/input/**/{os.path.basename(TESTED)}', recursive=True):
         shutil.copy(path, TESTED)
 
 
