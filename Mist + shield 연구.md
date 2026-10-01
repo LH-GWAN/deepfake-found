@@ -1,6 +1,6 @@
 # Mist + shield 연구: 사진 한 장으로 얼굴 스왑과 LoRA를 함께 막기
 
-2026-10-01 기준, 작업 브랜치 `claude/funny-montalcini-8eabbd`(`research/three-limits`의 `eb75e93`에서
+2026-10-01 기준, 작업 브랜치 `claude/funny-montalcini-8eabbd`(`research/three-limits`의 `b176f2a`에서
 갈라짐, 아직 커밋하지 않음). README "LoRA 방어 3차"의 후속이고, README에는 "LoRA 방어 4차"로 요약했습니다.
 GPU가 필요한 일(Mist 노이즈 만들기, LoRA 학습)은 모두 Kaggle에서 돌렸고, 로컬에서는
 학습하지 않았습니다. 실제 인물의 이미지 생성과 채점은 로컬에서 했습니다.
