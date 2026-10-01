@@ -1,0 +1,214 @@
+{
+  "question": "does one photograph stop both inswapper and (scored separately) a LoRA?",
+  "people": [
+    "hugo_chavez",
+    "jeb_bush",
+    "jennifer_lopez",
+    "nicole_kidman"
+  ],
+  "gallery_identities": 47,
+  "swaps": {
+    "shield_mist16": {
+      "swaps": 32,
+      "with_a_face": 32,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.1895,
+      "above_high_confidence": 0
+    },
+    "shield_mist16_jpeg85": {
+      "swaps": 32,
+      "with_a_face": 32,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 1,
+      "median_owner_similarity": -0.187,
+      "above_high_confidence": 0
+    },
+    "shield_mist16_jpeg70": {
+      "swaps": 32,
+      "with_a_face": 32,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 1,
+      "median_owner_similarity": -0.1925,
+      "above_high_confidence": 0
+    },
+    "shield_mist16_half": {
+      "swaps": 32,
+      "with_a_face": 32,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.2034,
+      "above_high_confidence": 0
+    },
+    "joint8": {
+      "swaps": 32,
+      "with_a_face": 32,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.2125,
+      "above_high_confidence": 0
+    },
+    "joint8_jpeg85": {
+      "swaps": 32,
+      "with_a_face": 32,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.2142,
+      "above_high_confidence": 0
+    },
+    "joint8_jpeg70": {
+      "swaps": 32,
+      "with_a_face": 32,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.2114,
+      "above_high_confidence": 0
+    },
+    "joint8_half": {
+      "swaps": 32,
+      "with_a_face": 32,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.2257,
+      "above_high_confidence": 0
+    },
+    "mist16": {
+      "swaps": 32,
+      "with_a_face": 32,
+      "arcface_owner_first": 32,
+      "sface_owner_first": 32,
+      "median_owner_similarity": 0.6648,
+      "above_high_confidence": 31
+    },
+    "mist16_jpeg85": {
+      "swaps": 32,
+      "with_a_face": 32,
+      "arcface_owner_first": 32,
+      "sface_owner_first": 32,
+      "median_owner_similarity": 0.662,
+      "above_high_confidence": 31
+    },
+    "mist16_jpeg70": {
+      "swaps": 32,
+      "with_a_face": 32,
+      "arcface_owner_first": 32,
+      "sface_owner_first": 32,
+      "median_owner_similarity": 0.6621,
+      "above_high_confidence": 31
+    },
+    "mist16_half": {
+      "swaps": 32,
+      "with_a_face": 32,
+      "arcface_owner_first": 32,
+      "sface_owner_first": 32,
+      "median_owner_similarity": 0.6593,
+      "above_high_confidence": 31
+    },
+    "mist16_shield": {
+      "swaps": 32,
+      "with_a_face": 32,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.2536,
+      "above_high_confidence": 0
+    },
+    "mist16_shield_jpeg85": {
+      "swaps": 32,
+      "with_a_face": 32,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.2651,
+      "above_high_confidence": 0
+    },
+    "mist16_shield_jpeg70": {
+      "swaps": 32,
+      "with_a_face": 32,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.2675,
+      "above_high_confidence": 0
+    },
+    "mist16_shield_half": {
+      "swaps": 32,
+      "with_a_face": 32,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.2614,
+      "above_high_confidence": 0
+    }
+  },
+  "swap_owner_first_by_person": {
+    "mist16": {
+      "hugo_chavez": 8,
+      "jeb_bush": 8,
+      "jennifer_lopez": 8,
+      "nicole_kidman": 8
+    },
+    "mist16_jpeg85": {
+      "hugo_chavez": 8,
+      "jeb_bush": 8,
+      "jennifer_lopez": 8,
+      "nicole_kidman": 8
+    },
+    "mist16_jpeg70": {
+      "hugo_chavez": 8,
+      "jeb_bush": 8,
+      "jennifer_lopez": 8,
+      "nicole_kidman": 8
+    },
+    "mist16_half": {
+      "hugo_chavez": 8,
+      "jeb_bush": 8,
+      "jennifer_lopez": 8,
+      "nicole_kidman": 8
+    }
+  },
+  "watermark_read": {
+    "shield_mist16": {
+      "as_saved": 32,
+      "jpeg85": 32,
+      "photos": 32
+    },
+    "joint8": {
+      "as_saved": 32,
+      "jpeg85": 32,
+      "photos": 32
+    }
+  },
+  "frame_similarity_to_clean_face": {
+    "shield_mist16": {
+      "median": -0.4621,
+      "max": -0.2283
+    },
+    "joint8": {
+      "median": -0.4756,
+      "max": -0.3679
+    },
+    "mist16": {
+      "median": 0.9366,
+      "max": 0.9724
+    },
+    "mist16_shield": {
+      "median": -0.6061,
+      "max": -0.3857
+    }
+  },
+  "quality_vs_clean_at_512_bicubic": {
+    "shield_mist16": {
+      "psnr": 30.67,
+      "ssim": 0.7625
+    },
+    "joint8": {
+      "psnr": 31.53,
+      "ssim": 0.7824
+    },
+    "mist16": {
+      "psnr": 33.19,
+      "ssim": 0.8285
+    },
+    "mist16_shield": {
+      "psnr": 30.3,
+      "ssim": 0.7288
+    }
+  }
+}
