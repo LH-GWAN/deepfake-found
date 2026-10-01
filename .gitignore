@@ -68,3 +68,6 @@ experiments/lora_defense/*.zip
 experiments/lora_defense/generated/
 experiments/lora_defense/kaggle_out_v2/
 experiments/lora_defense/v3/
+experiments/idgen/out/
+experiments/idgen/pipeline_stable_diffusion_xl_instantid.py
+experiments/idgen/ip_adapter/
