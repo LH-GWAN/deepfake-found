@@ -173,3 +173,23 @@ def test_a_stored_record_from_before_verdicts_still_renders() -> None:
     }
     text = "\n".join(_render_evidence(legacy))
     assert "legacy score 84" in text
+
+
+def test_doctor_says_shield_mode_is_not_ready_without_insightface(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The SCRFD landmark detector is loaded through insightface, so it is a requirement."""
+    import builtins
+
+    real_import = builtins.__import__
+
+    def without_insightface(name: str, *args: object, **kwargs: object) -> object:
+        if name == "insightface":
+            raise ImportError(name)
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", without_insightface)
+    assert main(["--json", "doctor"]) == EXIT_OK
+    shield = json.loads(capsys.readouterr().out)["shield_mode"]
+    assert shield["insightface"] is False
+    assert shield["ready"] is False

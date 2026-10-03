@@ -8,7 +8,7 @@
     "encoder_model": "insightface/models/buffalo_l/w600k_r50.onnx",
     "landmark_detector": "insightface"
   },
-  "shrink": null,
+  "shrink": 0.3,
   "identities": 30,
   "unshielded": 0,
   "arcface_high_confidence": 0.47,
@@ -18,12 +18,12 @@
       "no_face": 0,
       "arcface": {
         "owner_first": 30,
-        "median_owner_similarity": 0.6839,
-        "above_high_confidence": 30
+        "median_owner_similarity": 0.665,
+        "above_high_confidence": 29
       },
       "sface": {
         "owner_first": 30,
-        "median_owner_similarity": 0.6784
+        "median_owner_similarity": 0.678
       }
     },
     "shielded": {
@@ -31,65 +31,65 @@
       "no_face": 0,
       "arcface": {
         "owner_first": 0,
-        "median_owner_similarity": -0.3364,
+        "median_owner_similarity": -0.2371,
         "above_high_confidence": 0
       },
       "sface": {
         "owner_first": 0,
-        "median_owner_similarity": -0.1346
+        "median_owner_similarity": -0.0669
       }
     },
     "shielded_jpeg85": {
       "scored": 30,
       "no_face": 0,
       "arcface": {
-        "owner_first": 0,
-        "median_owner_similarity": -0.3186,
+        "owner_first": 22,
+        "median_owner_similarity": 0.1985,
         "above_high_confidence": 0
       },
       "sface": {
-        "owner_first": 0,
-        "median_owner_similarity": -0.1091
+        "owner_first": 18,
+        "median_owner_similarity": 0.3223
       }
     },
     "shielded_jpeg70": {
       "scored": 30,
       "no_face": 0,
       "arcface": {
-        "owner_first": 0,
-        "median_owner_similarity": -0.2645,
-        "above_high_confidence": 0
+        "owner_first": 27,
+        "median_owner_similarity": 0.2877,
+        "above_high_confidence": 1
       },
       "sface": {
-        "owner_first": 0,
-        "median_owner_similarity": -0.0443
+        "owner_first": 22,
+        "median_owner_similarity": 0.396
       }
     },
     "shielded_half": {
       "scored": 30,
       "no_face": 0,
       "arcface": {
-        "owner_first": 0,
-        "median_owner_similarity": -0.3331,
-        "above_high_confidence": 0
+        "owner_first": 28,
+        "median_owner_similarity": 0.255,
+        "above_high_confidence": 1
       },
       "sface": {
-        "owner_first": 0,
-        "median_owner_similarity": -0.1156
+        "owner_first": 23,
+        "median_owner_similarity": 0.3854
       }
     }
   },
   "shielded_file_itself": {
-    "scored": 30,
-    "no_face": 0,
+    "scored": 0,
+    "no_face": 30,
     "arcface": {
       "owner_first": 0,
-      "median_owner_similarity": -0.2962,
+      "median_owner_similarity": null,
       "above_high_confidence": 0
     },
     "sface": {
-      "owner_first": 14,
-      "median_owner_similarity": 0.2651
+      "owner_first": 0,
+      "median_owner_similarity": null
     }
   },
   "shielded_file": {
@@ -97,18 +97,17 @@
     "devices": [
       "mps"
     ],
-    "median_psnr": 33.2022,
-    "median_ssim": 0.8711,
-    "median_similarity_to_clean_face": -0.656,
+    "median_psnr": 36.4418,
+    "median_ssim": 0.8237,
+    "median_similarity_to_clean_face": -0.4915,
     "watermark_verified": 30
   },
   "verdicts": {
     "repost_jpeg85": {
-      "own_copy": 29,
-      "own_unverified": 1
+      "own_unverified": 30
     },
     "gan_target": {
-      "own_altered": 30
+      "own_unverified": 30
     }
   },
   "environment": {
@@ -126,6 +125,6 @@
     "deepfake_detector": "spectral",
     "watermark_backend": "dct",
     "watermark_strength": 0.16,
-    "recorded_at": "2026-10-02T05:44:47.170741+00:00"
+    "recorded_at": "2026-10-02T05:50:25.423714+00:00"
   }
 }

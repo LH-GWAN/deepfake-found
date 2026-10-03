@@ -21,7 +21,10 @@ of computing one:
     The content descends from the subject's registered asset, the registered
     original showed their face, and the content now shows someone else's face
     where theirs was, or a calibrated detector flags their face as synthetic.
-    This is the target direction of a face swap. High urgency.
+    This is the target direction of a face swap. High urgency. A face counts as
+    someone else's only when recognition finds it in neither the registered
+    file nor the owner, and its pixels changed more than the picture around
+    it; a heavily re-encoded copy can fail recognition on an untouched face.
 ``own_unverified``
     The content descends from the subject's registered asset, but their face
     could not be confirmed in it and the original could not settle why.
@@ -69,6 +72,12 @@ SMALL_FACE_LIMITATION = (
 SHRUNK_COPY_SCALE = 0.9
 
 EXACT_MATCH_BASIS = "exact file hash"
+
+DEGRADED_FACE_REASON = (
+    "A face in this copy no longer matches the registered file's faces by recognition, but "
+    "its pixels changed no more than the picture around it: it reads as the registered face "
+    "degraded by re-encoding, not as a face put in its place."
+)
 
 
 def _face_detail(evidence: RiskEvidence) -> str:
@@ -302,6 +311,9 @@ class VerdictRiskScorer(RiskScorer):
                 "was replaced is unknown."
             )
             return Verdict.OWN_UNVERIFIED
+        if evidence.degraded_faces:
+            reasons.append(DEGRADED_FACE_REASON)
+            return Verdict.OWN_UNVERIFIED
         if evidence.face_in_registered_file is None or evidence.identity_decision in (
             "candidate",
             "ambiguous",
@@ -365,6 +377,9 @@ class VerdictRiskScorer(RiskScorer):
         if evidence.face_in_registered_file:
             reasons.append("Every face in it is a face of the registered file, unchanged.")
             return Verdict.OWN_COPY
+        if evidence.degraded_faces:
+            reasons.append(DEGRADED_FACE_REASON)
+            return Verdict.OWN_UNVERIFIED
         reasons.append(
             "A face in this copy resembles the faces in the registered file only weakly, which "
             "a heavily degraded copy can also produce."

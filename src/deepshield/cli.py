@@ -298,13 +298,15 @@ def command_doctor(config: DeepShieldConfig, as_json: bool) -> int:
     shield_settings = config.protection.shield
     encoder = Path(config.runtime.model_dir) / shield_settings.encoder_model
     landmarks = encoder.parent / "det_10g.onnx"
+    scrfd = shield_settings.landmark_detector == "insightface"
     shield = {
         "encoder": encoder.is_file(),
-        "landmark_detector": (
-            landmarks.is_file() if shield_settings.landmark_detector == "insightface" else None
-        ),
+        "landmark_detector": landmarks.is_file() if scrfd else None,
         "torch": status["torch"]["available"],
         "onnx": status["onnx"]["available"],
+        # The SCRFD landmark detector is loaded through insightface on onnxruntime.
+        "insightface": status["insightface"]["available"] if scrfd else None,
+        "onnxruntime": status["onnxruntime"]["available"] if scrfd else None,
     }
     shield["ready"] = all(value is not False for value in shield.values())
     payload = {

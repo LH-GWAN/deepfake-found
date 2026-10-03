@@ -162,8 +162,18 @@ class DefaultProtectionPipeline(ProtectionPipeline):
             from deepshield.config import FaceDetectorConfig
             from deepshield.face.backends import InsightFaceDetector
 
+            # Find every face the swapper would: its FaceAnalysis keeps detections
+            # from 0.5 up with no size floor and no implausible-box filter, so the
+            # pipeline's 40 px / 0.6 defaults would leave small faces swappable.
             return InsightFaceDetector(
-                FaceDetectorConfig(backend="insightface"), Path(self.config.runtime.model_dir)
+                FaceDetectorConfig(
+                    backend="insightface",
+                    min_face_size=1,
+                    detection_confidence_threshold=0.5,
+                    max_faces=1000,
+                    implausible_below_confidence=0.0,
+                ),
+                Path(self.config.runtime.model_dir),
             )
         return build_detector(self.config.face.detector.model_copy(update={"backend": name}))
 
@@ -196,9 +206,11 @@ class DefaultProtectionPipeline(ProtectionPipeline):
             "Measured against inswapper_128; swappers built on another face encoder, "
             "deliberate denoising or face restoration, and fine-tuning a generator on "
             "the photo were not stopped or not measured.",
+            "Faces of about 30 pixels are shielded only in this file as saved: after a "
+            "JPEG re-save or halving, most measured ones could be swapped again.",
             "The shielded photo no longer matches you by face with the ArcFace model this "
             "system and the swapper use; a recogniser nobody attacked (SFace) still ranked "
-            "the owner first on 11 of 30 measured photos. Keep the original for enrollment; "
+            "the owner first on 14 of 30 measured photos. Keep the original for enrollment; "
             "reposts of this file are found by watermark and perceptual hash.",
         ]
         return shielded, report

@@ -9,7 +9,7 @@ single signal would confuse?
 
 For every identity in the evaluation set, one photograph is protected and
 registered, one is held out as an unregistered genuine photograph, and the rest
-are enrolled. Then seven situations are built with the real face stack and the
+are enrolled. Then these situations are built with the real face stack and the
 real GAN swapper, and each is analysed through the full pipeline for that user:
 
 repost              the protected file itself
@@ -23,12 +23,25 @@ unrelated           another identity's genuine photograph
 group_repost        a two-person photograph, the user beside a small face of another
                     identity, protected and re-encoded as JPEG quality 70
 group_target        the same photograph with the user's face swapped for a third identity's
+heavy_repost        the protected file re-encoded at its own size as H.264 crf 42
+heavy_target        gan_target re-encoded at its own size as H.264 crf 35
+group_heavy_repost  the two-person photograph, protected, re-encoded as H.264 crf 35
+shielded_group_repost        the two-person photograph protected in shield mode,
+                             re-encoded at its own size as H.264 crf 35
+shielded_group_recompressed  the same, re-saved as JPEG quality 85
+shielded_group_target        the shielded two-person photograph with the user's face
+                             swapped for a third identity's
 
-The expected verdicts are own_copy, own_copy, own_copy or own_unverified,
-identity_match, identity_match, own_altered, own_unverified, unrelated, own_copy
-and own_altered. The two group situations exist because a verdict that reads
-the best-scoring face in the picture can be decided by the neighbour rather
-than by the face where the user's was.
+The expected verdicts are in ``EXPECTED``: the unaltered copies are own_copy
+(own_unverified accepted where heavy degradation can hide the face), genuine
+photographs and source-direction swaps identity_match, target-direction swaps
+own_altered, the orphaned swap own_unverified, and the stranger unrelated. The
+two group situations exist because a verdict that reads the best-scoring face
+in the picture can be decided by the neighbour rather than by the face where
+the user's was. The heavy_* and shielded_* reposts are copies nobody altered
+whose faces can still fail recognition against the registered file, a shielded
+face all the more as compression erodes the shield; like ``shrunk_repost`` they
+must never be own_altered, while the swapped ones must.
 ``genuine`` and ``gan_source`` are expected to be indistinguishable: without a
 calibrated synthetic-media detector the engine is designed to say so rather than
 guess, and the table shows whether it does. ``shrunk_repost`` is the user's own
@@ -84,10 +97,23 @@ EXPECTED: dict[str, tuple[str, ...]] = {
     "unrelated": ("unrelated",),
     "group_repost": ("own_copy",),
     "group_target": ("own_altered",),
+    "heavy_repost": ("own_copy", "own_unverified"),
+    "heavy_target": ("own_altered",),
+    "group_heavy_repost": ("own_copy", "own_unverified"),
+    "shielded_group_repost": ("own_copy", "own_unverified"),
+    "shielded_group_recompressed": ("own_copy", "own_unverified"),
+    "shielded_group_target": ("own_altered",),
 }
-SWAPPED = {"gan_source", "gan_target", "gan_target_orphan", "group_target"}
+SWAPPED = {
+    "gan_source", "gan_target", "gan_target_orphan", "group_target", "heavy_target",
+    "shielded_group_target",
+}
+GROUP = {"group_repost", "group_target", "group_heavy_repost"}
+SHIELDED_GROUP = {"shielded_group_repost", "shielded_group_recompressed", "shielded_group_target"}
 NEIGHBOUR_SCALE = 0.5
 SHRUNK = Transformation("shrunk_repost", "video_compression", {"scale": 0.55, "crf": 35})
+CRF35 = Transformation("crf35", "video_compression", {"crf": 35})
+CRF42 = Transformation("crf42", "video_compression", {"crf": 42})
 
 
 class GanSwapper:
@@ -229,12 +255,17 @@ def scenarios(
         "repost": protected,
         "recompressed": recompressed,
         "shrunk_repost": written(SHRUNK.apply(protected_image), "shrunk_repost"),
+        "heavy_repost": written(CRF42.apply(protected_image), "heavy_repost"),
         "genuine": own[-2],
         "unrelated": other,
     }
     if swapper is not None:
         built["gan_source"] = written(swapper(held_out, other_image), "gan_source")
-        built["gan_target"] = written(swapper(other_image, protected_image), "gan_target")
+        target = swapper(other_image, protected_image)
+        built["gan_target"] = written(target, "gan_target")
+        built["heavy_target"] = written(
+            None if target is None else CRF35.apply(target), "heavy_target"
+        )
     return built
 
 
@@ -305,27 +336,57 @@ def main(argv: list[str] | None = None) -> int:
                 protected.rename(stash)
                 judge("gan_target_orphan", built["gan_target"])
                 stash.rename(protected)
-            if {"group_repost", "group_target"} & set(wanted):
+            if (GROUP | SHIELDED_GROUP) & set(wanted):
                 from PIL import Image
 
                 group = save_image(
                     group_photo(load_image(own[-1]), load_image(other)),
                     workspace / f"{user}_group.png",
                 )
+                third = load_image(grouped[names[(index + 2) % len(names)]][0])
+            if GROUP & set(wanted):
                 group_report = protection.protect(group, user, "evaluation-group")
                 published = load_image(Path(group_report["protected_path"]))
                 if "group_repost" in wanted:
                     repost = workspace / f"{user}_group_repost.jpg"
                     Image.fromarray(published).save(repost, quality=70)
                     judge("group_repost", repost)
+                if "group_heavy_repost" in wanted:
+                    judge(
+                        "group_heavy_repost",
+                        save_image(CRF35.apply(published), workspace / f"{user}_group_heavy.png"),
+                    )
                 if "group_target" in wanted and swapper is not None:
-                    third = load_image(grouped[names[(index + 2) % len(names)]][0])
                     swapped = swapper(third, published)
                     judge(
                         "group_target",
                         None
                         if swapped is None
                         else save_image(swapped, workspace / f"{user}_group_target.png"),
+                    )
+            if SHIELDED_GROUP & set(wanted):
+                shielded_report = protection.protect(
+                    group, user, "evaluation-shielded-group", mode="shield"
+                )
+                shielded = load_image(Path(shielded_report["protected_path"]))
+                if "shielded_group_repost" in wanted:
+                    judge(
+                        "shielded_group_repost",
+                        save_image(
+                            CRF35.apply(shielded), workspace / f"{user}_shielded_heavy.png"
+                        ),
+                    )
+                if "shielded_group_recompressed" in wanted:
+                    resaved = workspace / f"{user}_shielded_group.jpg"
+                    Image.fromarray(shielded).save(resaved, quality=85)
+                    judge("shielded_group_recompressed", resaved)
+                if "shielded_group_target" in wanted and swapper is not None:
+                    swapped = swapper(third, shielded)
+                    judge(
+                        "shielded_group_target",
+                        None
+                        if swapped is None
+                        else save_image(swapped, workspace / f"{user}_shielded_target.png"),
                     )
             print(f"{index + 1}/{len(names)} {user}", flush=True)
 
