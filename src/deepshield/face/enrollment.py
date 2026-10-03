@@ -123,11 +123,14 @@ class DefaultIdentityEnroller(IdentityEnroller):
         recognised by exact bytes, or by carrying the watermark of a shielded
         asset; the clean original carries no watermark and passes.
 
-        Only the cheap reading of the watermark runs here, at the candidate's
-        own size and at the registered size of each shielded photo it resembles
-        by perceptual hash: that covers the file itself, re-encoded reposts and
-        platform-resized copies. The grid and rotation search that analysis
-        uses would cost seconds to a minute per photo, on every enrollment.
+        The cheap reading of the watermark runs first, at the candidate's own
+        size and at the registered size of each shielded photo it resembles by
+        perceptual hash: that covers the file itself, re-encoded reposts and
+        platform-resized copies. Only when that finds nothing and the candidate
+        does resemble a shielded photo does the grid and rotation search that
+        analysis uses run, since it costs seconds to a minute per photo: a copy
+        cropped by a few pixels sits off the mark's block grid and needs it. A
+        photo that resembles no shielded asset never pays for the search.
         """
         if not shielded:
             return None
@@ -146,19 +149,20 @@ class DefaultIdentityEnroller(IdentityEnroller):
         from deepshield.protection.fingerprint import DefaultFingerprinter, hash_similarity
         from deepshield.protection.watermark import build_watermarker
 
-        watermarker = build_watermarker(
-            self.config.protection.watermark.model_copy(update={"resync_enabled": False})
-        )
+        settings = self.config.protection.watermark
+        watermarker = build_watermarker(settings.model_copy(update={"resync_enabled": False}))
         phash = DefaultFingerprinter(self.config.protection.fingerprint).fingerprint_image(
             image, "enrollment"
         ).phash
         floor = self.config.thresholds.fingerprint.evidence_similarity_threshold
         sizes = [(image.shape[1], image.shape[0])]
+        resembles = False
         for asset in shielded:
             if len(asset.fingerprint.phash) != len(phash):
                 continue
             if hash_similarity(asset.fingerprint.phash, phash) < floor:
                 continue
+            resembles = True
             size = (
                 (asset.fingerprint.width, asset.fingerprint.height)
                 if asset.fingerprint.width and asset.fingerprint.height
@@ -166,14 +170,21 @@ class DefaultIdentityEnroller(IdentityEnroller):
             )
             if size is not None and size not in sizes:
                 sizes.append(size)
+        refusal = (
+            "this carries the watermark of a swap-shielded asset; enroll with the "
+            "original photo instead"
+        )
         for size in sizes:
             restored = image if size == sizes[0] else resize_image(image, *size)
             detection = watermarker.detect(restored)
             if detection.detected and detection.watermark_code in codes:
-                return (
-                    "this carries the watermark of a swap-shielded asset; enroll with the "
-                    "original photo instead"
-                )
+                return refusal
+        if resembles and settings.resync_enabled:
+            for size in sizes:
+                restored = image if size == sizes[0] else resize_image(image, *size)
+                detection = build_watermarker(settings).detect(restored)
+                if detection.detected and detection.watermark_code in codes:
+                    return refusal
         return None
 
     @staticmethod

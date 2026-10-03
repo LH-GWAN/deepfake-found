@@ -51,17 +51,17 @@
       "cases": 30,
       "as_expected": 30,
       "verdicts": {
-        "own_unverified": 19,
-        "own_copy": 11
+        "own_unverified": 17,
+        "own_copy": 13
       },
       "levels": {
-        "MEDIUM": 19,
-        "LOW": 11
+        "MEDIUM": 17,
+        "LOW": 13
       },
       "identity_decisions": {
-        "no_match": 14,
-        "candidate": 13,
-        "high_confidence": 3
+        "no_match": 12,
+        "high_confidence": 4,
+        "candidate": 14
       },
       "faces_detected": {
         "1": 30
@@ -187,13 +187,156 @@
         "high_confidence": 30
       },
       "faces_detected": {
-        "3": 2,
+        "3": 3,
         "2": 26,
-        "4": 1,
         "1": 1
       }
     },
     "group_target": {
+      "expected": [
+        "own_altered"
+      ],
+      "cases": 30,
+      "as_expected": 30,
+      "verdicts": {
+        "own_altered": 30
+      },
+      "levels": {
+        "HIGH": 30
+      },
+      "identity_decisions": {
+        "no_match": 30
+      },
+      "faces_detected": {
+        "3": 3,
+        "2": 26,
+        "1": 1
+      }
+    },
+    "heavy_repost": {
+      "expected": [
+        "own_copy",
+        "own_unverified"
+      ],
+      "cases": 30,
+      "as_expected": 30,
+      "verdicts": {
+        "own_unverified": 19,
+        "own_copy": 11
+      },
+      "levels": {
+        "MEDIUM": 19,
+        "LOW": 11
+      },
+      "identity_decisions": {
+        "no_match": 18,
+        "candidate": 9,
+        "high_confidence": 3
+      },
+      "faces_detected": {
+        "1": 28,
+        "2": 2
+      }
+    },
+    "heavy_target": {
+      "expected": [
+        "own_altered"
+      ],
+      "cases": 30,
+      "as_expected": 29,
+      "verdicts": {
+        "own_altered": 29,
+        "own_unverified": 1
+      },
+      "levels": {
+        "HIGH": 29,
+        "MEDIUM": 1
+      },
+      "identity_decisions": {
+        "no_match": 29,
+        "candidate": 1
+      },
+      "faces_detected": {
+        "2": 2,
+        "1": 27,
+        "3": 1
+      }
+    },
+    "group_heavy_repost": {
+      "expected": [
+        "own_copy",
+        "own_unverified"
+      ],
+      "cases": 30,
+      "as_expected": 30,
+      "verdicts": {
+        "own_copy": 30
+      },
+      "levels": {
+        "LOW": 30
+      },
+      "identity_decisions": {
+        "candidate": 3,
+        "high_confidence": 26,
+        "no_match": 1
+      },
+      "faces_detected": {
+        "3": 3,
+        "2": 26,
+        "1": 1
+      }
+    },
+    "shielded_group_repost": {
+      "expected": [
+        "own_copy",
+        "own_unverified"
+      ],
+      "cases": 30,
+      "as_expected": 30,
+      "verdicts": {
+        "own_unverified": 21,
+        "own_copy": 9
+      },
+      "levels": {
+        "MEDIUM": 21,
+        "LOW": 9
+      },
+      "identity_decisions": {
+        "no_match": 17,
+        "candidate": 7,
+        "high_confidence": 6
+      },
+      "faces_detected": {
+        "3": 3,
+        "2": 25,
+        "1": 2
+      }
+    },
+    "shielded_group_recompressed": {
+      "expected": [
+        "own_copy",
+        "own_unverified"
+      ],
+      "cases": 30,
+      "as_expected": 30,
+      "verdicts": {
+        "own_copy": 28,
+        "own_unverified": 2
+      },
+      "levels": {
+        "LOW": 28,
+        "MEDIUM": 2
+      },
+      "identity_decisions": {
+        "no_match": 30
+      },
+      "faces_detected": {
+        "3": 3,
+        "2": 26,
+        "1": 1
+      }
+    },
+    "shielded_group_target": {
       "expected": [
         "own_altered"
       ],
@@ -218,10 +361,10 @@
   "not_built": {},
   "environment": {
     "deepshield_version": "0.1.0",
-    "git_commit": "d72eb04710adbada26e2379db8eec89703478c04",
+    "git_commit": "80862c4559eed38eac6590ac1038c41e2e558564",
     "git_dirty": true,
     "python": "3.12.10",
-    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
     "numpy": "2.5.3",
     "random_seed": 42,
     "configured_device": "cpu",
@@ -231,6 +374,6 @@
     "deepfake_detector": "spectral",
     "watermark_backend": "dct",
     "watermark_strength": 0.16,
-    "recorded_at": "2026-09-27T11:01:04.147683+00:00"
+    "recorded_at": "2026-10-02T05:39:06.577919+00:00"
   }
 }

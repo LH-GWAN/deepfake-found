@@ -447,7 +447,9 @@ class RiskEvidence:
     file, ``face_in_registered_file`` whether every face is a face of the file
     (``True``), one is none of them (``False``) or one resembles them only
     weakly (``None``), and ``replaced_face_pixels`` is the size of the largest
-    face that is none of them.
+    face that is none of them. ``degraded_faces`` counts faces that matched
+    none of them by recognition but whose pixels changed no more than their
+    surroundings, so they read as degraded rather than replaced.
     """
 
     subject_user_id: str | None = None
@@ -468,6 +470,7 @@ class RiskEvidence:
     owner_face_kept: bool | None = None
     face_in_registered_file: bool | None = None
     replaced_face_pixels: float | None = None
+    degraded_faces: int = 0
     deepfake_score: float | None = None
     deepfake_calibrated: bool = False
 

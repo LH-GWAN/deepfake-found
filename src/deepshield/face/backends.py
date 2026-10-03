@@ -142,11 +142,17 @@ class InsightFaceDetector(FaceDetector):
         self.config = config or FaceDetectorConfig()
         insightface = _require("insightface", "face")
         _require("onnxruntime", "face")
-        self._app = insightface.app.FaceAnalysis(
-            name="buffalo_l",
-            root=str(Path(model_dir or "models") / "insightface"),
-            allowed_modules=["detection"],
-        )
+        root = Path(model_dir or "models") / "insightface"
+        try:
+            self._app = insightface.app.FaceAnalysis(
+                name="buffalo_l", root=str(root), allowed_modules=["detection"]
+            )
+        except AssertionError as exc:
+            # FaceAnalysis asserts when the pack folder holds no detection model.
+            raise ModelNotAvailableError(
+                f"no SCRFD detection model (det_10g.onnx) in {root / 'models' / 'buffalo_l'}; "
+                "run 'deepshield download-models'"
+            ) from exc
         self._app.prepare(ctx_id=-1, det_size=(640, 640))
 
     def _detect_once(self, image: np.ndarray) -> list[DetectedFace]:

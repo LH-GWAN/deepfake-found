@@ -626,3 +626,26 @@ def test_a_swap_in_a_shielded_group_photo_is_an_alteration(
     record = analyse(pipeline, swapped, tmp_path / "swapped.png")
     assert record.risk.signals["face_in_registered_file"] is False
     assert record.risk.verdict is Verdict.OWN_ALTERED
+
+
+@pytest.mark.parametrize("top, left", [(3, 0), (0, 3), (3, 3)])
+def test_a_cropped_shielded_copy_cannot_be_enrolled(
+    config, pipeline, shielded, tmp_path: Path, top: int, left: int
+) -> None:
+    """A copy cropped off the mark's block grid needs the search the cheap read skips.
+
+    Larger crops, or a crop re-encoded again, can defeat the search too; that
+    is the watermark's limit, which analysis shares, not the enrollment check's.
+    """
+    from deepshield.face.enrollment import DefaultIdentityEnroller
+
+    path, _ = shielded
+    upload = save_image(load_image(path)[top:, left:], tmp_path / "cropped.png")
+    enroller = DefaultIdentityEnroller(
+        config, detector=pipeline.detector, aligner=pipeline.aligner, embedder=pipeline.embedder
+    )
+    assets = enroller._assets or __import__(
+        "deepshield.storage.repository", fromlist=["build_asset_repository"]
+    ).build_asset_repository(config)
+    refusal = enroller._shielded_refusal(upload, [a for a in assets.list_assets() if a.shielded])
+    assert refusal is not None and "swap-shielded" in refusal

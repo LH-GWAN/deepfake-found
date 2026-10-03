@@ -24,9 +24,14 @@ verdicts
     The shielded file re-saved as JPEG 85 should be ``own_copy``; another
     identity's face swapped onto it should be ``own_altered``.
 
+``--shrink`` protects a reduced copy of each photograph pasted on a grey
+canvas instead, so the face is smaller than the pipeline's 40-pixel detection
+floor; the swapper still finds such faces, so the shield has to as well.
+
 Usage:
     python scripts/evaluate_shield_mode.py
     python scripts/evaluate_shield_mode.py --identities 5
+    python scripts/evaluate_shield_mode.py --shrink 0.3     # faces of about 22-33 pixels
 """
 
 from __future__ import annotations
@@ -56,6 +61,19 @@ from deepshield.pipeline.protection_pipeline import DefaultProtectionPipeline
 from deepshield.quality import psnr, ssim
 
 
+def small_on_canvas(image: np.ndarray, factor: float, side: int = 320) -> np.ndarray:
+    """Return ``image`` reduced by ``factor`` and centred on a grey square canvas."""
+    from PIL import Image
+
+    height, width = image.shape[:2]
+    reduced = Image.fromarray(image).resize(
+        (max(1, round(width * factor)), max(1, round(height * factor))), Image.BICUBIC
+    )
+    canvas = Image.new("RGB", (side, side), (128, 128, 128))
+    canvas.paste(reduced, ((side - reduced.width) // 2, (side - reduced.height) // 2))
+    return np.asarray(canvas)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Shield one photograph per identity through the pipeline and measure what it stops."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -66,6 +84,10 @@ def main(argv: list[str] | None = None) -> int:
         "--inswapper", type=Path, default=Path("models/inswapper/inswapper_128.onnx")
     )
     parser.add_argument("--output", type=Path, default=Path("data/results"))
+    parser.add_argument(
+        "--shrink", type=float, default=None,
+        help="protect each photograph reduced by this factor on a 320-pixel grey canvas",
+    )
     args = parser.parse_args(argv)
 
     grouped = photographs(args.faces)
@@ -95,13 +117,19 @@ def main(argv: list[str] | None = None) -> int:
         for index, owner in enumerate(identities):
             source_path = grouped[owner][0]
             enroll(analysis, owner, grouped[owner][1:])
-            report = protection.protect(source_path, owner, "evaluation", mode="shield")
+            published = source_path
+            if args.shrink is not None:
+                published = save_image(
+                    small_on_canvas(load_image(source_path), args.shrink),
+                    workspace / f"{owner}_small.png",
+                )
+            report = protection.protect(published, owner, "evaluation", mode="shield")
             if not report["shielded"]:
                 unshielded += 1
                 print(f"{index + 1}/{len(identities)} {owner}: no face shielded", flush=True)
                 continue
             shielded = load_image(Path(report["protected_path"]))
-            source = load_image(source_path)
+            source = load_image(published)
             shield = report["shield"]
             files.append(
                 {
@@ -162,6 +190,7 @@ def main(argv: list[str] | None = None) -> int:
         "question": "does protect --mode shield, as shipped, stop inswapper from carrying the "
         "owner, and what does the shielded file cost and keep?",
         "shield": config.protection.shield.model_dump(mode="json"),
+        "shrink": args.shrink,
         "identities": len(identities),
         "unshielded": unshielded,
         "arcface_high_confidence": recognise.high,
@@ -181,7 +210,8 @@ def main(argv: list[str] | None = None) -> int:
         "environment": environment(config),
     }
     args.output.mkdir(parents=True, exist_ok=True)
-    destination = args.output / "shield_mode.json"
+    name = "shield_mode.json" if args.shrink is None else f"shield_mode_shrink{args.shrink:g}.json"
+    destination = args.output / name
     destination.write_text(json.dumps(report_out, indent=2), encoding="utf-8")
     print(json.dumps(report_out, indent=2))
     return 0

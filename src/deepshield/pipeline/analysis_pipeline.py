@@ -102,6 +102,17 @@ DECISION_RANK = {"high_confidence": 3, "candidate": 2, "ambiguous": 1, "no_match
 SIZE_TOLERANCE = 0.01
 ASPECT_TOLERANCE = 0.02
 MAX_RESTORED_SIZES = 3
+# A face that matches none of the registered file's faces is called replaced
+# only when its pixels changed this many times more than the ring around it.
+# Measured on 30 identities, trace and shield, one and two people, at their own
+# size: faces that recognition lost to JPEG 70-95 or H.264 crf 35-42 reached
+# at most 1.67, faces put in by inswapper at least 1.84 (after crf 35), with a
+# 3-pixel blur so block artefacts weigh less than shapes. The cut is between.
+# scripts/evaluate_verdicts.py keeps the heavy_* and shielded_* situations.
+FACE_CHANGE_RATIO = 1.75
+ALIGNED_SLACK = 2
+CHANGE_BLUR_SIGMA = 3.0
+CHANGE_FLOOR = 0.5
 
 
 @dataclass(frozen=True)
@@ -129,11 +140,23 @@ class RegisteredFaceCheck:
     design, or when the match is borderline). ``owner_face_kept`` says whether
     a face of the copy is that face of the registered file. ``faces_kept`` is
     ``True`` when every face of the copy is a face of the registered file,
-    ``False`` when one matches none of them, and ``None`` when a face resembles
-    them only weakly. ``replaced_face_pixels`` is the size of the largest face
-    that matches none of them. ``face_scale`` is the copy's scale relative to
-    the registered file, read from the faces rather than the canvas, so a crop
-    at full resolution is not mistaken for a shrunk copy.
+    ``False`` when one was replaced, and ``None`` when a face resembles them
+    only weakly or could not be told apart from a degraded one.
+
+    Recognition alone cannot call a face replaced: heavy compression can put an
+    untouched face below the match threshold against its own registered self,
+    and a shielded face drifts further as compression erodes the shield. So a
+    face that matches none of them counts as replaced only when it does not
+    still resemble the owner and, where the copy is at the registered size, its
+    pixels changed clearly more than the ring around it. ``faces_degraded``
+    counts the faces set aside by that pixel test.
+    ``replaced_face_pixels`` is the size of the largest replaced face.
+
+    ``face_scale`` is the copy's scale relative to the registered file: read
+    from the faces it kept where there are any, so a crop at full resolution
+    is not mistaken for a shrunk copy, as 1 when the copy is at the registered
+    size, and otherwise from the replaced face against the registered face at
+    the same place.
     """
 
     compared: bool
@@ -142,6 +165,62 @@ class RegisteredFaceCheck:
     faces_kept: bool | None = None
     replaced_face_pixels: float | None = None
     face_scale: float | None = None
+    faces_degraded: int = 0
+
+
+def _aligned_copy(image: np.ndarray, original: np.ndarray) -> np.ndarray | None:
+    """Return ``image`` at ``original``'s size when it is that file at that size, else ``None``.
+
+    Only a copy at the registered size, give or take the pixel or two a video
+    codec trims to even dimensions, is known to sit on the registered file's
+    pixels. A smaller copy may be the file shrunk or a crop of it, and the two
+    cannot be told apart from the canvas.
+    """
+    height, width = image.shape[:2]
+    target_height, target_width = original.shape[:2]
+    if abs(width - target_width) > ALIGNED_SLACK or abs(height - target_height) > ALIGNED_SLACK:
+        return None
+    if (width, height) == (target_width, target_height):
+        return image
+    return resize_image(image, target_width, target_height)
+
+
+def _blurred_grey(image: np.ndarray) -> np.ndarray:
+    """Return a softened luminance plane, so block artefacts weigh less than shapes."""
+    from PIL import Image, ImageFilter
+
+    grey = Image.fromarray(image).convert("L").filter(ImageFilter.GaussianBlur(CHANGE_BLUR_SIGMA))
+    return np.asarray(grey, dtype=np.float32)
+
+
+def face_change_ratio(
+    original: np.ndarray, aligned: np.ndarray, face: DetectedFace, scale: tuple[float, float]
+) -> float | None:
+    """Return how much more a face's pixels changed than the ring around it.
+
+    ``aligned`` is the copy at the registered file's size and ``scale`` maps the
+    face's box, found in the copy as it came, onto it. The ring is the box grown
+    by half its size on every side, minus the box. Returns ``None`` when the box
+    falls outside the picture.
+    """
+    height, width = original.shape[:2]
+    box = face.bbox
+    x1, x2 = max(0, int(box.x1 * scale[0])), min(width, int(box.x2 * scale[0]))
+    y1, y2 = max(0, int(box.y1 * scale[1])), min(height, int(box.y2 * scale[1]))
+    if x2 - x1 < 2 or y2 - y1 < 2:
+        return None
+    grow_x, grow_y = (x2 - x1) // 2, (y2 - y1) // 2
+    outer = (
+        slice(max(0, y1 - grow_y), min(height, y2 + grow_y)),
+        slice(max(0, x1 - grow_x), min(width, x2 + grow_x)),
+    )
+    change = np.abs(_blurred_grey(original) - _blurred_grey(aligned))
+    inside = change[y1:y2, x1:x2]
+    ring = change[outer].sum() - inside.sum()
+    ring_area = change[outer].size - inside.size
+    if ring_area <= 0:
+        return None
+    return float((inside.mean() + CHANGE_FLOOR) / (ring / ring_area + CHANGE_FLOOR))
 
 
 def _restorable(copy: tuple[int, int], original: tuple[int, int]) -> bool:
@@ -507,27 +586,44 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
             )
             for index, probe in enumerate(registered)
         ]
+        aligned = _aligned_copy(image, original)
+        to_original = (
+            original.shape[1] / image.shape[1],
+            original.shape[0] / image.shape[0],
+        )
         kept: list[tuple[FaceProbe, int]] = []
         replaced: list[FaceProbe] = []
-        weak = 0
+        weak = degraded = 0
         for probe in content:
             top = self.matcher.match_many(probe.vector, references, probe.quality)[0]
             if top.decision == "high_confidence" and top.matched_user_id is not None:
                 kept.append((probe, int(top.matched_user_id.rsplit(":", 1)[1])))
-            elif top.decision == "no_match":
-                replaced.append(probe)
-            else:
+            elif top.decision != "no_match":
                 weak += 1
+            elif profile is not None and (
+                self.matcher.match_many(probe.vector, [profile], probe.quality)[0].decision
+                != "no_match"
+            ):
+                # It still resembles the owner: a degraded owner, not someone else.
+                weak += 1
+            elif aligned is not None and (
+                (ratio := face_change_ratio(original, aligned, probe.face, to_original))
+                is not None
+                and ratio < FACE_CHANGE_RATIO
+            ):
+                # Recognition lost it, but its pixels changed no more than their
+                # surroundings: the registered face, degraded with the rest.
+                degraded += 1
+            else:
+                replaced.append(probe)
 
         largest = max(replaced, key=lambda probe: probe.pixels, default=None)
         ratios = [probe.pixels / registered[index].pixels for probe, index in kept]
         scale: float | None = float(np.median(ratios)) if ratios else None
-        if scale is None and largest is not None:
-            anchor = (
-                registered[owner_index]
-                if owner_index is not None
-                else _nearest(largest, image.shape, registered, original.shape)
-            )
+        if scale is None and aligned is not None:
+            scale = 1.0
+        elif scale is None and largest is not None:
+            anchor = _nearest(largest, image.shape, registered, original.shape)
             scale = largest.pixels / anchor.pixels
         return RegisteredFaceCheck(
             compared=True,
@@ -535,9 +631,10 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
             owner_face_kept=(
                 None if owner_index is None else any(index == owner_index for _, index in kept)
             ),
-            faces_kept=False if replaced else (True if not weak else None),
+            faces_kept=False if replaced else (True if not weak and not degraded else None),
             replaced_face_pixels=None if largest is None else largest.pixels,
             face_scale=None if scale is None else round(scale, 4),
+            faces_degraded=degraded,
         )
 
     def registered_size(self, asset: AssetRecord) -> tuple[int, int] | None:
@@ -749,6 +846,7 @@ class DefaultAnalysisPipeline(AnalysisPipeline):
                 owner_face_kept=check.owner_face_kept if check else None,
                 face_in_registered_file=check.faces_kept if check else None,
                 replaced_face_pixels=check.replaced_face_pixels if check else None,
+                degraded_faces=check.faces_degraded if check else 0,
                 deepfake_score=(
                     deepfake_score
                     if best_result is not None and best_result.matched_user_id == subject

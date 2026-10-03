@@ -511,3 +511,18 @@ def test_a_new_face_is_unverified_when_the_original_is_borderline() -> None:
 def test_without_the_shield_flag_a_missed_match_still_means_alteration() -> None:
     result = assess(own_asset(identity_decision="no_match", owner_face_in_original=True))
     assert result.verdict is Verdict.OWN_ALTERED
+
+
+def test_a_degraded_shielded_face_is_not_called_replaced() -> None:
+    """Compression erodes the shield, so the face can miss its own registered self."""
+    result = assess(shielded(face_in_registered_file=None, degraded_faces=1))
+    assert result.verdict is Verdict.OWN_UNVERIFIED
+    assert any("degraded by re-encoding" in line for line in result.explanation)
+
+
+def test_a_degraded_traced_face_is_not_called_replaced() -> None:
+    result = assess(
+        compared(owner_face_kept=False, face_in_registered_file=None, degraded_faces=1)
+    )
+    assert result.verdict is Verdict.OWN_UNVERIFIED
+    assert any("degraded by re-encoding" in line for line in result.explanation)
