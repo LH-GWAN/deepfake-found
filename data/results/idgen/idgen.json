@@ -1,0 +1,103 @@
+{
+  "question": "does the swap shield stop single-photo identity generators?",
+  "gallery_identities": 47,
+  "arcface_high_confidence": 0.47,
+  "tools": {
+    "faceid": {
+      "clean": {
+        "generated": 80,
+        "reference_face_not_found": 0,
+        "with_a_face": 80,
+        "arcface_person_first": 80,
+        "arcface_median_similarity": 0.4676,
+        "arcface_above_high_confidence": 39,
+        "sface_person_first": 78,
+        "sface_median_similarity": 0.5527
+      },
+      "shield": {
+        "generated": 79,
+        "reference_face_not_found": 1,
+        "with_a_face": 78,
+        "arcface_person_first": 1,
+        "arcface_median_similarity": -0.2036,
+        "arcface_above_high_confidence": 0,
+        "sface_person_first": 0,
+        "sface_median_similarity": -0.0473
+      },
+      "mist16_shield": {
+        "generated": 80,
+        "reference_face_not_found": 0,
+        "with_a_face": 79,
+        "arcface_person_first": 1,
+        "arcface_median_similarity": -0.1868,
+        "arcface_above_high_confidence": 0,
+        "sface_person_first": 0,
+        "sface_median_similarity": -0.0235
+      }
+    },
+    "instantid": {
+      "clean": {
+        "generated": 20,
+        "reference_face_not_found": 0,
+        "with_a_face": 20,
+        "arcface_person_first": 20,
+        "arcface_median_similarity": 0.639,
+        "arcface_above_high_confidence": 19,
+        "sface_person_first": 19,
+        "sface_median_similarity": 0.6184
+      },
+      "shield": {
+        "generated": 19,
+        "reference_face_not_found": 1,
+        "with_a_face": 18,
+        "arcface_person_first": 0,
+        "arcface_median_similarity": -0.1157,
+        "arcface_above_high_confidence": 0,
+        "sface_person_first": 0,
+        "sface_median_similarity": 0.1274
+      },
+      "mist16_shield": {
+        "generated": 20,
+        "reference_face_not_found": 0,
+        "with_a_face": 19,
+        "arcface_person_first": 0,
+        "arcface_median_similarity": -0.0768,
+        "arcface_above_high_confidence": 0,
+        "sface_person_first": 1,
+        "sface_median_similarity": 0.1073
+      }
+    },
+    "plusv2": {
+      "clean": {
+        "generated": 80,
+        "reference_face_not_found": 0,
+        "with_a_face": 80,
+        "arcface_person_first": 80,
+        "arcface_median_similarity": 0.545,
+        "arcface_above_high_confidence": 66,
+        "sface_person_first": 80,
+        "sface_median_similarity": 0.6467
+      },
+      "shield": {
+        "generated": 79,
+        "reference_face_not_found": 1,
+        "with_a_face": 79,
+        "arcface_person_first": 0,
+        "arcface_median_similarity": -0.2029,
+        "arcface_above_high_confidence": 0,
+        "sface_person_first": 0,
+        "sface_median_similarity": -0.0369
+      },
+      "mist16_shield": {
+        "generated": 80,
+        "reference_face_not_found": 0,
+        "with_a_face": 80,
+        "arcface_person_first": 0,
+        "arcface_median_similarity": -0.1882,
+        "arcface_above_high_confidence": 0,
+        "sface_person_first": 0,
+        "sface_median_similarity": -0.0287
+      }
+    }
+  }
+}

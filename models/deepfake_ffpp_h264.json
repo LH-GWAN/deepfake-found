@@ -1,0 +1,33 @@
+{
+  "repo": "deepshield/ffpp_h264",
+  "alias": "ffpp_h264",
+  "input_size": 224,
+  "native_size": 224,
+  "positive_index": 1,
+  "labels": {
+    "0": "Real",
+    "1": "Fake"
+  },
+  "preprocessing": "resize and normalise are baked into the graph; feed [0,1] RGB",
+  "trained_on": [
+    "ffpp_deepfakes",
+    "ffpp_face2face",
+    "ffpp_faceswap",
+    "ffpp_neuraltextures"
+  ],
+  "training_families_manifests": [
+    "data/test/ffpp/manifest_deepfakes.json",
+    "data/test/ffpp/manifest_face2face.json",
+    "data/test/ffpp/manifest_faceswap.json",
+    "data/test/ffpp/manifest_neuraltextures.json"
+  ],
+  "training_manifests_sha256": [
+    "6b859b224449dc4fec48ef22421fb35a37df4bb050200b8110c4fa5edd361a1e",
+    "b8de6348389a01e406592729023297f1a66327c68e0e16ffb8b9332d78b95dc8",
+    "fb93e094ce669301a04cedb6e548a781855aa93bd325bd7a3f07c006f6df8b72",
+    "ff37d008475f5d5f76c993a8989f3c250518143496dd429a2d712e80346e0cc5"
+  ],
+  "holdout_fraction": 0.3,
+  "h264_augmentation": 0.5,
+  "note": "trained on FaceForensics++; held-out rows are identities it never saw, and only evaluate_deepfake_detectors.py on other corpora speaks to deployment"
+}

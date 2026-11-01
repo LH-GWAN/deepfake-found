@@ -1,0 +1,661 @@
+r"""Measure what an attacker who is trying to remove the watermark can do.
+
+Every other watermark number in this repository assumes an attacker who does
+not know the mark is there: they re-encode, crop, swap or regenerate for their
+own reasons and the question is what survives. This script drops that
+assumption and asks how much it costs, in image quality, to strip the mark on
+purpose.
+
+Two attacker strengths are measured, because they answer different questions.
+
+uninformed
+    Knows a watermark may exist, not how it works. Applies degradations chosen
+    to destroy fine structure: heavy JPEG, blur, median filtering, downscaling,
+    noise, sharpening, and regeneration through Stable Diffusion's VAE. Each is
+    applied to the marked photograph and to the unmarked one, so the detection
+    number is an AUC between the two under the same attack, and the attribution
+    number is top-1 over the codebook.
+informed
+    Has the decoder. For the learned watermark this is a white-box projected
+    gradient attack in the aligned face frame under an L-infinity budget of a
+    few grey levels, warped back into the photograph exactly as the mark was.
+    Two objectives: ``erase`` drives every logit towards zero so no codeword
+    correlates; ``frame`` drives the logits towards another registrant's code.
+    The second is the one to worry about, because a successful frame does not
+    remove evidence - it manufactures it against an innocent person. The
+    attack is computed as an expectation over the training distortion layer,
+    because a perturbation crafted for one exact alignment is undone by the
+    re-detection and re-alignment the decoder performs, and an attacker who
+    has the decoder has the training code too.
+
+The DCT watermark without a key has no secret: its coefficient pair and tile
+layout are in the source. An informed attacker can therefore equalise the two
+coefficients in every block (removal) or embed a different code over the top
+(forgery) at a cost measured here in PSNR. With a key the layout is secret but
+the five candidate pairs are not, so the same attacker flattens all five. With
+a keyed spread carrier there is no pair to flatten: the attacker can only blank
+the whole mid band or drown it in noise, and the question this script answers
+is what that costs next to what the mark itself cost, and next to the JPEG and
+blur an uninformed attacker would try anyway. Every DCT cost is reported
+against the marked image, and the embedding's own cost against the original,
+so the two can be read on one scale.
+
+Usage:
+    python scripts/evaluate_watermark_removal.py \\
+        --checkpoint models/learned_watermark_v2.pt models/learned_watermark_v3.pt
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from concurrent.futures import ProcessPoolExecutor
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+from PIL import Image, ImageFilter
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import build_manipulation_set as swaps
+from evaluate_learned_watermark import SIZE, align_matrix, as_tensor
+from evaluate_learned_watermark_attribution import (
+    SUBSETS,
+    Model,
+    closed_set_top1,
+    identity_pairs,
+    rank_auc,
+    score,
+    summarise,
+)
+from learned_watermark import BITS, distort, pick_device
+from train_learned_watermark import load_vae, vae_roundtrip
+
+from deepshield.config import WatermarkConfig
+from deepshield.media import load_image
+from deepshield.protection.fingerprint import dct2, idct2
+from deepshield.protection.watermark import (
+    BLOCK_SIZE,
+    CARRIER_BAND,
+    CODE_BITS,
+    COEFFICIENT_A,
+    COEFFICIENT_B,
+    PAIR_CANDIDATES,
+    DctWatermarker,
+)
+from deepshield.quality import psnr
+from deepshield.transforms import Transformation
+from deepshield.types import WatermarkPayload
+
+PGD_STEPS = 40
+PGD_EOT_STRENGTH = 0.5
+
+
+def uninformed_attacks() -> dict[str, Any]:
+    """Return the degradations an attacker without the decoder would try."""
+
+    def transform(kind: str, **params: Any) -> Any:
+        def apply(image: np.ndarray) -> np.ndarray:
+            return Transformation(kind, kind, params).apply(image, seed=1)
+
+        return apply
+
+    def median(image: np.ndarray) -> np.ndarray:
+        return np.asarray(Image.fromarray(image).filter(ImageFilter.MedianFilter(3)))
+
+    def sharpen(image: np.ndarray) -> np.ndarray:
+        filtered = Image.fromarray(image).filter(
+            ImageFilter.UnsharpMask(radius=2, percent=150, threshold=0)
+        )
+        return np.asarray(filtered)
+
+    def resize_down_up(image: np.ndarray) -> np.ndarray:
+        height, width = image.shape[:2]
+        small = Image.fromarray(image).resize(
+            (width // 2, height // 2), Image.Resampling.LANCZOS
+        )
+        return np.asarray(small.resize((width, height), Image.Resampling.BICUBIC))
+
+    def combined(image: np.ndarray) -> np.ndarray:
+        out = transform("blur", sigma=1.0)(image)
+        out = transform("noise", sigma=5.0)(out)
+        return transform("jpeg_compression", quality=50)(out)
+
+    return {
+        "none": lambda image: image,
+        "jpeg_50": transform("jpeg_compression", quality=50),
+        "jpeg_30": transform("jpeg_compression", quality=30),
+        "blur_1.5": transform("blur", sigma=1.5),
+        "median_3": median,
+        "resize_50_up": resize_down_up,
+        "noise_8": transform("noise", sigma=8.0),
+        "sharpen": sharpen,
+        "blur_noise_jpeg": combined,
+    }
+
+
+class VaeAttack:
+    """Regenerate the photograph through the Stable Diffusion VAE."""
+
+    def __init__(self, device: str) -> None:
+        """Load the VAE lazily on first use."""
+        self.device = device
+        self._vae: Any = None
+
+    def __call__(self, image: np.ndarray) -> np.ndarray:
+        """Return the photograph after one encode-decode round trip."""
+        if self._vae is None:
+            self._vae = load_vae(self.device)
+        height, width = image.shape[:2]
+        side = (max(height, width) + 7) // 8 * 8
+        canvas = np.zeros((side, side, 3), dtype=np.uint8)
+        canvas[:height, :width] = image
+        tensor = torch.from_numpy(canvas).permute(2, 0, 1).float().div(127.5).sub(1)
+        with torch.no_grad():
+            out = vae_roundtrip(self._vae, tensor.unsqueeze(0).to(self.device))
+        array = out.squeeze(0).permute(1, 2, 0).cpu().numpy()
+        array = np.clip((array + 1) * 127.5, 0, 255).astype(np.uint8)
+        return np.ascontiguousarray(array[:height, :width])
+
+
+def pgd_in_crop(
+    model: Model,
+    crop: np.ndarray,
+    levels: float,
+    target: np.ndarray | None,
+) -> np.ndarray:
+    """Return an additive perturbation of the aligned crop, in 8-bit units.
+
+    ``target`` of ``None`` erases (logits towards zero); otherwise the logits
+    are pushed towards the given code.
+    """
+    clean = as_tensor(crop, model.device, False)
+    epsilon = float(levels) * 2.0 / 255.0
+    step = epsilon / 6.0
+    delta = torch.zeros_like(clean, requires_grad=True)
+    wanted = (
+        None
+        if target is None
+        else torch.from_numpy(target[None].astype(np.float32)).to(model.device)
+    )
+    for _ in range(PGD_STEPS):
+        probe = distort((clean + delta).clamp(-1, 1), PGD_EOT_STRENGTH)
+        if model.transposed:
+            probe = probe.transpose(2, 3).contiguous()
+        logits = model.decoder(probe)
+        loss = (logits**2).mean() if wanted is None else F.binary_cross_entropy_with_logits(
+            logits, wanted
+        )
+        (gradient,) = torch.autograd.grad(loss, delta)
+        with torch.no_grad():
+            delta -= step * gradient.sign()
+            delta.clamp_(-epsilon, epsilon)
+            delta.copy_((clean + delta).clamp(-1, 1) - clean)
+    return delta.detach().squeeze(0).permute(1, 2, 0).cpu().numpy() * 127.5
+
+
+def warp_back(cv2: Any, image: np.ndarray, matrix: np.ndarray, shift: np.ndarray) -> np.ndarray:
+    """Add a crop-frame perturbation to the photograph it came from."""
+    spread = cv2.warpAffine(
+        shift, cv2.invertAffineTransform(matrix), (image.shape[1], image.shape[0])
+    )
+    return np.clip(image.astype(np.float32) + spread, 0, 255).astype(np.uint8)
+
+
+def _edit_blocks(image: np.ndarray, edit: Any) -> np.ndarray:
+    """Apply ``edit`` to the DCT of every whole 8x8 luminance block."""
+    ycbcr = np.asarray(Image.fromarray(image).convert("YCbCr"), dtype=np.float64)
+    luminance = ycbcr[:, :, 0]
+    rows, cols = luminance.shape[0] // BLOCK_SIZE, luminance.shape[1] // BLOCK_SIZE
+    for row in range(rows):
+        for col in range(cols):
+            y0, x0 = row * BLOCK_SIZE, col * BLOCK_SIZE
+            block = dct2(luminance[y0 : y0 + BLOCK_SIZE, x0 : x0 + BLOCK_SIZE])
+            edit(block)
+            luminance[y0 : y0 + BLOCK_SIZE, x0 : x0 + BLOCK_SIZE] = idct2(block)
+    ycbcr[:, :, 0] = np.clip(luminance, 0, 255)
+    return np.asarray(Image.fromarray(ycbcr.astype(np.uint8), mode="YCbCr").convert("RGB"))
+
+
+def dct_equalise(
+    image: np.ndarray,
+    pairs: tuple[tuple[tuple[int, int], tuple[int, int]], ...] = ((COEFFICIENT_A, COEFFICIENT_B),),
+) -> np.ndarray:
+    """Remove the DCT mark by giving the carrier coefficients of each pair their mean.
+
+    The keyless design carries every bit on one pair, so flattening that pair
+    is the whole attack. Against a keyed pair layout the attacker does not know
+    which of the candidate pairs a block uses and has to flatten all of them.
+    """
+
+    def edit(block: np.ndarray) -> None:
+        for first, second in pairs:
+            mean = (block[first] + block[second]) / 2.0
+            block[first] = mean
+            block[second] = mean
+
+    return _edit_blocks(image, edit)
+
+
+def dct_blank_band(image: np.ndarray) -> np.ndarray:
+    """Remove any spread mark by zeroing every coefficient the band could carry it on.
+
+    Without the key there is no pair to aim at, so this is the attacker's
+    cheapest certain removal: it also discards the image's own content in
+    those eleven coefficients, which is what the attack costs.
+    """
+
+    def edit(block: np.ndarray) -> None:
+        for position in CARRIER_BAND:
+            block[position] = 0.0
+
+    return _edit_blocks(image, edit)
+
+
+def dct_band_noise(image: np.ndarray, sigma: float, seed: int = 0) -> np.ndarray:
+    """Drown a spread mark by adding Gaussian noise to every band coefficient."""
+    rng = np.random.default_rng(seed)
+
+    def edit(block: np.ndarray) -> None:
+        for position in CARRIER_BAND:
+            block[position] += rng.normal(0.0, sigma)
+
+    return _edit_blocks(image, edit)
+
+
+def dct_generic_attacks() -> dict[str, Any]:
+    """Return the degradations an attacker without any knowledge would try on the DCT mark."""
+    generic = uninformed_attacks()
+    return {name: generic[name] for name in ("jpeg_50", "jpeg_30", "blur_1.5", "resize_50_up")}
+
+
+def _dct_variants(
+    watermarker: DctWatermarker,
+    marked: np.ndarray,
+    forger: WatermarkPayload,
+    key: str | None,
+    noise_levels: list[float],
+) -> dict[str, np.ndarray]:
+    """Return every attacked version of one marked image for the given layout."""
+    keyless = DctWatermarker(WatermarkConfig())
+    guesser = DctWatermarker(
+        WatermarkConfig(
+            key="not the owner's key",
+            carrier_coefficients=watermarker.config.carrier_coefficients,
+        )
+    )
+    variants: dict[str, np.ndarray] = {"none": marked}
+    if key is None:
+        variants["equalise"] = dct_equalise(marked)
+        variants["overwrite"] = watermarker.embed(marked, forger)
+    else:
+        variants["equalise_keyless_pair"] = dct_equalise(marked)
+        variants["equalise_all_pairs"] = dct_equalise(marked, PAIR_CANDIDATES)
+        variants["blank_band"] = dct_blank_band(marked)
+        for sigma in noise_levels:
+            variants[f"band_noise_{sigma:g}"] = dct_band_noise(marked, sigma)
+        variants["overwrite_keyless_layout"] = keyless.embed(marked, forger)
+        variants["overwrite_guessed_key"] = guesser.embed(marked, forger)
+        if watermarker.schedule.carrier_size == 2:
+            owned = [PAIR_CANDIDATES[index] for index in watermarker.schedule.pair_of_slot]
+            variants["equalise_with_key"] = dct_equalise(marked, tuple(sorted(set(owned))))
+        variants["overwrite_with_key"] = watermarker.embed(marked, forger)
+    for name, attack in dct_generic_attacks().items():
+        variants[name] = attack(marked)
+    return variants
+
+
+def _dct_one_image(
+    path: Path,
+    key: str | None,
+    carrier_coefficients: int,
+    noise_levels: list[float],
+    strength: float | None,
+) -> dict[str, Any] | None:
+    """Mark one photograph, attack it every way, and read each result back."""
+    settings: dict[str, Any] = {
+        "key": key,
+        "carrier_coefficients": carrier_coefficients if key else 2,
+    }
+    if strength is not None:
+        settings["strength"] = strength
+    watermarker = DctWatermarker(WatermarkConfig(**settings))
+    owner = WatermarkPayload(version=1, user_token="owner", asset_id="photo", distribution_id="a")
+    forger = WatermarkPayload(version=1, user_token="forger", asset_id="photo", distribution_id="b")
+    owner_code = f"{owner.code(CODE_BITS):08x}"
+    forger_code = f"{forger.code(CODE_BITS):08x}"
+    image = load_image(path)
+    try:
+        marked = watermarker.embed(image, owner)
+    except Exception:
+        return None
+    outcome: dict[str, Any] = {
+        "embed_psnr": psnr(image, marked),
+        # What the band held before any mark: the floor under every band attack.
+        "band_psnr": psnr(image, dct_blank_band(image)),
+        "variants": {},
+    }
+    for name, variant in _dct_variants(watermarker, marked, forger, key, noise_levels).items():
+        result = watermarker.detect(variant)
+        outcome["variants"][name] = {
+            "detected": float(result.detected),
+            "owner": float(result.watermark_code == owner_code),
+            "forger": float(result.watermark_code == forger_code),
+            "psnr": psnr(marked, variant),
+        }
+    return outcome
+
+
+def evaluate_dct(
+    paths: list[Path],
+    key: str | None = None,
+    carrier_coefficients: int = 2,
+    noise_levels: list[float] | None = None,
+    workers: int = 1,
+    strength: float | None = None,
+) -> dict[str, Any]:
+    """Measure informed removal and forgery against the DCT mark, in one of three layouts.
+
+    Without a key the attacker who has read the source knows the carrier pair
+    and the tile layout: ``equalise`` and ``overwrite`` are the whole story.
+    With a key and pair carriers the same attacker is measured knowing the
+    algorithm but not the key (flatten the keyless pair, flatten every
+    candidate pair, blank the band, overwrite with the keyless layout or a
+    guessed key) and holding the key, which is the ceiling the secret has to
+    protect. With a spread carrier the pair attacks lose their target and the
+    band attacks are what is left. Every layout is also put through the JPEG,
+    blur and resampling an attacker without any knowledge would try, so the
+    informed costs can be read against the uninformed ones.
+    """
+    levels = [10.0, 20.0, 40.0] if noise_levels is None else noise_levels
+    if workers > 1:
+        with ProcessPoolExecutor(max_workers=workers) as pool:
+            outcomes = list(
+                pool.map(
+                    _dct_one_image,
+                    paths,
+                    [key] * len(paths),
+                    [carrier_coefficients] * len(paths),
+                    [levels] * len(paths),
+                    [strength] * len(paths),
+                )
+            )
+    else:
+        outcomes = [
+            _dct_one_image(path, key, carrier_coefficients, levels, strength) for path in paths
+        ]
+    kept = [outcome for outcome in outcomes if outcome is not None]
+    if not kept:
+        return {}
+    names = list(kept[0]["variants"])
+    report: dict[str, Any] = {
+        "n": len(kept),
+        "carrier_coefficients": carrier_coefficients if key else 2,
+        "strength": WatermarkConfig().strength if strength is None else strength,
+        "embed_psnr_db": round(float(np.mean([o["embed_psnr"] for o in kept])), 2),
+        "unmarked_band_blank_psnr_db": round(float(np.mean([o["band_psnr"] for o in kept])), 2),
+    }
+    for name in names:
+        cells = [o["variants"][name] for o in kept]
+        quality = np.mean([cell["psnr"] for cell in cells])
+        report[name] = {
+            "n": len(cells),
+            "detected": round(float(np.mean([cell["detected"] for cell in cells])), 4),
+            "owner_code_read": round(float(np.mean([cell["owner"] for cell in cells])), 4),
+            "forger_code_read": round(float(np.mean([cell["forger"] for cell in cells])), 4),
+            "psnr_vs_marked_db": None if not np.isfinite(quality) else round(float(quality), 2),
+        }
+    return report
+
+
+def evaluate_learned(
+    cv2: Any,
+    app: Any,
+    model: Model,
+    pairs: list[tuple[Path, Path]],
+    codebook: np.ndarray,
+    limit: int,
+    seed: int,
+    levels: list[float],
+    device: str,
+) -> dict[str, Any]:
+    """Run every attack on one checkpoint and summarise each."""
+    attacks = uninformed_attacks()
+    attacks["vae_roundtrip"] = VaeAttack(device)
+    informed = [("pgd_erase", level, None) for level in levels]
+    informed += [("pgd_frame", level, "frame") for level in levels]
+    cells: dict[str, dict[str, list[dict[str, Any]]]] = {
+        name: {"marked": [], "unmarked": []} for name in attacks
+    }
+    for name, level, _ in informed:
+        cells[f"{name}_{level:g}"] = {"marked": [], "unmarked": []}
+    quality: dict[str, list[float]] = {name: [] for name in cells}
+    framed: dict[str, list[float]] = {}
+    samples = 0
+
+    def record(
+        name: str, label: str, image: np.ndarray, truth: int, index: int
+    ) -> np.ndarray | None:
+        logits = model.logits(cv2, app, image)
+        if logits is None:
+            return None
+        scores = score(logits, codebook)
+        subset_rng = np.random.default_rng(seed * 1000 + index)
+        cells[name][label].append(
+            {
+                "detection_score": float(scores.max()),
+                "top1": float(int(np.argmax(scores)) == truth),
+                "closed_set": {
+                    str(size): closed_set_top1(scores, truth, size, subset_rng) for size in SUBSETS
+                },
+            }
+        )
+        return scores
+
+    for index, (own_path, _) in enumerate(pairs):
+        if samples >= limit:
+            break
+        own = load_image(own_path)
+        truth = index % codebook.shape[0]
+        prepared = model.mark(cv2, app, own, codebook[truth])
+        if prepared is None:
+            continue
+        marked, _ = prepared
+        samples += 1
+
+        for name, attack in attacks.items():
+            for label, probe in (("marked", marked), ("unmarked", own)):
+                attacked = attack(probe)
+                if label == "marked":
+                    quality[name].append(psnr(marked, attacked))
+                record(name, label, attacked, truth, index)
+
+        matrix = align_matrix(cv2, app, marked)
+        if matrix is None:
+            continue
+        crop = cv2.warpAffine(marked, matrix, (SIZE, SIZE))
+        clean_matrix = align_matrix(cv2, app, own)
+        clean_crop = (
+            None if clean_matrix is None else cv2.warpAffine(own, clean_matrix, (SIZE, SIZE))
+        )
+        for name, level, objective in informed:
+            key = f"{name}_{level:g}"
+            target = None
+            if objective == "frame":
+                target = codebook[(truth + 1) % codebook.shape[0]]
+            attacked = warp_back(cv2, marked, matrix, pgd_in_crop(model, crop, level, target))
+            quality[key].append(psnr(marked, attacked))
+            scores = record(key, "marked", attacked, truth, index)
+            if objective == "frame" and scores is not None:
+                hit = int(np.argmax(scores)) == (truth + 1) % codebook.shape[0]
+                framed.setdefault(key, []).append(float(hit))
+            if clean_crop is not None:
+                control = warp_back(
+                    cv2, own, clean_matrix, pgd_in_crop(model, clean_crop, level, target)
+                )
+                record(key, "unmarked", control, truth, index)
+        if samples % 20 == 0:
+            print(f"  {samples} samples", flush=True)
+
+    report: dict[str, Any] = {}
+    for name, cell in cells.items():
+        if not cell["marked"] or not cell["unmarked"]:
+            continue
+        summary = summarise(cell["marked"], cell["unmarked"], seed)
+        marked_scores = np.array([row["detection_score"] for row in cell["marked"]])
+        unmarked_scores = np.array([row["detection_score"] for row in cell["unmarked"]])
+        report[name] = {
+            "n": len(cell["marked"]),
+            "psnr_vs_marked_db": (
+                None
+                if not np.isfinite(np.mean(quality[name]))
+                else round(float(np.mean(quality[name])), 2)
+            ),
+            "detection_auc": round(rank_auc(marked_scores, unmarked_scores), 4),
+            "attribution_top1_of_codebook": summary["attribution_all"]["top1_of_codebook"],
+            "marked_score_mean": round(float(marked_scores.mean()), 2),
+            "unmarked_score_mean": round(float(unmarked_scores.mean()), 2),
+        }
+    for key, hits in framed.items():
+        if key in report:
+            report[key]["attributed_to_framed_registrant"] = round(float(np.mean(hits)), 4)
+    return report
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Measure removal attacks against the learned and the DCT watermarks."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--checkpoint", type=Path, nargs="+", default=[])
+    parser.add_argument("--faces", type=Path, default=Path("data/sklearn/lfw_home/lfw_funneled"))
+    parser.add_argument("--models", type=Path, default=Path("models"))
+    parser.add_argument("--output", type=Path, default=Path("data/results"))
+    parser.add_argument("--pairs", type=int, default=60)
+    parser.add_argument("--codebook", type=int, default=72)
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--levels", type=float, nargs="+", default=[4.0, 8.0, 16.0])
+    parser.add_argument("--orientation", choices=("transposed", "upright"), default=None)
+    parser.add_argument(
+        "--dct-only",
+        action="store_true",
+        help="skip the learned watermark and only measure the DCT mark",
+    )
+    parser.add_argument(
+        "--dct-key",
+        default="deepshield-benchmark-key-2026",
+        help="secret for the keyed DCT measurement",
+    )
+    parser.add_argument(
+        "--dct-carrier",
+        type=int,
+        default=6,
+        help="coefficients per carrier for the keyed spread layout",
+    )
+    parser.add_argument(
+        "--band-noise",
+        type=float,
+        nargs="+",
+        default=[10.0, 20.0, 40.0],
+        help="DCT-domain noise levels for the band attack",
+    )
+    parser.add_argument(
+        "--dct-spread-strength",
+        type=float,
+        default=0.28,
+        help="strength that puts the spread layout at the pair layout's PSNR",
+    )
+    parser.add_argument("--workers", type=int, default=1, help="images attacked in parallel")
+    args = parser.parse_args(argv)
+
+    pairs = identity_pairs(args.faces)
+    if not pairs:
+        raise SystemExit(f"no identity pairs found in {args.faces}")
+
+    if args.dct_only:
+        report_dct: dict[str, Any] = {
+            "faces": str(args.faces),
+            "pairs": args.pairs,
+            "band": [list(position) for position in CARRIER_BAND],
+        }
+        for label, key, carrier, strength in (
+            ("dct", None, 2, None),
+            ("dct_keyed", args.dct_key, 2, None),
+            ("dct_spread", args.dct_key, args.dct_carrier, None),
+            ("dct_spread_matched", args.dct_key, args.dct_carrier, args.dct_spread_strength),
+        ):
+            print(f"== {label}", flush=True)
+            report_dct[label] = evaluate_dct(
+                [own for own, _ in pairs[: args.pairs]],
+                key,
+                carrier,
+                args.band_noise,
+                args.workers,
+                strength,
+            )
+        args.output.mkdir(parents=True, exist_ok=True)
+        destination = args.output / "watermark_removal_dct.json"
+        destination.write_text(json.dumps(report_dct, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps(report_dct, indent=2))
+        print(f"\nwrote {destination}")
+        return 0
+
+    if not args.checkpoint:
+        raise SystemExit("--checkpoint is required unless --dct-only is given")
+
+    import cv2
+
+    device = pick_device()
+    app = swaps.build_analyzer(args.models)
+    rng = np.random.default_rng(args.seed)
+    codebook = rng.integers(0, 2, (args.codebook, BITS)).astype(np.uint8)
+
+    report: dict[str, Any] = {
+        "question": "how much image quality does it cost to strip or forge the mark on purpose",
+        "faces": str(args.faces),
+        "pairs": args.pairs,
+        "codebook": args.codebook,
+        "pgd": {
+            "steps": PGD_STEPS,
+            "budget_grey_levels": args.levels,
+            "domain": "aligned 128px face frame, warped back",
+            "expectation_over_distortion_strength": PGD_EOT_STRENGTH,
+        },
+        "learned": {},
+    }
+    for checkpoint in args.checkpoint:
+        print(f"== {checkpoint}", flush=True)
+        model = Model(checkpoint, device, args.orientation)
+        report["learned"][checkpoint.stem] = evaluate_learned(
+            cv2, app, model, pairs, codebook, args.pairs, args.seed, args.levels, device
+        )
+    for label, key, carrier, strength in (
+        ("dct", None, 2, None),
+        ("dct_keyed", args.dct_key, 2, None),
+        ("dct_spread", args.dct_key, args.dct_carrier, None),
+        ("dct_spread_matched", args.dct_key, args.dct_carrier, args.dct_spread_strength),
+    ):
+        print(f"== {label}", flush=True)
+        report[label] = evaluate_dct(
+            [own for own, _ in pairs[: args.pairs]],
+            key,
+            carrier,
+            args.band_noise,
+            args.workers,
+            strength,
+        )
+
+    args.output.mkdir(parents=True, exist_ok=True)
+    destination = args.output / "watermark_removal.json"
+    destination.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(report, indent=2))
+    print(f"\nwrote {destination}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

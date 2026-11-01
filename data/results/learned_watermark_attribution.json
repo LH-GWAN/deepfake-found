@@ -1,0 +1,24 @@
+{
+  "checkpoint": "models/learned_watermark_v2.pt",
+  "swapper": "graphics Delaunay swap, never in the training graph",
+  "faces": "LFW funneled originals, 150 distinct identity pairs",
+  "samples": 150,
+  "split": {"calibration": 75, "test": 75, "threshold_fitted_on": "calibration only"},
+  "detection": {
+    "codebook": 72,
+    "threshold_zero_fp_on_calibration": 21.08,
+    "test_detection_rate": 0.8933,
+    "test_false_positive_rate": 0.0,
+    "threshold_1pct_fp_on_calibration": 18.67,
+    "test_detection_rate_at_1pct": 0.9333,
+    "test_false_positive_rate_at_1pct": 0.0267,
+    "test_auc": 0.9868
+  },
+  "attribution_closed_set_test_half": [
+    {"registered_users": 2,  "top1": 0.9968},
+    {"registered_users": 8,  "top1": 0.9813},
+    {"registered_users": 32, "top1": 0.9525},
+    {"registered_users": 72, "top1": 0.9333}
+  ],
+  "supersedes": "earlier 23-sample run whose threshold was fitted in-sample"
+}

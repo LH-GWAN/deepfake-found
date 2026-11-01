@@ -1,0 +1,168 @@
+{
+  "question": "which verdict does each real-world situation receive?",
+  "identities": 30,
+  "situations": {
+    "heavy_repost": {
+      "expected": [
+        "own_copy",
+        "own_unverified"
+      ],
+      "cases": 30,
+      "as_expected": 20,
+      "verdicts": {
+        "own_unverified": 13,
+        "own_copy": 7,
+        "own_altered": 10
+      },
+      "levels": {
+        "MEDIUM": 13,
+        "LOW": 7,
+        "HIGH": 10
+      },
+      "identity_decisions": {
+        "candidate": 13,
+        "no_match": 14,
+        "high_confidence": 3
+      },
+      "faces_detected": {
+        "2": 3,
+        "1": 27
+      }
+    },
+    "heavy_target": {
+      "expected": [
+        "own_altered"
+      ],
+      "cases": 30,
+      "as_expected": 30,
+      "verdicts": {
+        "own_altered": 30
+      },
+      "levels": {
+        "HIGH": 30
+      },
+      "identity_decisions": {
+        "no_match": 30
+      },
+      "faces_detected": {
+        "2": 2,
+        "1": 27,
+        "3": 1
+      }
+    },
+    "group_heavy_repost": {
+      "expected": [
+        "own_copy",
+        "own_unverified"
+      ],
+      "cases": 30,
+      "as_expected": 30,
+      "verdicts": {
+        "own_copy": 30
+      },
+      "levels": {
+        "LOW": 30
+      },
+      "identity_decisions": {
+        "high_confidence": 25,
+        "candidate": 4,
+        "no_match": 1
+      },
+      "faces_detected": {
+        "3": 3,
+        "2": 26,
+        "1": 1
+      }
+    },
+    "shielded_group_repost": {
+      "expected": [
+        "own_copy",
+        "own_unverified"
+      ],
+      "cases": 30,
+      "as_expected": 15,
+      "verdicts": {
+        "own_altered": 15,
+        "own_copy": 7,
+        "own_unverified": 8
+      },
+      "levels": {
+        "HIGH": 15,
+        "LOW": 7,
+        "MEDIUM": 8
+      },
+      "identity_decisions": {
+        "no_match": 14,
+        "candidate": 10,
+        "high_confidence": 6
+      },
+      "faces_detected": {
+        "3": 2,
+        "2": 26,
+        "4": 1,
+        "1": 1
+      }
+    },
+    "shielded_group_recompressed": {
+      "expected": [
+        "own_copy",
+        "own_unverified"
+      ],
+      "cases": 30,
+      "as_expected": 30,
+      "verdicts": {
+        "own_copy": 30
+      },
+      "levels": {
+        "LOW": 30
+      },
+      "identity_decisions": {
+        "no_match": 30
+      },
+      "faces_detected": {
+        "3": 3,
+        "2": 26,
+        "1": 1
+      }
+    },
+    "shielded_group_target": {
+      "expected": [
+        "own_altered"
+      ],
+      "cases": 30,
+      "as_expected": 30,
+      "verdicts": {
+        "own_altered": 30
+      },
+      "levels": {
+        "HIGH": 30
+      },
+      "identity_decisions": {
+        "no_match": 30
+      },
+      "faces_detected": {
+        "3": 3,
+        "2": 26,
+        "1": 1
+      }
+    }
+  },
+  "not_built": {},
+  "environment": {
+    "deepshield_version": "0.1.0",
+    "git_commit": "not-a-git-repository",
+    "git_dirty": null,
+    "python": "3.12.10",
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
+    "numpy": "2.5.3",
+    "random_seed": 42,
+    "configured_device": "cpu",
+    "face_detector": "opencv_yunet",
+    "face_aligner": "landmark",
+    "face_embedder": "insightface",
+    "deepfake_detector": "spectral",
+    "watermark_backend": "dct",
+    "watermark_strength": 0.16,
+    "recorded_at": "2026-10-02T05:36:58.460672+00:00"
+  }
+}

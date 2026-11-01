@@ -1,0 +1,496 @@
+{
+  "question": "does a perturbation on the swapper's own encoder stop a swap carrying the person, and does tracking survive it?",
+  "attacked_model": "buffalo_l w600k_r50 (the ArcFace inswapper conditions on)",
+  "attack": "PGD 200 steps, L-infinity, EOT over alignment jitter, resampling, blur and noise",
+  "swapper": "inswapper_128",
+  "identities": 30,
+  "arcface_thresholds": {
+    "candidate": 0.3591,
+    "high": 0.4128
+  },
+  "torch_vs_onnxruntime_max_diff": 5.841255187988281e-06,
+  "swaps": {
+    "clean": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 30,
+        "median_donor_similarity": 0.6839,
+        "above_high_confidence": 30,
+        "above_candidate": 30
+      },
+      "sface": {
+        "donor_first": 30,
+        "median_donor_similarity": 0.6784
+      }
+    },
+    "eps2": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 30,
+        "median_donor_similarity": 0.4833,
+        "above_high_confidence": 23,
+        "above_candidate": 25
+      },
+      "sface": {
+        "donor_first": 29,
+        "median_donor_similarity": 0.572
+      }
+    },
+    "eps2_jpeg85": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 30,
+        "median_donor_similarity": 0.5182,
+        "above_high_confidence": 24,
+        "above_candidate": 26
+      },
+      "sface": {
+        "donor_first": 29,
+        "median_donor_similarity": 0.5892
+      }
+    },
+    "eps2_jpeg70": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 30,
+        "median_donor_similarity": 0.5243,
+        "above_high_confidence": 25,
+        "above_candidate": 26
+      },
+      "sface": {
+        "donor_first": 29,
+        "median_donor_similarity": 0.6
+      }
+    },
+    "eps2_half": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 30,
+        "median_donor_similarity": 0.4988,
+        "above_high_confidence": 24,
+        "above_candidate": 25
+      },
+      "sface": {
+        "donor_first": 29,
+        "median_donor_similarity": 0.5787
+      }
+    },
+    "eps4": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 4,
+        "median_donor_similarity": 0.0301,
+        "above_high_confidence": 0,
+        "above_candidate": 0
+      },
+      "sface": {
+        "donor_first": 8,
+        "median_donor_similarity": 0.2388
+      }
+    },
+    "eps4_jpeg85": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 9,
+        "median_donor_similarity": 0.0748,
+        "above_high_confidence": 0,
+        "above_candidate": 1
+      },
+      "sface": {
+        "donor_first": 8,
+        "median_donor_similarity": 0.2799
+      }
+    },
+    "eps4_jpeg70": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 11,
+        "median_donor_similarity": 0.1135,
+        "above_high_confidence": 0,
+        "above_candidate": 1
+      },
+      "sface": {
+        "donor_first": 13,
+        "median_donor_similarity": 0.3174
+      }
+    },
+    "eps4_half": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 8,
+        "median_donor_similarity": 0.0721,
+        "above_high_confidence": 0,
+        "above_candidate": 0
+      },
+      "sface": {
+        "donor_first": 8,
+        "median_donor_similarity": 0.2767
+      }
+    },
+    "eps8": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 0,
+        "median_donor_similarity": -0.3443,
+        "above_high_confidence": 0,
+        "above_candidate": 0
+      },
+      "sface": {
+        "donor_first": 0,
+        "median_donor_similarity": -0.1467
+      }
+    },
+    "eps8_jpeg85": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 0,
+        "median_donor_similarity": -0.3245,
+        "above_high_confidence": 0,
+        "above_candidate": 0
+      },
+      "sface": {
+        "donor_first": 0,
+        "median_donor_similarity": -0.1214
+      }
+    },
+    "eps8_jpeg70": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 0,
+        "median_donor_similarity": -0.2848,
+        "above_high_confidence": 0,
+        "above_candidate": 0
+      },
+      "sface": {
+        "donor_first": 0,
+        "median_donor_similarity": -0.052
+      }
+    },
+    "eps8_half": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 0,
+        "median_donor_similarity": -0.3189,
+        "above_high_confidence": 0,
+        "above_candidate": 0
+      },
+      "sface": {
+        "donor_first": 0,
+        "median_donor_similarity": -0.1064
+      }
+    },
+    "eps16": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 0,
+        "median_donor_similarity": -0.3935,
+        "above_high_confidence": 0,
+        "above_candidate": 0
+      },
+      "sface": {
+        "donor_first": 0,
+        "median_donor_similarity": -0.1972
+      }
+    },
+    "eps16_jpeg85": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 0,
+        "median_donor_similarity": -0.3913,
+        "above_high_confidence": 0,
+        "above_candidate": 0
+      },
+      "sface": {
+        "donor_first": 0,
+        "median_donor_similarity": -0.1797
+      }
+    },
+    "eps16_jpeg70": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 0,
+        "median_donor_similarity": -0.3775,
+        "above_high_confidence": 0,
+        "above_candidate": 0
+      },
+      "sface": {
+        "donor_first": 0,
+        "median_donor_similarity": -0.1728
+      }
+    },
+    "eps16_half": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 0,
+        "median_donor_similarity": -0.3902,
+        "above_high_confidence": 0,
+        "above_candidate": 0
+      },
+      "sface": {
+        "donor_first": 0,
+        "median_donor_similarity": -0.1844
+      }
+    }
+  },
+  "protected_photo_itself": {
+    "eps2": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 30,
+        "median_donor_similarity": 0.5963,
+        "above_high_confidence": 27,
+        "above_candidate": 28
+      },
+      "sface": {
+        "donor_first": 30,
+        "median_donor_similarity": 0.6871
+      }
+    },
+    "eps2_jpeg85": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 30,
+        "median_donor_similarity": 0.6159,
+        "above_high_confidence": 27,
+        "above_candidate": 29
+      },
+      "sface": {
+        "donor_first": 30,
+        "median_donor_similarity": 0.6955
+      }
+    },
+    "eps2_jpeg70": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 30,
+        "median_donor_similarity": 0.6274,
+        "above_high_confidence": 28,
+        "above_candidate": 29
+      },
+      "sface": {
+        "donor_first": 30,
+        "median_donor_similarity": 0.6979
+      }
+    },
+    "eps2_half": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 30,
+        "median_donor_similarity": 0.5944,
+        "above_high_confidence": 29,
+        "above_candidate": 29
+      },
+      "sface": {
+        "donor_first": 30,
+        "median_donor_similarity": 0.6969
+      }
+    },
+    "eps4": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 13,
+        "median_donor_similarity": 0.1307,
+        "above_high_confidence": 1,
+        "above_candidate": 1
+      },
+      "sface": {
+        "donor_first": 30,
+        "median_donor_similarity": 0.5283
+      }
+    },
+    "eps4_jpeg85": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 17,
+        "median_donor_similarity": 0.169,
+        "above_high_confidence": 1,
+        "above_candidate": 4
+      },
+      "sface": {
+        "donor_first": 30,
+        "median_donor_similarity": 0.5522
+      }
+    },
+    "eps4_jpeg70": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 23,
+        "median_donor_similarity": 0.2249,
+        "above_high_confidence": 3,
+        "above_candidate": 5
+      },
+      "sface": {
+        "donor_first": 30,
+        "median_donor_similarity": 0.5591
+      }
+    },
+    "eps4_half": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 17,
+        "median_donor_similarity": 0.1809,
+        "above_high_confidence": 1,
+        "above_candidate": 1
+      },
+      "sface": {
+        "donor_first": 30,
+        "median_donor_similarity": 0.5414
+      }
+    },
+    "eps8": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 0,
+        "median_donor_similarity": -0.2921,
+        "above_high_confidence": 0,
+        "above_candidate": 0
+      },
+      "sface": {
+        "donor_first": 11,
+        "median_donor_similarity": 0.2446
+      }
+    },
+    "eps8_jpeg85": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 0,
+        "median_donor_similarity": -0.2713,
+        "above_high_confidence": 0,
+        "above_candidate": 0
+      },
+      "sface": {
+        "donor_first": 17,
+        "median_donor_similarity": 0.2616
+      }
+    },
+    "eps8_jpeg70": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 0,
+        "median_donor_similarity": -0.2329,
+        "above_high_confidence": 0,
+        "above_candidate": 0
+      },
+      "sface": {
+        "donor_first": 14,
+        "median_donor_similarity": 0.2842
+      }
+    },
+    "eps8_half": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 0,
+        "median_donor_similarity": -0.2817,
+        "above_high_confidence": 0,
+        "above_candidate": 0
+      },
+      "sface": {
+        "donor_first": 15,
+        "median_donor_similarity": 0.2712
+      }
+    },
+    "eps16": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 0,
+        "median_donor_similarity": -0.4347,
+        "above_high_confidence": 0,
+        "above_candidate": 0
+      },
+      "sface": {
+        "donor_first": 0,
+        "median_donor_similarity": 0.0109
+      }
+    },
+    "eps16_jpeg85": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 0,
+        "median_donor_similarity": -0.4099,
+        "above_high_confidence": 0,
+        "above_candidate": 0
+      },
+      "sface": {
+        "donor_first": 0,
+        "median_donor_similarity": 0.0553
+      }
+    },
+    "eps16_jpeg70": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 0,
+        "median_donor_similarity": -0.4132,
+        "above_high_confidence": 0,
+        "above_candidate": 0
+      },
+      "sface": {
+        "donor_first": 1,
+        "median_donor_similarity": 0.0702
+      }
+    },
+    "eps16_half": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "donor_first": 0,
+        "median_donor_similarity": -0.4263,
+        "above_high_confidence": 0,
+        "above_candidate": 0
+      },
+      "sface": {
+        "donor_first": 1,
+        "median_donor_similarity": 0.037
+      }
+    }
+  },
+  "image_quality": {
+    "eps2": {
+      "psnr": 47.32,
+      "ssim": 0.9958
+    },
+    "eps4": {
+      "psnr": 41.57,
+      "ssim": 0.9851
+    },
+    "eps8": {
+      "psnr": 36.2,
+      "ssim": 0.9567
+    },
+    "eps16": {
+      "psnr": 31.32,
+      "ssim": 0.9019
+    }
+  }
+}

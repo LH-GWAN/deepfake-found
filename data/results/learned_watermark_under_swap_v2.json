@@ -1,0 +1,20 @@
+{
+  "run": "20000 steps, Colab Tesla T4, curriculum warmup 40%",
+  "checkpoint": "models/learned_watermark_v2.pt",
+  "evaluation_faces": "LFW funneled originals (held-out crop range)",
+  "pairs": 24,
+  "psnr_db": 38.7,
+  "training_validation": {
+    "distortion_clean": 0.870,
+    "distortion_mid": 0.882,
+    "distortion_full": 0.875,
+    "psnr_db": 32.6
+  },
+  "stages": {
+    "crop": {"n": 24, "bit_accuracy": 0.8802, "exact": 0},
+    "roundtrip": {"n": 24, "bit_accuracy": 0.8906, "exact": 0},
+    "swap": {"n": 23, "bit_accuracy": 0.7527, "exact": 0}
+  },
+  "channel_capacity_bits_over_32_symbols": 6.18,
+  "distinguishable_codes": 72
+}

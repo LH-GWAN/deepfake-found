@@ -1,0 +1,77 @@
+# 2026-10-01 히스토리 재작성 전후의 커밋 번호 대응표
+# 커밋 메시지에서 "Co-Authored-By: Claude" 줄만 지웠고, 파일 내용·작성자·날짜는 그대로입니다.
+# 결과 파일(CSV·JSON)의 env_git_commit / git_commit 값은 재작성 전 번호이니, 이 표로 새 번호를 찾으면 됩니다.
+# 형식: 옛 번호  새 번호  날짜 제목
+72f262558b6934c324fc7098dc83aabd6cd978b7  fa2fc1bce1239546d14c698b3153c48d98295c4b  2026-09-02 Check the input path before building a model backend
+1e41dacfce777e9b24734e80af583b6342f2474e  ee9db77a0f8cc423ad8858bec4581a819e14f76c  2026-09-02 Declare httpx so the documented install can run the tests
+2e3a9e8a6ead8b0f105036ca3d268931742ed191  1b5a3ff10a8687c2261bf833459d9fcf47e6c612  2026-09-02 Point the README at the file that actually records detector AUC
+ea08e8d5f9ed25bd7878579585fade081615e664  fdaad4c8da1bcbe082cec2d38c5cd42fd0b72abe  2026-09-03 Merge pull request #1 from inhwan689/fix/validate-input-before-building-models
+272db13a2f2b82f52068f739f0d8d51422b6d095  90d8f8f566b6b2e7b818bbe0c6035d39ba459502  2026-09-03 Record the merged fixes and correct the blending description
+e4ae60b7fe0b2514810247c0c2b798100f40fd10  d237b9175b720fc05c031c64ead62e3cb669df9a  2026-09-03 Check robustness-test inputs before building an experiment
+85f4350e06ad90bc4387cbad9482a3ff6a9e07b9  26912c9fdfb4d9668bc0346074c6f2b4a78f2a55  2026-09-03 Merge pull request #2 from inhwan689/fix/robustness-checks-its-inputs-too
+2c714685bfce9577436397df88596e2449f80cc6  d4cfe85674b3905c5e01d7f66af3e18d9f61c4c1  2026-09-06 Declare onnxscript so the torch extra can run its tests
+eb99ea12a4e9d8fd1b26037b307c419b50a77a6e  cb211be2a5b0b911011ea0a7721756e211073dfd  2026-09-06 Measure whether a watermark survives deepfake generation
+bfc937d986b1db9d4503cc1d6f7f15348b2e5329  646a092a49649cf5ee96035c8b0bf353576deef7  2026-09-06 Train the learned watermark longer and record what it bought
+930bdc6c8f7c20c8166a24d318ed67be36fdd0d1  e8461cccdc3acd520937a628f876294e047f1a27  2026-09-06 Measure attribution and detection instead of raw bit accuracy
+16df056b5fc191a37d2716cd43584d02c12a8a73  a878163b434916adf682434d1894d06048c77c73  2026-09-06 Split calibration from test and re-measure on 150 samples
+637227dcace7fa7a8fabe7dafd6982cf38aacc9b  1a432403bc56549705c4d602e6761bc1813c2f5a  2026-09-06 Measure the watermark against diffusion regeneration, where attribution fails
+4568b1ce67b473439eb94139a84c8bc7996f69be  3024f7b4866dacb2c1bd18cfba03ba7d5041aaf8  2026-09-06 Train against a differentiable stand-in for diffusion and recover attribution
+06d95f311a51225b8b278ed2cdc34a5bc80e4745  f091d6f740abc8518b0a9719a603247f5f8fab60  2026-09-08 Recover rotated watermarks with an angle search, and measure what it costs
+1334bfd09dcdb38f31229da38011b0cf4d61ea27  1a3776d01b63336804c1c89578b644da2845a551  2026-09-08 Bring the attribution, diffusion and GAN-swap measurements into the repository
+493260738d293ccbf3372a0bce05f024f6e57324  0bdd7cd29f9996053513ef7aaed4a88f2ca7afba  2026-09-08 Measure what an attacker who wants the watermark gone can do
+6c79db74a203a75f32387aea19113f79e1c800e7  c5fa3cf02ca6d9ad61ad6d1a8c7faec3118e6581  2026-09-08 Rescue small and frame-filling faces before giving up on detection
+82110ac5b946901ae574bb02c66548b9f7b8284d  a711dc9ca61d6b067e464c5ea064b7ec41db2e2a  2026-09-08 Verify C2PA content credentials instead of declaring them out of scope
+f0f6957b5a9858f44449ce87f8462f36dbe35c56  252d0d3e9537e2ed7fac1725a2270b2583cf1251  2026-09-08 Re-measure cloaking with real gradients against a surrogate model
+70d6d0e0171d00b0f2b69a17a8b3f0a20b7b902e  fe0e58feb15911366b9c0edd56e3603bb4570f07  2026-09-08 Put the 20% crop back in the benchmark and file the detector's before-and-after
+0a9b525c9595a0f1a1db21fba0536c3e8b553eef  5ac3b103ab1a599e09b7f1e4c7d8ff28df498b03  2026-09-08 Record what was measured and what remains: rotation, GAN swaps, attackers, rescue, C2PA
+9b29bc1a466446f03276177bb6d505bbbcdabc3f  26b30a3ea310d980f5dff8e73926492e752916e7  2026-09-08 Train a detector on this repository's own three families of fakes
+cd02464d01947f9840db7494183b29177cc2f92e  f6240933df9e281d9368cc363039671adaf82e2e  2026-09-09 Fit the VAE round trip into a 16 GB GPU with checkpointing and fp16
+02b9a99528aba91e3c2b1150498e81a04748ffc7  f4b60e6306eb3a47584405827740198218239ab8  2026-09-09 Make the img2img size a flag and keep the 256-pixel diffusion results
+f0731db2cfbb50bc6e134e5defa04b4716c6e909  f43309e33ffa2f8dc044cc42e0454549d1dfa77d  2026-09-09 Read only the chosen LFW identities when building the evaluation set
+74c3018df0ea903b0dc2a811dc5800555ad3f726  2d6d64278f7e26d62c44e6eacd912262c877e90f  2026-09-09 Retrain v3 at 20,000 steps and find that the lever is residual strength, not training length
+eb0117dc2ce7cd1c2ef6872253b1d3d805b60025  776a8abee9eb8e0f8ed1d64788e4da28d958e17d  2026-09-09 Train detectors on the repository's own three families and measure how far they transfer
+8cb1171448573a380dad514ba624f8704bcefa95  b62490dea457db58c25a703786b9a1fd7c4cd634  2026-09-09 Re-measure diffusion at 512 pixels on 150 pairs for all three learned watermarks
+645adf1d14c2937e92b55813e8bb593ba366aa13  c0cce7822f6144170b7ff1450738adf9eda3e8fc  2026-09-13 Key the DCT layout so a keyless attacker cannot forge, and recover rotation after a crop
+7c49c1ec0d6e2fb2486a3eeb5616ed32553be973  584873a1c3c119dab4080a3c591bd2912bb7279b  2026-09-13 Close the 2x2: the VAE round trip is free at equal PSNR, and residual strength adds on top
+0a9059940fa101e06cea29b714cb7f6e65132618  542e4d8ffb713bd5d0f4f5f9fac6519a7196c457  2026-09-13 Commit the VAE-on, capped-residual watermark weights
+3bcc6070f94e514764d324e397d61505df92186c  c461648fb6c46402d0f915ab3fbcfe2156bef37b  2026-09-13 Benchmark the keyed layout on the same 3,910 trials: nothing lost, resampling gained
+624f66ad26ec4441afd6debe917b8f3eec4f829d  89d0985286834de7c672f4812ecfa7fae9687d9a  2026-09-13 Spread each bit over keyed coefficients, widen the rotation search to 30 degrees, and measure both
+dcfef07e9d4f0582c29d32bfc7070e26cbd900c0  5d4369dfcc4f7b375b675591aea8cef71e6c347b  2026-09-24 Replace the weighted risk score with verdicts, and measure that identity finds the face a swap used
+0fc8a681fff782ba33961ea43cf5f88578b55250  5cb741e29ef0f8b6769529c2f461a7d638c05bd4  2026-09-24 Compare every sampled face, not one per track, and sample long videos to the end
+4093ffac45fb6b9241ec697aaa3cea5cd82c5579  32664263b20f2273dc3cd1a483a65c8d49cc3767  2026-09-24 Keep face crops instead of frames, sample at 2 fps, and measure on real footage
+93c899cc3396573456a79411feb66589af4423ab  946ef276b316baa2b7448991391a286ae9efbd58  2026-09-24 Measure two people on screen and small compressed faces; keep the thresholds
+0b52b9e3a957db2f2e690d33c284e6ef1393c8fd  a2a4d04898b4de1a828fe736430a24e7ed84fcd7  2026-09-25 Add content sources, a bounded crawler and scanning (Phase 16)
+6a11691d36df8a0c08e7cf309512f2a63f5a8942  25d6ee493f0515647dde29f0986b775d70c6b3f8  2026-09-25 Read watermarks in resized copies and videos; fix what a live crawl exposed
+4c3072fdccde29df549fe618a469f72dde2f5299  eef7bbae5524ced7f34a4da0c3de4fa386beb4a5  2026-09-25 Stop calling a shrunk copy of the user's photo an altered one
+97ed48e54f3e25259f0fc1feb71f7f01321f6783  e3545aa3969a7d22b1020e1f1deba164c37206d6  2026-09-25 Measure impostor scores among East Asian faces against matched controls
+00640f8dbe9ab1c525384a4c5809b3b11ad09352  7cff84938c6745b11b6434a1fd7a1dcf46aed4d1  2026-09-25 Gate deepfake detectors on a bounded false-alarm rate, recall per family and no leakage
+4429dc35263fbce36dbfd5071d735e379870ab2e  8f6c46ec39e1bbee6449557940404e11bfd33bde  2026-09-25 Measure GenD on the adoption gate; prefer CUDA for the ONNX detector
+fbc0f702314473ea89ae48f2505d1d92c13613fb  b10e8be07b4b25d6b09194e304fb0d1649b6171c  2026-09-25 Measure whether layering two watermarks raises the cost of removing both
+0857319a33f3a92018ae7000ccb50bf0a3c374ef  88ca337be974fb504ff17f27c121e4bc1071324a  2026-09-25 Read FaceForensics++ from any mirror; checkpoint the detector trainer
+adc040102816aa005f07ee109eb09220f01b9d0c  b790a03bec639f97bc34c4c7c5f55c2965209628  2026-09-25 Decode FaceForensics++ clips in one pass instead of seeking
+ac821f1d60cb7b48f19b7aa4c1fe4a602062a38a  a46c2bd118460b155ed2a5ae62e2fc4a508690a1  2026-09-26 Restore the CPU RNG state on the CPU when resuming the detector trainer
+e1a81fb12e901da693b8288d4b7f8a171888d1b1  d070cc0b4099c549319425fad3787d9924d30c9e  2026-09-26 Train the CNN detector on FaceForensics++ c23 and put it through the gate
+0d14a9859dfc61d10c4b16d077b6bfc78a155559  185cd296c9a3e75d89aa217b62d4b87202608de0  2026-09-26 Summarise where the three research limits stand in 연구.md
+69f5e1d66876b292ab9c5a6a255c853af3930db5  438a6431d18e0782495ceb71c986dd3d90292801  2026-09-26 Measure noise defences: the swapper's own encoder stops swaps, nothing stops LoRA
+2514124781d31c3ee9128908b792515f73591793  7903fc52da804283a8a94d8510b3d73e91ef8a55  2026-09-26 Document the trial and error: restore-to-size resizing, dead ends, and the Colab run
+0d63fd1e47a68c749598eafdfa43443de4f05e31  5ad7debf95f1db995f5759527435ce3533b8c08a  2026-09-26 Merge branch 'main' into research/three-limits
+c54c40f80e025b668928b21d3641f08bff395dc4  e4ccb3cf68a983d4205ad98558914c74c3fcad8a  2026-09-26 Add shield mode: protect --mode shield perturbs faces against the swapper's encoder
+dd677675f793cd35d9995470eb172043f2fe108a  1604b53e5603749448123a342a57fc349fc49346  2026-09-26 Fix the code review findings: per-face verdicts, shield as measured, honest numbers
+b240113d003f00bb6654e7333da14c7fac9573e2  a65434cfa039cd88933b394b72a538358e3e863d  2026-09-26 Add the two next screens: a detector's condition split and AdaFace
+de6034eaf9da3fe2e76df6f1ff6631a9f060eec5  e3ac3e4521f60140e2b4ac7d2c8054d9f67ff042  2026-09-26 Score the condition grid's test half only and run the telling conditions first
+046275ad0daabfb8ee773bb896e1d3a964d710ad  f951c0238d521c6b44d0a84f00903aaf22e08423  2026-09-26 Fuse the two recognisers' scores and re-summarise a cached screen without re-embedding
+479082aa43eceada19da44f3fea2ce42bef85c36  7606905bf0bba7b0f4fa76cef646dbbd33e9c7f7  2026-09-27 Record the AdaFace screen: a better recogniser does not lift small compressed faces
+60ea0ab4d394f11ddca7283b3c22f6ff6e0ce39b  4d8af2e592dff5d250d3f411a0cb102f085f5412  2026-09-27 Tidy 연구.md after the two screens: judgement updated, GenD rerun and its checkpoint rule noted
+8a45e4063410303556fd81a207819937e1ab914a  f93525dc3a7bad4ad396b0469e3b74ff1aa96aa9  2026-09-27 Measure the identity thresholds on Korean faces (KoDF validation, 40 people)
+16175d11fea5d11f058189a8ae87bfc3ee9bd924  79d2fb3aeaca05ca4e739ba66282d42d58344edb  2026-09-27 Record the GenD condition split: false alarms follow H.264 compression, not face size
+d72eb04710adbada26e2379db8eec89703478c04  c6246ecde10d95c2781fe7bfffb694a3895873a2  2026-09-27 Measure Korean impostors on 131 KoDF people; drop the detector's backdrop boxes
+cd557889b184682ebcdf0e98fceecd3e8fa83044  c9118d5a5d53cdb741a4e735d09c06c136d42c68  2026-09-27 Raise the high-confidence threshold to 0.47 for Korean users
+ae3a50d9507b587a82bf6807df56ba5e1f5d60df  40d1fc2dbc8589ce246d13dd64cde54ce6430178  2026-09-27 Measure Korean impostors on all 320 KoDF training people
+090aa05ac9a414ba0bba20952571293b726abacc  b4b13871b902a03e004a39a721b10c2d057636c0  2026-09-27 Record the decision to keep 0.47 and how the Korean-face work was done
+96b00aa2b118596d4d55a4770d2793cc156998d5  8d40e647d7b23a941460865931b7c10ef4e51895  2026-09-28 Train the FF++ CNN with H.264 augmentation and record why it still fails
+88ec3c8a9a653d521650dc68010b5c256af389e8  81c34546c811f714793be446e0d83a768daa937f  2026-09-28 Separate each family from the shared genuine photos in the gate
+eb75e93c127ad94bbe09563e7efe4117d2b1d1e6  b176f2a061aa2a1da3a8ce778093d43a6f183853  2026-09-30 Test published anti-LoRA tools on 20 people and against the swap shield
+3872e2fd34dff77c75bbfea1671cb796aeb519e2  b27970cc6402a5ea4ba0bf93b549a52cc35fce4a  2026-10-01 Apply the swap shield before Mist so one photo keeps both defences
+790dd84f1c919626a62897d3ca8556fc7170165c  b139ebcf6ad3f254fc596d74993665ca172df2dd  2026-10-01 Measure the swap shield against single-photo identity generators
+40abeb4f1d0a7d958784e823ee1e2d3d5c3cf26d  217bcb88ec8fb24706ef071d2fde055b3a56b6d0  2026-10-01 Merge remote-tracking branch 'origin/research/three-limits' into claude/funny-montalcini-8eabbd
+a3ce292eebb8e9455db1b6a56aea1ca8c4e1d92c  30744cbb4f2211bae5cd4b09ccb377deefb77eba  2026-10-01 Merge pull request #4 from LH-GWAN/research/three-limits

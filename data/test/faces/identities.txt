@@ -1,0 +1,5 @@
+einstein_1.jpg	einstein
+einstein_2.jpg	einstein
+curie_1.jpg	curie
+curie_2.jpg	curie
+tesla_1.jpg	tesla

@@ -1,0 +1,73 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+
+# Model weights — fetched with `make models` / scripts/fetch_deepfake_detector.py.
+# GitHub rejects files over 100 MB, and these are 130–330 MB each.
+models/**/*.onnx
+models/**/*.onnx.data
+models/**/*.zip
+models/insightface/
+
+# Downloaded datasets (scikit-learn LFW cache, ~1.8 GB)
+data/sklearn/
+
+# Generated evaluation and manipulation sets — regenerate rather than commit.
+# These are LFW crops and face swaps of real, named people; publishing them
+# from a project about protecting people from exactly that is the wrong trade.
+#   python scripts/build_evaluation_set.py     (downloads LFW on demand)
+#   python scripts/build_manipulation_set.py
+data/test/eval_faces/
+data/test/manipulated/
+
+# Aligned face crops cached for watermark training (~650 MB, regenerate rather
+# than commit):
+#   python scripts/prepare_face_crops.py --output data/results/face_crops_128.npy
+data/results/face_crops_*.npy
+
+# Runtime state written by the pipeline, not source
+data/embeddings/
+data/identities/
+data/protected/
+data/assets/
+data/results/analyses/
+data/provenance.jsonl
+# Scan reports and the flagged media they keep: copies of other people's posts
+data/results/scans/
+data/scans/
+
+# GAN-swap manipulation set: the same real, named people as data/test/manipulated/
+data/test/manipulated_inswapper/
+# Research-only GAN swapper weights fetched by scripts/fetch_inswapper.py
+models/inswapper/
+
+# FaceForensics++ face crops (real, named people under the FF++ EULA) and the
+# ~49 MB training checkpoint scripts/train_deepfake_cnn.py --checkpoint writes
+#   python scripts/build_ffpp_manifest.py --output data/test/ffpp
+data/test/ffpp/
+*_checkpoint.pt
+
+# LoRA-defence experiment: LFW photos of real people and what is generated from them
+experiments/lora_defense/*.zip
+experiments/lora_defense/generated/
+experiments/lora_defense/kaggle_out_v2/
+experiments/lora_defense/v3/
+experiments/idgen/out/
+experiments/idgen/pipeline_stable_diffusion_xl_instantid.py
+experiments/idgen/ip_adapter/

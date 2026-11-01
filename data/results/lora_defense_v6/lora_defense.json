@@ -1,0 +1,765 @@
+{
+  "question": "does a LoRA trained on perturbed photographs still generate the person?",
+  "identities": [
+    "abdullah_gul",
+    "al_gore",
+    "anna_kournikova",
+    "bill_graham",
+    "gordon_brown",
+    "gray_davis",
+    "hamid_karzai",
+    "hugo_chavez",
+    "jeb_bush",
+    "jennifer_lopez",
+    "john_kerry",
+    "julie_gerberding",
+    "megawati_sukarnoputri",
+    "nicole_kidman",
+    "pete_sampras",
+    "renee_zellweger",
+    "roger_federer",
+    "sergey_lavrov",
+    "tom_hanks",
+    "vladimir_putin"
+  ],
+  "gallery_identities": 47,
+  "arcface_high_confidence": 0.47,
+  "variants": {
+    "base_vs_abdullah_gul": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 0,
+        "median_similarity": 0.037,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 0,
+        "median_similarity": 0.135
+      }
+    },
+    "base_vs_al_gore": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 0,
+        "median_similarity": 0.0089,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 0,
+        "median_similarity": 0.0853
+      }
+    },
+    "base_vs_anna_kournikova": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 2,
+        "median_similarity": 0.0768,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 0,
+        "median_similarity": 0.2148
+      }
+    },
+    "base_vs_bill_graham": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 0,
+        "median_similarity": 0.0384,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 0,
+        "median_similarity": 0.0849
+      }
+    },
+    "base_vs_gordon_brown": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 0,
+        "median_similarity": 0.0177,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 0,
+        "median_similarity": 0.1088
+      }
+    },
+    "base_vs_gray_davis": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 0,
+        "median_similarity": 0.0446,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 0,
+        "median_similarity": 0.1811
+      }
+    },
+    "base_vs_hamid_karzai": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 0,
+        "median_similarity": 0.0111,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 1,
+        "median_similarity": 0.1231
+      }
+    },
+    "base_vs_hugo_chavez": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 1,
+        "median_similarity": 0.0298,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 1,
+        "median_similarity": 0.1361
+      }
+    },
+    "base_vs_jeb_bush": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 0,
+        "median_similarity": 0.0317,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 0,
+        "median_similarity": 0.1287
+      }
+    },
+    "base_vs_jennifer_lopez": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 2,
+        "median_similarity": 0.0558,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 0,
+        "median_similarity": 0.1202
+      }
+    },
+    "base_vs_john_kerry": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 1,
+        "median_similarity": 0.051,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 0,
+        "median_similarity": 0.0643
+      }
+    },
+    "base_vs_julie_gerberding": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 0,
+        "median_similarity": 0.0465,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 1,
+        "median_similarity": 0.1265
+      }
+    },
+    "base_vs_megawati_sukarnoputri": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 0,
+        "median_similarity": 0.0412,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 0,
+        "median_similarity": 0.1837
+      }
+    },
+    "base_vs_nicole_kidman": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 0,
+        "median_similarity": 0.0599,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 2,
+        "median_similarity": 0.1463
+      }
+    },
+    "base_vs_pete_sampras": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 0,
+        "median_similarity": 0.032,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 0,
+        "median_similarity": 0.1442
+      }
+    },
+    "base_vs_renee_zellweger": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 1,
+        "median_similarity": 0.0142,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 0,
+        "median_similarity": 0.1602
+      }
+    },
+    "base_vs_roger_federer": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 1,
+        "median_similarity": 0.0596,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 1,
+        "median_similarity": 0.1859
+      }
+    },
+    "base_vs_sergey_lavrov": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 0,
+        "median_similarity": 0.067,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 0,
+        "median_similarity": 0.1191
+      }
+    },
+    "base_vs_tom_hanks": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 0,
+        "median_similarity": 0.0621,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 0,
+        "median_similarity": 0.1445
+      }
+    },
+    "base_vs_vladimir_putin": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 0,
+        "median_similarity": 0.0476,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 1,
+        "median_similarity": 0.1963
+      }
+    },
+    "clean": {
+      "images": 320,
+      "with_a_face": 310,
+      "arcface": {
+        "person_first": 290,
+        "median_similarity": 0.4001,
+        "above_high_confidence": 70
+      },
+      "sface": {
+        "person_first": 292,
+        "median_similarity": 0.5151
+      }
+    },
+    "mist16": {
+      "images": 320,
+      "with_a_face": 288,
+      "arcface": {
+        "person_first": 92,
+        "median_similarity": 0.1134,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 90,
+        "median_similarity": 0.2505
+      }
+    },
+    "mist16_shield": {
+      "images": 320,
+      "with_a_face": 315,
+      "arcface": {
+        "person_first": 199,
+        "median_similarity": 0.196,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 190,
+        "median_similarity": 0.3441
+      }
+    },
+    "shield_mist16": {
+      "images": 320,
+      "with_a_face": 289,
+      "arcface": {
+        "person_first": 70,
+        "median_similarity": 0.0911,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 68,
+        "median_similarity": 0.2245
+      }
+    }
+  },
+  "per_identity": {
+    "clean": {
+      "abdullah_gul": {
+        "with_a_face": 15,
+        "arcface_person_first": 15,
+        "arcface_median_similarity": 0.4503
+      },
+      "al_gore": {
+        "with_a_face": 15,
+        "arcface_person_first": 14,
+        "arcface_median_similarity": 0.3371
+      },
+      "anna_kournikova": {
+        "with_a_face": 15,
+        "arcface_person_first": 14,
+        "arcface_median_similarity": 0.2973
+      },
+      "bill_graham": {
+        "with_a_face": 16,
+        "arcface_person_first": 15,
+        "arcface_median_similarity": 0.3536
+      },
+      "gordon_brown": {
+        "with_a_face": 15,
+        "arcface_person_first": 14,
+        "arcface_median_similarity": 0.3491
+      },
+      "gray_davis": {
+        "with_a_face": 16,
+        "arcface_person_first": 14,
+        "arcface_median_similarity": 0.4079
+      },
+      "hamid_karzai": {
+        "with_a_face": 15,
+        "arcface_person_first": 14,
+        "arcface_median_similarity": 0.4057
+      },
+      "hugo_chavez": {
+        "with_a_face": 16,
+        "arcface_person_first": 15,
+        "arcface_median_similarity": 0.3897
+      },
+      "jeb_bush": {
+        "with_a_face": 16,
+        "arcface_person_first": 15,
+        "arcface_median_similarity": 0.3691
+      },
+      "jennifer_lopez": {
+        "with_a_face": 16,
+        "arcface_person_first": 15,
+        "arcface_median_similarity": 0.4369
+      },
+      "john_kerry": {
+        "with_a_face": 15,
+        "arcface_person_first": 13,
+        "arcface_median_similarity": 0.4102
+      },
+      "julie_gerberding": {
+        "with_a_face": 16,
+        "arcface_person_first": 15,
+        "arcface_median_similarity": 0.503
+      },
+      "megawati_sukarnoputri": {
+        "with_a_face": 16,
+        "arcface_person_first": 15,
+        "arcface_median_similarity": 0.4172
+      },
+      "nicole_kidman": {
+        "with_a_face": 15,
+        "arcface_person_first": 15,
+        "arcface_median_similarity": 0.2828
+      },
+      "pete_sampras": {
+        "with_a_face": 15,
+        "arcface_person_first": 15,
+        "arcface_median_similarity": 0.4001
+      },
+      "renee_zellweger": {
+        "with_a_face": 16,
+        "arcface_person_first": 14,
+        "arcface_median_similarity": 0.3698
+      },
+      "roger_federer": {
+        "with_a_face": 16,
+        "arcface_person_first": 16,
+        "arcface_median_similarity": 0.4455
+      },
+      "sergey_lavrov": {
+        "with_a_face": 16,
+        "arcface_person_first": 15,
+        "arcface_median_similarity": 0.4301
+      },
+      "tom_hanks": {
+        "with_a_face": 14,
+        "arcface_person_first": 12,
+        "arcface_median_similarity": 0.4038
+      },
+      "vladimir_putin": {
+        "with_a_face": 16,
+        "arcface_person_first": 15,
+        "arcface_median_similarity": 0.4747
+      }
+    },
+    "mist16": {
+      "abdullah_gul": {
+        "with_a_face": 15,
+        "arcface_person_first": 12,
+        "arcface_median_similarity": 0.1958
+      },
+      "al_gore": {
+        "with_a_face": 14,
+        "arcface_person_first": 5,
+        "arcface_median_similarity": 0.1627
+      },
+      "anna_kournikova": {
+        "with_a_face": 14,
+        "arcface_person_first": 4,
+        "arcface_median_similarity": 0.1164
+      },
+      "bill_graham": {
+        "with_a_face": 13,
+        "arcface_person_first": 5,
+        "arcface_median_similarity": 0.0673
+      },
+      "gordon_brown": {
+        "with_a_face": 16,
+        "arcface_person_first": 1,
+        "arcface_median_similarity": 0.0605
+      },
+      "gray_davis": {
+        "with_a_face": 13,
+        "arcface_person_first": 1,
+        "arcface_median_similarity": 0.0771
+      },
+      "hamid_karzai": {
+        "with_a_face": 15,
+        "arcface_person_first": 6,
+        "arcface_median_similarity": 0.1494
+      },
+      "hugo_chavez": {
+        "with_a_face": 15,
+        "arcface_person_first": 3,
+        "arcface_median_similarity": 0.1109
+      },
+      "jeb_bush": {
+        "with_a_face": 15,
+        "arcface_person_first": 4,
+        "arcface_median_similarity": 0.1177
+      },
+      "jennifer_lopez": {
+        "with_a_face": 13,
+        "arcface_person_first": 1,
+        "arcface_median_similarity": 0.0804
+      },
+      "john_kerry": {
+        "with_a_face": 14,
+        "arcface_person_first": 12,
+        "arcface_median_similarity": 0.2272
+      },
+      "julie_gerberding": {
+        "with_a_face": 16,
+        "arcface_person_first": 7,
+        "arcface_median_similarity": 0.1319
+      },
+      "megawati_sukarnoputri": {
+        "with_a_face": 15,
+        "arcface_person_first": 7,
+        "arcface_median_similarity": 0.1051
+      },
+      "nicole_kidman": {
+        "with_a_face": 13,
+        "arcface_person_first": 0,
+        "arcface_median_similarity": 0.0872
+      },
+      "pete_sampras": {
+        "with_a_face": 15,
+        "arcface_person_first": 8,
+        "arcface_median_similarity": 0.1433
+      },
+      "renee_zellweger": {
+        "with_a_face": 14,
+        "arcface_person_first": 2,
+        "arcface_median_similarity": 0.0753
+      },
+      "roger_federer": {
+        "with_a_face": 16,
+        "arcface_person_first": 5,
+        "arcface_median_similarity": 0.1241
+      },
+      "sergey_lavrov": {
+        "with_a_face": 13,
+        "arcface_person_first": 6,
+        "arcface_median_similarity": 0.1607
+      },
+      "tom_hanks": {
+        "with_a_face": 14,
+        "arcface_person_first": 0,
+        "arcface_median_similarity": 0.0778
+      },
+      "vladimir_putin": {
+        "with_a_face": 15,
+        "arcface_person_first": 3,
+        "arcface_median_similarity": 0.1376
+      }
+    },
+    "mist16_shield": {
+      "abdullah_gul": {
+        "with_a_face": 16,
+        "arcface_person_first": 14,
+        "arcface_median_similarity": 0.2929
+      },
+      "al_gore": {
+        "with_a_face": 16,
+        "arcface_person_first": 10,
+        "arcface_median_similarity": 0.1809
+      },
+      "anna_kournikova": {
+        "with_a_face": 15,
+        "arcface_person_first": 8,
+        "arcface_median_similarity": 0.1802
+      },
+      "bill_graham": {
+        "with_a_face": 16,
+        "arcface_person_first": 10,
+        "arcface_median_similarity": 0.1826
+      },
+      "gordon_brown": {
+        "with_a_face": 15,
+        "arcface_person_first": 5,
+        "arcface_median_similarity": 0.1481
+      },
+      "gray_davis": {
+        "with_a_face": 15,
+        "arcface_person_first": 6,
+        "arcface_median_similarity": 0.1587
+      },
+      "hamid_karzai": {
+        "with_a_face": 16,
+        "arcface_person_first": 13,
+        "arcface_median_similarity": 0.2273
+      },
+      "hugo_chavez": {
+        "with_a_face": 15,
+        "arcface_person_first": 13,
+        "arcface_median_similarity": 0.3057
+      },
+      "jeb_bush": {
+        "with_a_face": 16,
+        "arcface_person_first": 13,
+        "arcface_median_similarity": 0.2448
+      },
+      "jennifer_lopez": {
+        "with_a_face": 16,
+        "arcface_person_first": 8,
+        "arcface_median_similarity": 0.1519
+      },
+      "john_kerry": {
+        "with_a_face": 16,
+        "arcface_person_first": 14,
+        "arcface_median_similarity": 0.2714
+      },
+      "julie_gerberding": {
+        "with_a_face": 16,
+        "arcface_person_first": 13,
+        "arcface_median_similarity": 0.3038
+      },
+      "megawati_sukarnoputri": {
+        "with_a_face": 16,
+        "arcface_person_first": 12,
+        "arcface_median_similarity": 0.2145
+      },
+      "nicole_kidman": {
+        "with_a_face": 16,
+        "arcface_person_first": 9,
+        "arcface_median_similarity": 0.1592
+      },
+      "pete_sampras": {
+        "with_a_face": 16,
+        "arcface_person_first": 11,
+        "arcface_median_similarity": 0.1878
+      },
+      "renee_zellweger": {
+        "with_a_face": 16,
+        "arcface_person_first": 6,
+        "arcface_median_similarity": 0.1363
+      },
+      "roger_federer": {
+        "with_a_face": 16,
+        "arcface_person_first": 13,
+        "arcface_median_similarity": 0.1905
+      },
+      "sergey_lavrov": {
+        "with_a_face": 16,
+        "arcface_person_first": 12,
+        "arcface_median_similarity": 0.3251
+      },
+      "tom_hanks": {
+        "with_a_face": 16,
+        "arcface_person_first": 3,
+        "arcface_median_similarity": 0.0936
+      },
+      "vladimir_putin": {
+        "with_a_face": 15,
+        "arcface_person_first": 6,
+        "arcface_median_similarity": 0.137
+      }
+    },
+    "shield_mist16": {
+      "abdullah_gul": {
+        "with_a_face": 11,
+        "arcface_person_first": 5,
+        "arcface_median_similarity": 0.0865
+      },
+      "al_gore": {
+        "with_a_face": 13,
+        "arcface_person_first": 0,
+        "arcface_median_similarity": 0.08
+      },
+      "anna_kournikova": {
+        "with_a_face": 16,
+        "arcface_person_first": 4,
+        "arcface_median_similarity": 0.1215
+      },
+      "bill_graham": {
+        "with_a_face": 13,
+        "arcface_person_first": 7,
+        "arcface_median_similarity": 0.1667
+      },
+      "gordon_brown": {
+        "with_a_face": 16,
+        "arcface_person_first": 0,
+        "arcface_median_similarity": 0.0621
+      },
+      "gray_davis": {
+        "with_a_face": 16,
+        "arcface_person_first": 2,
+        "arcface_median_similarity": 0.0838
+      },
+      "hamid_karzai": {
+        "with_a_face": 14,
+        "arcface_person_first": 3,
+        "arcface_median_similarity": 0.0821
+      },
+      "hugo_chavez": {
+        "with_a_face": 15,
+        "arcface_person_first": 2,
+        "arcface_median_similarity": 0.0608
+      },
+      "jeb_bush": {
+        "with_a_face": 10,
+        "arcface_person_first": 0,
+        "arcface_median_similarity": 0.0477
+      },
+      "jennifer_lopez": {
+        "with_a_face": 16,
+        "arcface_person_first": 4,
+        "arcface_median_similarity": 0.1073
+      },
+      "john_kerry": {
+        "with_a_face": 15,
+        "arcface_person_first": 11,
+        "arcface_median_similarity": 0.2073
+      },
+      "julie_gerberding": {
+        "with_a_face": 16,
+        "arcface_person_first": 6,
+        "arcface_median_similarity": 0.1119
+      },
+      "megawati_sukarnoputri": {
+        "with_a_face": 16,
+        "arcface_person_first": 4,
+        "arcface_median_similarity": 0.0889
+      },
+      "nicole_kidman": {
+        "with_a_face": 16,
+        "arcface_person_first": 0,
+        "arcface_median_similarity": 0.0604
+      },
+      "pete_sampras": {
+        "with_a_face": 15,
+        "arcface_person_first": 5,
+        "arcface_median_similarity": 0.1302
+      },
+      "renee_zellweger": {
+        "with_a_face": 10,
+        "arcface_person_first": 0,
+        "arcface_median_similarity": 0.0572
+      },
+      "roger_federer": {
+        "with_a_face": 16,
+        "arcface_person_first": 8,
+        "arcface_median_similarity": 0.1431
+      },
+      "sergey_lavrov": {
+        "with_a_face": 15,
+        "arcface_person_first": 7,
+        "arcface_median_similarity": 0.1546
+      },
+      "tom_hanks": {
+        "with_a_face": 14,
+        "arcface_person_first": 2,
+        "arcface_median_similarity": 0.0799
+      },
+      "vladimir_putin": {
+        "with_a_face": 16,
+        "arcface_person_first": 0,
+        "arcface_median_similarity": 0.0814
+      }
+    }
+  },
+  "image_quality": {
+    "mist16": {
+      "psnr": 33.22,
+      "ssim": 0.8264
+    },
+    "mist16_shield": {
+      "psnr": 30.3,
+      "ssim": 0.7255
+    },
+    "shield_mist16": {
+      "psnr": 30.68,
+      "ssim": 0.7585
+    }
+  }
+}

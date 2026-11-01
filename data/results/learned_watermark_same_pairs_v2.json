@@ -1,0 +1,24 @@
+{
+  "checkpoint": "models/learned_watermark_v2.pt",
+  "evaluation_faces": "data/test/manipulated/real, the same 24 pairs for every model",
+  "pairs": 24,
+  "orientation": "upright",
+  "psnr_db": 39.04,
+  "stages": {
+    "crop": {
+      "n": 24,
+      "bit_accuracy": 0.875,
+      "exact": 0
+    },
+    "roundtrip": {
+      "n": 24,
+      "bit_accuracy": 0.888,
+      "exact": 0
+    },
+    "swap": {
+      "n": 24,
+      "bit_accuracy": 0.7357,
+      "exact": 0
+    }
+  }
+}

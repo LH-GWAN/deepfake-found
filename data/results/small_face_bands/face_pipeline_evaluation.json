@@ -1,0 +1,87 @@
+{
+  "created_at": "2026-09-24T17:49:18.904115+00:00",
+  "target_precision": 0.99,
+  "identities": 30,
+  "photos": 170,
+  "best": {
+    "variant": "opencv_yunet/insightface+tta",
+    "aggregation": "max",
+    "mean_recall_at_target_precision": 0.952941
+  },
+  "ranking": [
+    {
+      "variant": "opencv_yunet/insightface+tta",
+      "aggregation": "max",
+      "mean_recall": 0.952941
+    }
+  ],
+  "results": [
+    {
+      "variant": "opencv_yunet/insightface+tta",
+      "degradation": "clean",
+      "aggregation": "max",
+      "roc_auc": 1.0,
+      "eer": 0.0,
+      "genuine_comparisons": 170,
+      "impostor_comparisons": 4930,
+      "identities": 30,
+      "photos": 170,
+      "detection_failures": 0,
+      "probe_detection_failures": 0,
+      "seconds_per_image": 0.0374,
+      "genuine_high_confidence": 170,
+      "genuine_review": 0,
+      "genuine_below_candidate": 0,
+      "p99_threshold": 0.566315,
+      "p99_precision": 1.0,
+      "p99_recall": 1.0,
+      "p99_false_positives": 0,
+      "eer_threshold": 0.566315,
+      "eer_precision": 1.0,
+      "eer_recall": 1.0,
+      "eer_false_positives": 0
+    },
+    {
+      "variant": "opencv_yunet/insightface+tta",
+      "degradation": "video_small",
+      "aggregation": "max",
+      "roc_auc": 0.99989,
+      "eer": 0.005882,
+      "genuine_comparisons": 170,
+      "impostor_comparisons": 4930,
+      "identities": 30,
+      "photos": 170,
+      "detection_failures": 0,
+      "probe_detection_failures": 0,
+      "seconds_per_image": 0.0374,
+      "genuine_high_confidence": 75,
+      "genuine_review": 32,
+      "genuine_below_candidate": 63,
+      "p99_threshold": 0.269281,
+      "p99_precision": 0.993548,
+      "p99_recall": 0.905882,
+      "p99_false_positives": 1,
+      "eer_threshold": 0.188422,
+      "eer_precision": 0.853535,
+      "eer_recall": 0.994118,
+      "eer_false_positives": 29
+    }
+  ],
+  "environment": {
+    "deepshield_version": "0.1.0",
+    "git_commit": "6a11691d36df8a0c08e7cf309512f2a63f5a8942",
+    "python": "3.12.10",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "numpy": "2.5.3",
+    "random_seed": 42,
+    "device": "cpu",
+    "face_detector": "opencv_yunet",
+    "face_aligner": "landmark",
+    "face_embedder": "insightface",
+    "deepfake_detector": "spectral",
+    "watermark_backend": "dct",
+    "watermark_strength": 0.16,
+    "recorded_at": "2026-09-24T17:49:18.917201+00:00"
+  },
+  "caveat": "Comparisons within one identity are not independent; treat these numbers as a ranking of configurations, not as absolute accuracy."
+}

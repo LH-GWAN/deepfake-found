@@ -1,0 +1,261 @@
+{
+  "question": "does the joint term reproduce the shield, and how low must it push the similarity for inswapper to stop carrying the person?",
+  "copy_vs_shipped_max_difference": {
+    "matrix": 0.0,
+    "grid": 0.0,
+    "embedding": 0.0
+  },
+  "mist_step": 0.005,
+  "mist_eps_of_minus1_1": 0.06274509803921569,
+  "rounds_x_steps": [
+    5,
+    30
+  ],
+  "people": [
+    "hugo_chavez",
+    "jeb_bush",
+    "jennifer_lopez",
+    "nicole_kidman"
+  ],
+  "photos_per_person": 2,
+  "gallery_identities": 47,
+  "similarity_to_clean_face_after_saving": {
+    "-0.2": {
+      "median": -0.3182,
+      "max": -0.3062
+    },
+    "-0.4": {
+      "median": -0.4953,
+      "max": -0.4753
+    },
+    "-0.6": {
+      "median": -0.6454,
+      "max": -0.5587
+    },
+    "none": {
+      "median": -0.6659,
+      "max": -0.5587
+    }
+  },
+  "seconds_per_photo": {},
+  "quality_vs_enlarged_clean": {
+    "-0.2": {
+      "psnr": 34.19,
+      "ssim": 0.8604
+    },
+    "-0.4": {
+      "psnr": 33.7,
+      "ssim": 0.8543
+    },
+    "-0.6": {
+      "psnr": 33.3,
+      "ssim": 0.8478
+    },
+    "none": {
+      "psnr": 33.23,
+      "ssim": 0.8461
+    },
+    "wm512": {
+      "psnr": 36.14,
+      "ssim": 0.8803
+    },
+    "shield512": {
+      "psnr": 33.2,
+      "ssim": 0.8437
+    }
+  },
+  "swaps": {
+    "wm512": {
+      "swaps": 8,
+      "with_a_face": 8,
+      "arcface_owner_first": 8,
+      "sface_owner_first": 8,
+      "median_owner_similarity": 0.678,
+      "above_high_confidence": 8
+    },
+    "wm512_jpeg85": {
+      "swaps": 8,
+      "with_a_face": 8,
+      "arcface_owner_first": 8,
+      "sface_owner_first": 8,
+      "median_owner_similarity": 0.6827,
+      "above_high_confidence": 8
+    },
+    "wm512_jpeg70": {
+      "swaps": 8,
+      "with_a_face": 8,
+      "arcface_owner_first": 8,
+      "sface_owner_first": 8,
+      "median_owner_similarity": 0.6864,
+      "above_high_confidence": 8
+    },
+    "wm512_half": {
+      "swaps": 8,
+      "with_a_face": 8,
+      "arcface_owner_first": 8,
+      "sface_owner_first": 8,
+      "median_owner_similarity": 0.6768,
+      "above_high_confidence": 8
+    },
+    "shield512": {
+      "swaps": 8,
+      "with_a_face": 8,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.2742,
+      "above_high_confidence": 0
+    },
+    "shield512_jpeg85": {
+      "swaps": 8,
+      "with_a_face": 8,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.2785,
+      "above_high_confidence": 0
+    },
+    "shield512_jpeg70": {
+      "swaps": 8,
+      "with_a_face": 8,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.2803,
+      "above_high_confidence": 0
+    },
+    "shield512_half": {
+      "swaps": 8,
+      "with_a_face": 8,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.295,
+      "above_high_confidence": 0
+    },
+    "check_-0.2": {
+      "swaps": 8,
+      "with_a_face": 8,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.1231,
+      "above_high_confidence": 0
+    },
+    "check_-0.2_jpeg85": {
+      "swaps": 8,
+      "with_a_face": 8,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.1144,
+      "above_high_confidence": 0
+    },
+    "check_-0.2_jpeg70": {
+      "swaps": 8,
+      "with_a_face": 8,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.1112,
+      "above_high_confidence": 0
+    },
+    "check_-0.2_half": {
+      "swaps": 8,
+      "with_a_face": 8,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.1216,
+      "above_high_confidence": 0
+    },
+    "check_-0.4": {
+      "swaps": 8,
+      "with_a_face": 8,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.2316,
+      "above_high_confidence": 0
+    },
+    "check_-0.4_jpeg85": {
+      "swaps": 8,
+      "with_a_face": 8,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.2248,
+      "above_high_confidence": 0
+    },
+    "check_-0.4_jpeg70": {
+      "swaps": 8,
+      "with_a_face": 8,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.2285,
+      "above_high_confidence": 0
+    },
+    "check_-0.4_half": {
+      "swaps": 8,
+      "with_a_face": 8,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.2328,
+      "above_high_confidence": 0
+    },
+    "check_-0.6": {
+      "swaps": 8,
+      "with_a_face": 8,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.2694,
+      "above_high_confidence": 0
+    },
+    "check_-0.6_jpeg85": {
+      "swaps": 8,
+      "with_a_face": 8,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.2644,
+      "above_high_confidence": 0
+    },
+    "check_-0.6_jpeg70": {
+      "swaps": 8,
+      "with_a_face": 8,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.2486,
+      "above_high_confidence": 0
+    },
+    "check_-0.6_half": {
+      "swaps": 8,
+      "with_a_face": 8,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.2691,
+      "above_high_confidence": 0
+    },
+    "check_none": {
+      "swaps": 8,
+      "with_a_face": 8,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.2768,
+      "above_high_confidence": 0
+    },
+    "check_none_jpeg85": {
+      "swaps": 8,
+      "with_a_face": 8,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.2794,
+      "above_high_confidence": 0
+    },
+    "check_none_jpeg70": {
+      "swaps": 8,
+      "with_a_face": 8,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.2559,
+      "above_high_confidence": 0
+    },
+    "check_none_half": {
+      "swaps": 8,
+      "with_a_face": 8,
+      "arcface_owner_first": 0,
+      "sface_owner_first": 0,
+      "median_owner_similarity": -0.2833,
+      "above_high_confidence": 0
+    }
+  }
+}

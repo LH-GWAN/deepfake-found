@@ -1,0 +1,151 @@
+{
+  "question": "does a LoRA trained on perturbed photographs still generate the person?",
+  "identities": [
+    "hugo_chavez",
+    "jennifer_lopez",
+    "tom_hanks"
+  ],
+  "gallery_identities": 30,
+  "arcface_high_confidence": 0.4128,
+  "variants": {
+    "arcface8": {
+      "images": 48,
+      "with_a_face": 45,
+      "arcface": {
+        "person_first": 33,
+        "median_similarity": 0.1649,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 32,
+        "median_similarity": 0.3172
+      }
+    },
+    "base_vs_hugo_chavez": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 0,
+        "median_similarity": 0.0581,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 1,
+        "median_similarity": 0.1177
+      }
+    },
+    "base_vs_jennifer_lopez": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 0,
+        "median_similarity": 0.0494,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 0,
+        "median_similarity": 0.092
+      }
+    },
+    "base_vs_tom_hanks": {
+      "images": 16,
+      "with_a_face": 13,
+      "arcface": {
+        "person_first": 0,
+        "median_similarity": 0.045,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "person_first": 0,
+        "median_similarity": 0.104
+      }
+    },
+    "clean": {
+      "images": 48,
+      "with_a_face": 44,
+      "arcface": {
+        "person_first": 43,
+        "median_similarity": 0.4223,
+        "above_high_confidence": 29
+      },
+      "sface": {
+        "person_first": 44,
+        "median_similarity": 0.5514
+      }
+    },
+    "encoder16": {
+      "images": 48,
+      "with_a_face": 46,
+      "arcface": {
+        "person_first": 41,
+        "median_similarity": 0.3019,
+        "above_high_confidence": 1
+      },
+      "sface": {
+        "person_first": 44,
+        "median_similarity": 0.4194
+      }
+    },
+    "encoder8": {
+      "images": 48,
+      "with_a_face": 44,
+      "arcface": {
+        "person_first": 43,
+        "median_similarity": 0.328,
+        "above_high_confidence": 12
+      },
+      "sface": {
+        "person_first": 42,
+        "median_similarity": 0.472
+      }
+    },
+    "fsmg16": {
+      "images": 48,
+      "with_a_face": 44,
+      "arcface": {
+        "person_first": 43,
+        "median_similarity": 0.3709,
+        "above_high_confidence": 9
+      },
+      "sface": {
+        "person_first": 43,
+        "median_similarity": 0.4784
+      }
+    },
+    "fsmg8": {
+      "images": 48,
+      "with_a_face": 46,
+      "arcface": {
+        "person_first": 44,
+        "median_similarity": 0.4064,
+        "above_high_confidence": 22
+      },
+      "sface": {
+        "person_first": 44,
+        "median_similarity": 0.5105
+      }
+    }
+  },
+  "image_quality": {
+    "arcface8": {
+      "psnr": 36.19,
+      "ssim": 0.9566
+    },
+    "encoder16": {
+      "psnr": 27.7,
+      "ssim": 0.7523
+    },
+    "encoder8": {
+      "psnr": 33.31,
+      "ssim": 0.8686
+    },
+    "fsmg16": {
+      "psnr": 28.51,
+      "ssim": 0.7053
+    },
+    "fsmg8": {
+      "psnr": 34.21,
+      "ssim": 0.8674
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "surrogate": "facenet-pytorch InceptionResnetV1 (VGGFace2)",
+  "attack": "PGD 300 steps with expectation over resampling, blur and noise",
+  "images": 20,
+  "high_confidence_threshold": 0.4128,
+  "baseline_no_cloak": {
+    "jpeg_70_arcface": 0.0125,
+    "jpeg_70_sface": 0.0313,
+    "resize_50_arcface": 0.0065,
+    "resize_50_sface": 0.0101
+  },
+  "budgets": {
+    "0.03": {
+      "jpeg_70_arcface": 0.2171,
+      "jpeg_70_sface": 0.2559,
+      "psnr": 38.1475,
+      "resize_50_arcface": 0.2155,
+      "resize_50_sface": 0.2639,
+      "similarity_arcface": 0.7785,
+      "similarity_sface": 0.7294,
+      "ssim": 0.9705,
+      "transfer_arcface": 0.2215,
+      "transfer_sface": 0.2706,
+      "whitebox_facenet": 1.2128,
+      "still_high_confidence_arcface": 1.0,
+      "still_high_confidence_sface": 1.0
+    },
+    "0.06": {
+      "jpeg_70_arcface": 0.3966,
+      "jpeg_70_sface": 0.4764,
+      "psnr": 33.604,
+      "resize_50_arcface": 0.394,
+      "resize_50_sface": 0.5126,
+      "similarity_arcface": 0.5932,
+      "similarity_sface": 0.4964,
+      "ssim": 0.9341,
+      "transfer_arcface": 0.4068,
+      "transfer_sface": 0.5036,
+      "whitebox_facenet": 1.625,
+      "still_high_confidence_arcface": 0.9,
+      "still_high_confidence_sface": 0.9
+    }
+  }
+}

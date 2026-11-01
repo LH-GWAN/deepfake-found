@@ -1,0 +1,276 @@
+{
+ "question": "Which gray_davis photographs still carry the person through inswapper after shield then Mist,\nand did they already before Mist? Per photo: the shield frame's ArcFace similarity of every\nface to the watermarked face, and the swap scored against the 47-person gallery, for the\nwatermark only, the shield (before Mist) and shield then Mist. Run from project-research.",
+ "swapped_onto": "hamid_karzai",
+ "rows": [
+  {
+   "photo": "0.png",
+   "variant": "wm512",
+   "faces": 1,
+   "frame_similarity": [
+    1.0
+   ],
+   "arcface_owner_first": true,
+   "arcface_owner_similarity": 0.662,
+   "sface_owner_first": true
+  },
+  {
+   "photo": "0.png",
+   "variant": "shield512",
+   "faces": 1,
+   "frame_similarity": [
+    -0.526
+   ],
+   "arcface_owner_first": false,
+   "arcface_owner_similarity": 0.047,
+   "sface_owner_first": false
+  },
+  {
+   "photo": "0.png",
+   "variant": "shield_mist16",
+   "faces": 1,
+   "frame_similarity": [
+    -0.332
+   ],
+   "arcface_owner_first": false,
+   "arcface_owner_similarity": 0.023,
+   "sface_owner_first": false
+  },
+  {
+   "photo": "1.png",
+   "variant": "wm512",
+   "faces": 1,
+   "frame_similarity": [
+    1.0
+   ],
+   "arcface_owner_first": true,
+   "arcface_owner_similarity": 0.676,
+   "sface_owner_first": true
+  },
+  {
+   "photo": "1.png",
+   "variant": "shield512",
+   "faces": 1,
+   "frame_similarity": [
+    -0.646
+   ],
+   "arcface_owner_first": false,
+   "arcface_owner_similarity": 0.087,
+   "sface_owner_first": false
+  },
+  {
+   "photo": "1.png",
+   "variant": "shield_mist16",
+   "faces": 1,
+   "frame_similarity": [
+    -0.386
+   ],
+   "arcface_owner_first": false,
+   "arcface_owner_similarity": 0.021,
+   "sface_owner_first": false
+  },
+  {
+   "photo": "2.png",
+   "variant": "wm512",
+   "faces": 1,
+   "frame_similarity": [
+    1.0
+   ],
+   "arcface_owner_first": true,
+   "arcface_owner_similarity": 0.568,
+   "sface_owner_first": true
+  },
+  {
+   "photo": "2.png",
+   "variant": "shield512",
+   "faces": 1,
+   "frame_similarity": [
+    -0.697
+   ],
+   "arcface_owner_first": false,
+   "arcface_owner_similarity": 0.016,
+   "sface_owner_first": false
+  },
+  {
+   "photo": "2.png",
+   "variant": "shield_mist16",
+   "faces": 1,
+   "frame_similarity": [
+    -0.437
+   ],
+   "arcface_owner_first": false,
+   "arcface_owner_similarity": -0.028,
+   "sface_owner_first": false
+  },
+  {
+   "photo": "3.png",
+   "variant": "wm512",
+   "faces": 1,
+   "frame_similarity": [
+    1.0
+   ],
+   "arcface_owner_first": true,
+   "arcface_owner_similarity": 0.612,
+   "sface_owner_first": true
+  },
+  {
+   "photo": "3.png",
+   "variant": "shield512",
+   "faces": 1,
+   "frame_similarity": [
+    -0.746
+   ],
+   "arcface_owner_first": true,
+   "arcface_owner_similarity": 0.165,
+   "sface_owner_first": false
+  },
+  {
+   "photo": "3.png",
+   "variant": "shield_mist16",
+   "faces": 1,
+   "frame_similarity": [
+    -0.496
+   ],
+   "arcface_owner_first": true,
+   "arcface_owner_similarity": 0.188,
+   "sface_owner_first": false
+  },
+  {
+   "photo": "4.png",
+   "variant": "wm512",
+   "faces": 1,
+   "frame_similarity": [
+    1.0
+   ],
+   "arcface_owner_first": true,
+   "arcface_owner_similarity": 0.487,
+   "sface_owner_first": true
+  },
+  {
+   "photo": "4.png",
+   "variant": "shield512",
+   "faces": 1,
+   "frame_similarity": [
+    -0.747
+   ],
+   "arcface_owner_first": false,
+   "arcface_owner_similarity": 0.141,
+   "sface_owner_first": false
+  },
+  {
+   "photo": "4.png",
+   "variant": "shield_mist16",
+   "faces": 1,
+   "frame_similarity": [
+    -0.518
+   ],
+   "arcface_owner_first": false,
+   "arcface_owner_similarity": 0.095,
+   "sface_owner_first": false
+  },
+  {
+   "photo": "5.png",
+   "variant": "wm512",
+   "faces": 2,
+   "frame_similarity": [
+    1.0,
+    1.0
+   ],
+   "arcface_owner_first": true,
+   "arcface_owner_similarity": 0.67,
+   "sface_owner_first": true
+  },
+  {
+   "photo": "5.png",
+   "variant": "shield512",
+   "faces": 2,
+   "frame_similarity": [
+    -0.709,
+    -0.602
+   ],
+   "arcface_owner_first": true,
+   "arcface_owner_similarity": 0.145,
+   "sface_owner_first": false
+  },
+  {
+   "photo": "5.png",
+   "variant": "shield_mist16",
+   "faces": 2,
+   "frame_similarity": [
+    -0.563,
+    -0.419
+   ],
+   "arcface_owner_first": true,
+   "arcface_owner_similarity": 0.159,
+   "sface_owner_first": false
+  },
+  {
+   "photo": "6.png",
+   "variant": "wm512",
+   "faces": 2,
+   "frame_similarity": [
+    1.0,
+    1.0
+   ],
+   "arcface_owner_first": true,
+   "arcface_owner_similarity": 0.661,
+   "sface_owner_first": true
+  },
+  {
+   "photo": "6.png",
+   "variant": "shield512",
+   "faces": 2,
+   "frame_similarity": [
+    -0.681,
+    -0.714
+   ],
+   "arcface_owner_first": false,
+   "arcface_owner_similarity": -0.303,
+   "sface_owner_first": false
+  },
+  {
+   "photo": "6.png",
+   "variant": "shield_mist16",
+   "faces": 2,
+   "frame_similarity": [
+    -0.516,
+    -0.342
+   ],
+   "arcface_owner_first": false,
+   "arcface_owner_similarity": -0.293,
+   "sface_owner_first": false
+  },
+  {
+   "photo": "7.png",
+   "variant": "wm512",
+   "faces": 1,
+   "frame_similarity": [
+    1.0
+   ],
+   "arcface_owner_first": true,
+   "arcface_owner_similarity": 0.448,
+   "sface_owner_first": true
+  },
+  {
+   "photo": "7.png",
+   "variant": "shield512",
+   "faces": 1,
+   "frame_similarity": [
+    -0.763
+   ],
+   "arcface_owner_first": false,
+   "arcface_owner_similarity": 0.033,
+   "sface_owner_first": false
+  },
+  {
+   "photo": "7.png",
+   "variant": "shield_mist16",
+   "faces": 1,
+   "frame_similarity": [
+    -0.477
+   ],
+   "arcface_owner_first": false,
+   "arcface_owner_similarity": -0.065,
+   "sface_owner_first": false
+  }
+ ]
+}

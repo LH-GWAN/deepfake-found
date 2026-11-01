@@ -1,0 +1,413 @@
+{
+  "question": "does a quality-adaptive recogniser recover small, compressed faces?",
+  "protocol": "evaluate_face_pipeline.py leave-one-out, max aggregation, deployed detector and aligner, flip TTA for both recognisers",
+  "threshold_rule": "a quarter of the calibration gap either side of its midpoint, over clean, jpeg30, crop_20, blur_3, screenshot",
+  "photos": 170,
+  "identities": 30,
+  "recognisers": {
+    "arcface": {
+      "thresholds": {
+        "impostor_max": 0.3323,
+        "genuine_min": 0.4397,
+        "gap": 0.1074,
+        "separated": true,
+        "candidate": 0.3591,
+        "high_confidence": 0.4128
+      },
+      "conditions": {
+        "clean": {
+          "genuine": 170,
+          "impostor": 4930,
+          "probe_detection_failures": 0,
+          "auc": 1.0,
+          "genuine_min": 0.5663,
+          "genuine_median": 0.7799,
+          "impostor_max": 0.2794,
+          "bands_at_own_thresholds": {
+            "high_confidence": 170,
+            "review": 0,
+            "below_candidate": 0
+          },
+          "recall_above_every_impostor": 1.0,
+          "impostors_above_high_confidence": 0
+        },
+        "jpeg30": {
+          "genuine": 170,
+          "impostor": 4930,
+          "probe_detection_failures": 0,
+          "auc": 1.0,
+          "genuine_min": 0.5534,
+          "genuine_median": 0.7557,
+          "impostor_max": 0.2876,
+          "bands_at_own_thresholds": {
+            "high_confidence": 170,
+            "review": 0,
+            "below_candidate": 0
+          },
+          "recall_above_every_impostor": 1.0,
+          "impostors_above_high_confidence": 0
+        },
+        "crop_20": {
+          "genuine": 170,
+          "impostor": 4930,
+          "probe_detection_failures": 0,
+          "auc": 1.0,
+          "genuine_min": 0.5443,
+          "genuine_median": 0.775,
+          "impostor_max": 0.2872,
+          "bands_at_own_thresholds": {
+            "high_confidence": 170,
+            "review": 0,
+            "below_candidate": 0
+          },
+          "recall_above_every_impostor": 1.0,
+          "impostors_above_high_confidence": 0
+        },
+        "blur_3": {
+          "genuine": 170,
+          "impostor": 4930,
+          "probe_detection_failures": 0,
+          "auc": 1.0,
+          "genuine_min": 0.4397,
+          "genuine_median": 0.6448,
+          "impostor_max": 0.3323,
+          "bands_at_own_thresholds": {
+            "high_confidence": 170,
+            "review": 0,
+            "below_candidate": 0
+          },
+          "recall_above_every_impostor": 1.0,
+          "impostors_above_high_confidence": 0
+        },
+        "screenshot": {
+          "genuine": 170,
+          "impostor": 4930,
+          "probe_detection_failures": 0,
+          "auc": 1.0,
+          "genuine_min": 0.5658,
+          "genuine_median": 0.7733,
+          "impostor_max": 0.2821,
+          "bands_at_own_thresholds": {
+            "high_confidence": 170,
+            "review": 0,
+            "below_candidate": 0
+          },
+          "recall_above_every_impostor": 1.0,
+          "impostors_above_high_confidence": 0
+        },
+        "video_small": {
+          "genuine": 170,
+          "impostor": 4930,
+          "probe_detection_failures": 0,
+          "auc": 0.99981,
+          "genuine_min": 0.171,
+          "genuine_median": 0.3923,
+          "impostor_max": 0.2633,
+          "bands_at_own_thresholds": {
+            "high_confidence": 70,
+            "review": 33,
+            "below_candidate": 67
+          },
+          "recall_above_every_impostor": 0.7118,
+          "impostors_above_high_confidence": 0
+        },
+        "downscale_25": {
+          "genuine": 170,
+          "impostor": 4930,
+          "probe_detection_failures": 0,
+          "auc": 1.0,
+          "genuine_min": 0.513,
+          "genuine_median": 0.7125,
+          "impostor_max": 0.2911,
+          "bands_at_own_thresholds": {
+            "high_confidence": 170,
+            "review": 0,
+            "below_candidate": 0
+          },
+          "recall_above_every_impostor": 1.0,
+          "impostors_above_high_confidence": 0
+        }
+      },
+      "impostor_max_all_conditions": 0.3323,
+      "gallery_failures": 0,
+      "seconds_per_image": 1.0269
+    },
+    "adaface": {
+      "thresholds": {
+        "impostor_max": 0.312,
+        "genuine_min": 0.4579,
+        "gap": 0.1459,
+        "separated": true,
+        "candidate": 0.3485,
+        "high_confidence": 0.4214
+      },
+      "conditions": {
+        "clean": {
+          "genuine": 170,
+          "impostor": 4930,
+          "probe_detection_failures": 0,
+          "auc": 1.0,
+          "genuine_min": 0.5887,
+          "genuine_median": 0.798,
+          "impostor_max": 0.2881,
+          "bands_at_own_thresholds": {
+            "high_confidence": 170,
+            "review": 0,
+            "below_candidate": 0
+          },
+          "recall_above_every_impostor": 1.0,
+          "impostors_above_high_confidence": 0
+        },
+        "jpeg30": {
+          "genuine": 170,
+          "impostor": 4930,
+          "probe_detection_failures": 0,
+          "auc": 1.0,
+          "genuine_min": 0.5397,
+          "genuine_median": 0.7734,
+          "impostor_max": 0.312,
+          "bands_at_own_thresholds": {
+            "high_confidence": 170,
+            "review": 0,
+            "below_candidate": 0
+          },
+          "recall_above_every_impostor": 1.0,
+          "impostors_above_high_confidence": 0
+        },
+        "crop_20": {
+          "genuine": 170,
+          "impostor": 4930,
+          "probe_detection_failures": 0,
+          "auc": 1.0,
+          "genuine_min": 0.5875,
+          "genuine_median": 0.8002,
+          "impostor_max": 0.2958,
+          "bands_at_own_thresholds": {
+            "high_confidence": 170,
+            "review": 0,
+            "below_candidate": 0
+          },
+          "recall_above_every_impostor": 1.0,
+          "impostors_above_high_confidence": 0
+        },
+        "blur_3": {
+          "genuine": 170,
+          "impostor": 4930,
+          "probe_detection_failures": 0,
+          "auc": 1.0,
+          "genuine_min": 0.4579,
+          "genuine_median": 0.6826,
+          "impostor_max": 0.292,
+          "bands_at_own_thresholds": {
+            "high_confidence": 170,
+            "review": 0,
+            "below_candidate": 0
+          },
+          "recall_above_every_impostor": 1.0,
+          "impostors_above_high_confidence": 0
+        },
+        "screenshot": {
+          "genuine": 170,
+          "impostor": 4930,
+          "probe_detection_failures": 0,
+          "auc": 1.0,
+          "genuine_min": 0.5728,
+          "genuine_median": 0.791,
+          "impostor_max": 0.288,
+          "bands_at_own_thresholds": {
+            "high_confidence": 170,
+            "review": 0,
+            "below_candidate": 0
+          },
+          "recall_above_every_impostor": 1.0,
+          "impostors_above_high_confidence": 0
+        },
+        "video_small": {
+          "genuine": 170,
+          "impostor": 4930,
+          "probe_detection_failures": 0,
+          "auc": 0.99807,
+          "genuine_min": 0.0588,
+          "genuine_median": 0.4041,
+          "impostor_max": 0.2564,
+          "bands_at_own_thresholds": {
+            "high_confidence": 69,
+            "review": 48,
+            "below_candidate": 53
+          },
+          "recall_above_every_impostor": 0.7706,
+          "impostors_above_high_confidence": 0
+        },
+        "downscale_25": {
+          "genuine": 170,
+          "impostor": 4930,
+          "probe_detection_failures": 0,
+          "auc": 1.0,
+          "genuine_min": 0.4991,
+          "genuine_median": 0.7486,
+          "impostor_max": 0.2811,
+          "bands_at_own_thresholds": {
+            "high_confidence": 170,
+            "review": 0,
+            "below_candidate": 0
+          },
+          "recall_above_every_impostor": 1.0,
+          "impostors_above_high_confidence": 0
+        }
+      },
+      "impostor_max_all_conditions": 0.312,
+      "gallery_failures": 0,
+      "seconds_per_image": 7.5865
+    },
+    "arcface+adaface": {
+      "thresholds": {
+        "impostor_max": 0.3121,
+        "genuine_min": 0.4565,
+        "gap": 0.1443,
+        "separated": true,
+        "candidate": 0.3482,
+        "high_confidence": 0.4204
+      },
+      "conditions": {
+        "clean": {
+          "genuine": 170,
+          "impostor": 4930,
+          "probe_detection_failures": 0,
+          "auc": 1.0,
+          "genuine_min": 0.5775,
+          "genuine_median": 0.7847,
+          "impostor_max": 0.2761,
+          "bands_at_own_thresholds": {
+            "high_confidence": 170,
+            "review": 0,
+            "below_candidate": 0
+          },
+          "recall_above_every_impostor": 1.0,
+          "impostors_above_high_confidence": 0
+        },
+        "jpeg30": {
+          "genuine": 170,
+          "impostor": 4930,
+          "probe_detection_failures": 0,
+          "auc": 1.0,
+          "genuine_min": 0.5466,
+          "genuine_median": 0.7621,
+          "impostor_max": 0.2958,
+          "bands_at_own_thresholds": {
+            "high_confidence": 170,
+            "review": 0,
+            "below_candidate": 0
+          },
+          "recall_above_every_impostor": 1.0,
+          "impostors_above_high_confidence": 0
+        },
+        "crop_20": {
+          "genuine": 170,
+          "impostor": 4930,
+          "probe_detection_failures": 0,
+          "auc": 1.0,
+          "genuine_min": 0.5659,
+          "genuine_median": 0.7846,
+          "impostor_max": 0.279,
+          "bands_at_own_thresholds": {
+            "high_confidence": 170,
+            "review": 0,
+            "below_candidate": 0
+          },
+          "recall_above_every_impostor": 1.0,
+          "impostors_above_high_confidence": 0
+        },
+        "blur_3": {
+          "genuine": 170,
+          "impostor": 4930,
+          "probe_detection_failures": 0,
+          "auc": 1.0,
+          "genuine_min": 0.4565,
+          "genuine_median": 0.6649,
+          "impostor_max": 0.3121,
+          "bands_at_own_thresholds": {
+            "high_confidence": 170,
+            "review": 0,
+            "below_candidate": 0
+          },
+          "recall_above_every_impostor": 1.0,
+          "impostors_above_high_confidence": 0
+        },
+        "screenshot": {
+          "genuine": 170,
+          "impostor": 4930,
+          "probe_detection_failures": 0,
+          "auc": 1.0,
+          "genuine_min": 0.574,
+          "genuine_median": 0.7749,
+          "impostor_max": 0.2841,
+          "bands_at_own_thresholds": {
+            "high_confidence": 170,
+            "review": 0,
+            "below_candidate": 0
+          },
+          "recall_above_every_impostor": 1.0,
+          "impostors_above_high_confidence": 0
+        },
+        "video_small": {
+          "genuine": 170,
+          "impostor": 4930,
+          "probe_detection_failures": 0,
+          "auc": 0.99958,
+          "genuine_min": 0.1149,
+          "genuine_median": 0.4016,
+          "impostor_max": 0.2599,
+          "bands_at_own_thresholds": {
+            "high_confidence": 65,
+            "review": 52,
+            "below_candidate": 53
+          },
+          "recall_above_every_impostor": 0.7647,
+          "impostors_above_high_confidence": 0
+        },
+        "downscale_25": {
+          "genuine": 170,
+          "impostor": 4930,
+          "probe_detection_failures": 0,
+          "auc": 1.0,
+          "genuine_min": 0.5082,
+          "genuine_median": 0.7328,
+          "impostor_max": 0.2849,
+          "bands_at_own_thresholds": {
+            "high_confidence": 170,
+            "review": 0,
+            "below_candidate": 0
+          },
+          "recall_above_every_impostor": 1.0,
+          "impostors_above_high_confidence": 0
+        }
+      },
+      "impostor_max_all_conditions": 0.3121,
+      "gallery_failures": 0,
+      "seconds_per_image": null
+    }
+  },
+  "environment": {
+    "deepshield_version": "0.1.0",
+    "git_commit": "not-a-git-repository",
+    "git_dirty": null,
+    "python": "3.13.15",
+    "platform": "Linux-6.6.122+-x86_64-with-glibc2.39",
+    "numpy": "2.1.3",
+    "random_seed": 42,
+    "configured_device": "cpu",
+    "face_detector": "opencv_yunet",
+    "face_aligner": "landmark",
+    "face_embedder": "insightface",
+    "deepfake_detector": "spectral",
+    "watermark_backend": "dct",
+    "watermark_strength": 0.16,
+    "recorded_at": "2026-09-26T14:54:08.653694+00:00"
+  },
+  "timing_note": "seconds_per_image is the clean gallery's embedding time per photograph, detector and flip TTA included, on the Colab CPU runtime (2 vCPUs) in the first run; the fused entry was added by a second run that re-summarised the cached scores, so it has no timing of its own",
+  "code": {
+    "scores": "de6034e (compare_face_embedders.py as in b240113)",
+    "fused_summary": "046275a, re-summarising the cached scores"
+  },
+  "runtime": "Colab CPU runtime (2 vCPUs), onnxruntime CPU execution provider"
+}

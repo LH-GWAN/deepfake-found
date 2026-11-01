@@ -1,0 +1,44 @@
+{
+  "images": 170,
+  "detector": "opencv_yunet",
+  "rescue": {
+    "min_side": 160,
+    "pad_fraction": 0.25
+  },
+  "probe_shape": {
+    "clean": [
+      250,
+      250
+    ],
+    "downscale_25": [
+      62,
+      62
+    ],
+    "downscale_50": [
+      125,
+      125
+    ],
+    "crop_30": [
+      250,
+      250
+    ]
+  },
+  "detected": {
+    "clean": {
+      "without_rescue": 170,
+      "with_rescue": 170
+    },
+    "downscale_25": {
+      "without_rescue": 0,
+      "with_rescue": 170
+    },
+    "downscale_50": {
+      "without_rescue": 168,
+      "with_rescue": 170
+    },
+    "crop_30": {
+      "without_rescue": 170,
+      "with_rescue": 170
+    }
+  }
+}

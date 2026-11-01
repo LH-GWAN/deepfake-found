@@ -1,0 +1,130 @@
+{
+  "question": "does protect --mode shield, as shipped, stop inswapper from carrying the owner, and what does the shielded file cost and keep?",
+  "shield": {
+    "epsilon": 0.03137254901960784,
+    "steps": 200,
+    "eot_samples": 4,
+    "seed": 0,
+    "encoder_model": "insightface/models/buffalo_l/w600k_r50.onnx",
+    "landmark_detector": "insightface"
+  },
+  "shrink": 0.3,
+  "identities": 30,
+  "unshielded": 0,
+  "arcface_high_confidence": 0.47,
+  "swaps": {
+    "clean": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "owner_first": 30,
+        "median_owner_similarity": 0.665,
+        "above_high_confidence": 29
+      },
+      "sface": {
+        "owner_first": 30,
+        "median_owner_similarity": 0.678
+      }
+    },
+    "shielded": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "owner_first": 0,
+        "median_owner_similarity": -0.2371,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "owner_first": 0,
+        "median_owner_similarity": -0.0669
+      }
+    },
+    "shielded_jpeg85": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "owner_first": 22,
+        "median_owner_similarity": 0.1985,
+        "above_high_confidence": 0
+      },
+      "sface": {
+        "owner_first": 18,
+        "median_owner_similarity": 0.3223
+      }
+    },
+    "shielded_jpeg70": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "owner_first": 27,
+        "median_owner_similarity": 0.2877,
+        "above_high_confidence": 1
+      },
+      "sface": {
+        "owner_first": 22,
+        "median_owner_similarity": 0.396
+      }
+    },
+    "shielded_half": {
+      "scored": 30,
+      "no_face": 0,
+      "arcface": {
+        "owner_first": 28,
+        "median_owner_similarity": 0.255,
+        "above_high_confidence": 1
+      },
+      "sface": {
+        "owner_first": 23,
+        "median_owner_similarity": 0.3854
+      }
+    }
+  },
+  "shielded_file_itself": {
+    "scored": 0,
+    "no_face": 30,
+    "arcface": {
+      "owner_first": 0,
+      "median_owner_similarity": null,
+      "above_high_confidence": 0
+    },
+    "sface": {
+      "owner_first": 0,
+      "median_owner_similarity": null
+    }
+  },
+  "shielded_file": {
+    "median_seconds": 7.41,
+    "devices": [
+      "mps"
+    ],
+    "median_psnr": 36.4418,
+    "median_ssim": 0.8237,
+    "median_similarity_to_clean_face": -0.4915,
+    "watermark_verified": 30
+  },
+  "verdicts": {
+    "repost_jpeg85": {
+      "own_unverified": 30
+    },
+    "gan_target": {
+      "own_unverified": 30
+    }
+  },
+  "environment": {
+    "deepshield_version": "0.1.0",
+    "git_commit": "80862c4559eed38eac6590ac1038c41e2e558564",
+    "git_dirty": true,
+    "python": "3.12.10",
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
+    "numpy": "2.5.3",
+    "random_seed": 42,
+    "configured_device": "cpu",
+    "face_detector": "opencv_yunet",
+    "face_aligner": "landmark",
+    "face_embedder": "insightface",
+    "deepfake_detector": "spectral",
+    "watermark_backend": "dct",
+    "watermark_strength": 0.16,
+    "recorded_at": "2026-10-02T05:50:25.423714+00:00"
+  }
+}
