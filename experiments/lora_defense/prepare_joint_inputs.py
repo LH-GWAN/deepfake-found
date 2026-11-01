@@ -8,6 +8,9 @@ the way the protection pipeline marks it, in two forms:
   Kaggle starts here and has to fit the shield and Mist into one budget.
 - ``shield512``: the watermark and the shipped swap shield (``protect --mode shield``).
   Mist is then run on it unchanged: the shield first, Mist after.
+  ``--shield-epsilon 4`` shields at 4/255 instead of the shipped 8/255, into
+  ``shield4_512`` (``--shield-variant`` names it otherwise), for the budget-matched
+  ``shield4_mist4``: 4/255 of shield, then 4/255 of Mist.
 
 It also writes the five SCRFD landmarks of every face in each ``wm512`` photograph, the
 frame the shield optimises in, which the joint optimisation needs on Kaggle, and a
@@ -69,8 +72,15 @@ def main() -> int:
     parser.add_argument("--clean", type=Path, required=True, help="<identity>/<n>.png")
     parser.add_argument("--work", type=Path, required=True)
     parser.add_argument("--shield-people", default=",".join(PILOT),
-                        help="comma-separated identities that also get shield512")
+                        help="comma-separated identities that also get the shield")
+    parser.add_argument("--shield-epsilon", type=float, default=None,
+                        help="the shield's budget in 1/255 (default: the shipped 8/255)")
+    parser.add_argument("--shield-variant", default=None,
+                        help="folder of the shielded photographs (default: shield512, or "
+                             "shield<epsilon>_512 with --shield-epsilon)")
     args = parser.parse_args()
+    shield_variant = args.shield_variant or (
+        "shield512" if args.shield_epsilon is None else f"shield{args.shield_epsilon:g}_512")
 
     people = sorted(p.name for p in args.clean.iterdir() if len(list(p.glob("*.png"))) >= 8)
     shield_people = set(args.shield_people.split(",")) if args.shield_people else set()
@@ -87,6 +97,11 @@ def main() -> int:
     with tempfile.TemporaryDirectory() as raw:
         workspace = Path(raw)
         config = isolated(load_config(), workspace)
+        if args.shield_epsilon is not None:
+            protection_config = config.protection.model_copy(update={
+                "shield": config.protection.shield.model_copy(
+                    update={"epsilon": args.shield_epsilon / 255})})
+            config = config.model_copy(update={"protection": protection_config})
         if config.protection.shield.landmark_detector != "insightface":
             raise SystemExit("the shield is configured with another landmark detector")
         protection = DefaultProtectionPipeline(config)
@@ -97,7 +112,7 @@ def main() -> int:
         for index, person in enumerate(people):
             variants = [("wm512", "trace")]
             if person in shield_people:
-                variants.append(("shield512", "shield"))
+                variants.append((shield_variant, "shield"))
             for n in range(8):
                 name = f"{n}.png"
                 source = workspace / "clean512" / person / name
@@ -137,7 +152,8 @@ def main() -> int:
             write_json(landmarks_path, landmarks)
             print(f"{index + 1}/{len(people)} {person}", flush=True)
 
-    counts = {v: sum(len(p) for p in manifest.get(v, {}).values()) for v in ("wm512", "shield512")}
+    counts = {v: sum(len(p) for p in manifest.get(v, {}).values())
+              for v in ("wm512", shield_variant)}
     faces = Counter(len(f) for person in landmarks.values() for f in person.values())
     print(json.dumps({"photos": counts, "faces_per_photo": dict(sorted(faces.items()))}))
     return 0

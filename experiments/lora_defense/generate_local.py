@@ -1,6 +1,9 @@
-"""Generate the anti-LoRA test's images locally from the LoRAs trained on Kaggle.
+"""Generate the anti-LoRA test's images from the LoRAs trained on Kaggle or Colab.
 
-Images of the people are made here, not on Colab or Kaggle. The settings are the first
+Until the budget-matched runs, images of the people were made only locally, on the Mac's
+GPU. Those runs make them on Colab, for which the user reported getting permission on
+2026-10-26.
+``--device`` picks the GPU (default: CUDA if there is one, else MPS). The settings are the first
 run's (``build_notebook.py``): four prompts times four seeds, 25 DPM-Solver steps,
 guidance 7.5, plus a ``base`` control with no LoRA. Each LoRA (r = alpha = 8 on the
 attention projections) is merged into a fresh copy of the UNet's weights, so peft is
@@ -46,7 +49,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--loras', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'mps')
+    parser.add_argument('--variants', default='',
+                        help='comma-separated variants to generate (default: every LoRA)')
     args = parser.parse_args()
+    chosen = set(filter(None, args.variants.split(',')))
 
     # The VAE is the float32 one, as in the training script.
     vae = AutoencoderKL.from_pretrained(MODEL, subfolder='vae')
@@ -55,13 +62,14 @@ def main() -> None:
         requires_safety_checker=False)
     pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
     pipe.vae.to(torch.float32)
-    pipe.to('mps')
+    pipe.to(args.device)
     pipe.set_progress_bar_config(disable=True)
     original = {k: v.clone() for k, v in pipe.unet.state_dict().items()}
 
     jobs = [('base', 'none', None)] + [
         (path.parent.name, path.stem, path)
-        for path in sorted(args.loras.glob('*/*.pt')) if '.partial' not in path.name]
+        for path in sorted(args.loras.glob('*/*.pt'))
+        if '.partial' not in path.name and (not chosen or path.parent.name in chosen)]
     for variant, identity, path in jobs:
         out_dir = args.output / variant / identity
         todo = [(p, prompt, seed) for p, prompt in enumerate(PROMPTS) for seed in SEEDS

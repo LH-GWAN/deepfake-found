@@ -21,8 +21,11 @@ For every photograph this measures:
   resampling, as evaluate_mist_shield.py measures them.
 
 Mist alone (``mist16``) and Mist with the shield stacked on it (``mist16_shield``) are
-measured alongside for the same people. The LoRA half is scored by
-scripts/evaluate_lora_defense.py. Run it from the checkout that holds ./models.
+measured alongside for the same people. The budget-matched arms are measured the same
+way: ``joint16`` (one PGD in 16/255, the most ``shield_mist16`` can move a pixel),
+``shield4_mist4`` (4/255 of shield, then 4/255 of Mist, within ``joint8``'s 8/255) and
+``shield4_512`` (the 4/255 shield alone, to see whether it still stops the swap). The
+LoRA half is scored by scripts/evaluate_lora_defense.py. Run it from the checkout that holds ./models.
 
     python <this file> --work experiments/lora_defense/v3 \
         --clean experiments/lora_defense/v3/clean --gallery experiments/lora_defense/v3/gallery \
@@ -59,7 +62,8 @@ from deepshield.protection.watermark import build_watermarker
 from deepshield.quality import psnr, ssim
 
 # The photographs each variant started from, whose watermark code the manifest holds.
-MARKED_FROM = {"shield_mist16": "shield512", "joint8": "wm512", "joint12": "wm512"}
+MARKED_FROM = {"shield_mist16": "shield512", "joint8": "wm512", "joint12": "wm512",
+               "joint16": "wm512", "shield4_mist4": "shield4_512", "shield4_512": "shield4_512"}
 
 
 def main() -> int:

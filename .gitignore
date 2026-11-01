@@ -71,3 +71,6 @@ experiments/lora_defense/v3/
 experiments/idgen/out/
 experiments/idgen/pipeline_stable_diffusion_xl_instantid.py
 experiments/idgen/ip_adapter/
+
+# Bundles colab_bundle_budget.sh packs for upload to Google Drive
+experiments/lora_defense/colab_upload/

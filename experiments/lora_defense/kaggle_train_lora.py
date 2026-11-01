@@ -18,6 +18,9 @@ read too.
 ``LORA_VARIANTS`` picks the variants (comma-separated), and
 ``LORA_SHARD=k/n`` trains only every n-th LoRA from the k-th, so two processes can share
 the two GPUs of a "GPU T4 x2" session.
+
+Off Kaggle, ``DS_INPUT`` and ``DS_WORK`` replace ``/kaggle/input`` and
+``/kaggle/working``, as in kaggle_mist.py.
 """
 
 import glob
@@ -46,7 +49,8 @@ PROMPT = 'a photo of sks person'
 TRAIN_STEPS = 400
 CHECKPOINT_EVERY = 100
 RANK = 8
-WORK = '/kaggle/working'
+INPUT = os.environ.get('DS_INPUT', '/kaggle/input')
+WORK = os.environ.get('DS_WORK', '/kaggle/working')
 OUT = f'{WORK}/lora'
 LOG = f'{WORK}/log.txt'
 TESTED = f"{WORK}/lora_resume_tested{os.environ.get('RESUME_TAG', '')}"
@@ -63,14 +67,14 @@ def log(message):
 def carry_over_previous_output():
     """Copy the chosen variants' LoRAs from an attached earlier version's output, finished or partial."""
     for path in [p for variant in VARIANTS
-                 for p in glob.glob(f'/kaggle/input/**/lora/{variant}/*.pt', recursive=True)]:
+                 for p in glob.glob(f'{INPUT}/**/lora/{variant}/*.pt', recursive=True)]:
         variant, name = path.split('/')[-2:]
         target = f'{OUT}/{variant}/{name}'
         if not os.path.exists(target):
             os.makedirs(os.path.dirname(target), exist_ok=True)
             shutil.copy(path, target)
             log(f'carried over {variant}/{name}')
-    for path in glob.glob(f'/kaggle/input/**/{os.path.basename(TESTED)}', recursive=True):
+    for path in glob.glob(f'{INPUT}/**/{os.path.basename(TESTED)}', recursive=True):
         shutil.copy(path, TESTED)
 
 
@@ -98,7 +102,7 @@ with torch.no_grad():
 def photos(variant, identity):
     """One path per photo number, from the inputs or from kaggle_aspl.py's output."""
     found = {}
-    for root in ('/kaggle/input/**', f'{WORK}/protected'):
+    for root in (f'{INPUT}/**', f'{WORK}/protected'):
         for path in glob.glob(f'{root}/{variant}/{identity}/*.png', recursive=True):
             found.setdefault(os.path.basename(path), path)
     return sorted(found.values(), key=lambda p: int(os.path.basename(p)[:-4]))

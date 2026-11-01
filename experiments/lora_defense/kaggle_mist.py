@@ -8,13 +8,23 @@ picks the variants (comma-separated, default ``mist16``):
 - ``shield_mist16``: Mist on photographs that already carry the watermark and the swap
   shield (``shield512/<identity>/``, from prepare_joint_inputs.py): the shield first,
   Mist after;
-- ``joint8``, ``joint12``: Mist on the watermarked photographs (``wm512/<identity>/``)
-  with the shield's loss added to its own PGD (joint_arcface.py), in one budget of 8/255
-  or 12/255 of [0, 1]. ``MIST_JOINT_TAU`` is the similarity at which the shield's step
-  stops (default -0.4), ``MIST_JOINT_STEP`` its size (default Mist's own, 0.005) and
-  ``ARCFACE_ONNX`` the encoder's path when it is not an input file itself.
+- ``joint8``, ``joint12``, ``joint16``: Mist on the watermarked photographs
+  (``wm512/<identity>/``) with the shield's loss added to its own PGD (joint_arcface.py),
+  in one budget of 8/255, 12/255 or 16/255 of [0, 1]. ``joint16`` matches the most
+  ``shield_mist16`` can move a pixel from the clean photograph (8/255 + 8/255);
+- ``shield4_mist4``: Mist at 4/255 on photographs shielded at 4/255
+  (``shield4_512/<identity>/``, prepare_joint_inputs.py ``--shield-epsilon 4``): the
+  shield first, Mist after, within the 8/255 of ``joint8``.
+
+For the joint variants ``MIST_JOINT_TAU`` is the similarity at which the shield's step
+stops (default -0.4), ``MIST_JOINT_STEP`` its size (default Mist's own, 0.005) and
+``ARCFACE_ONNX`` the encoder's path when it is not an input file itself.
 
 Only the photographs under ``/kaggle/input`` that have no output yet are run.
+Off Kaggle, ``DS_INPUT``, ``DS_WORK`` and ``DS_TEMP`` replace ``/kaggle/input``,
+``/kaggle/working`` and ``/kaggle/temp`` (on Colab: inputs and work on Google Drive, so
+a disconnected runtime resumes, and the rest on the runtime's own disk), ``DS_GPUS``
+the two GPUs, and ``DS_CLASS_DIR`` where the prior-preservation images are kept.
 ``MIST_PEOPLE`` names the people (comma-separated) instead of everyone found. The jobs
 alternate between variants, and the two T4s of a "GPU T4 x2" session each run one at a
 time, so they start on different variants.
@@ -39,22 +49,25 @@ from concurrent.futures import ThreadPoolExecutor
 
 MODEL = 'stable-diffusion-v1-5/stable-diffusion-v1-5'
 HERE = os.path.dirname(os.path.abspath(__file__))
-WORK = '/kaggle/working'
-TEMP = '/kaggle/temp'
+INPUT = os.environ.get('DS_INPUT', '/kaggle/input')
+WORK = os.environ.get('DS_WORK', '/kaggle/working')
+TEMP = os.environ.get('DS_TEMP', '/kaggle/temp')
 LOG = f'{WORK}/log.txt'
-CLASS_DIR = f'{TEMP}/class_person'
+CLASS_DIR = os.environ.get('DS_CLASS_DIR', f'{TEMP}/class_person')
 RESUME_DIR = f'{WORK}/mist_resume'
 PROTECTED = f'{WORK}/protected'
 SD_DIR = f'{TEMP}/sd15'
 VENV = f'{TEMP}/venv_mist'
 REPO = f'{TEMP}/mist-v2'
-GPUS = 2
+GPUS = int(os.environ.get('DS_GPUS', '2'))
 # Variant: (input photographs, budget in 1/255 of [0, 1], shield loss added to the PGD).
 VARIANTS = {
     'mist16': ('clean', 8, False),
     'shield_mist16': ('shield512', 8, False),
     'joint8': ('wm512', 8, True),
     'joint12': ('wm512', 12, True),
+    'joint16': ('wm512', 16, True),
+    'shield4_mist4': ('shield4_512', 4, False),
 }
 CHOSEN = os.environ.get('MIST_VARIANTS', 'mist16').split(',')
 PEOPLE = [p for p in os.environ.get('MIST_PEOPLE', '').split(',') if p]
@@ -89,26 +102,26 @@ def tested(variant):
 
 
 def find_input(name):
-    found = glob.glob(f'/kaggle/input/**/{name}', recursive=True)
+    found = glob.glob(f'{INPUT}/**/{name}', recursive=True)
     if not found:
         raise RuntimeError(f'{name} is not among the inputs')
     return found[0]
 
 
 def identities(variant):
-    found = glob.glob(f'/kaggle/input/**/{VARIANTS[variant][0]}/*/*.png', recursive=True)
+    found = glob.glob(f'{INPUT}/**/{VARIANTS[variant][0]}/*/*.png', recursive=True)
     everyone = sorted({path.split('/')[-2] for path in found})
     return [p for p in PEOPLE if p in everyone] if PEOPLE else everyone
 
 
 def source_photos(variant, identity):
-    return glob.glob(f'/kaggle/input/**/{VARIANTS[variant][0]}/{identity}/*.png',
+    return glob.glob(f'{INPUT}/**/{VARIANTS[variant][0]}/{identity}/*.png',
                      recursive=True)
 
 
 def already_protected(variant, identity):
     here = glob.glob(f'{PROTECTED}/{variant}/{identity}/*.png')
-    given = glob.glob(f'/kaggle/input/**/{variant}/{identity}/*.png', recursive=True)
+    given = glob.glob(f'{INPUT}/**/{variant}/{identity}/*.png', recursive=True)
     return len(here) >= 8 or len(given) >= 8
 
 
@@ -116,11 +129,11 @@ def carry_over_previous_output():
     """Copy the chosen variants' checkpoints, photos and resume tests from an earlier output."""
     for variant in CHOSEN:
         for pattern, target_of in [
-                (f'/kaggle/input/**/mist_resume/{variant}/*.pt',
+                (f'{INPUT}/**/mist_resume/{variant}/*.pt',
                  lambda p: f'{RESUME_DIR}/{variant}/{os.path.basename(p)}'),
-                (f'/kaggle/input/**/protected/{variant}/*/*.png',
+                (f'{INPUT}/**/protected/{variant}/*/*.png',
                  lambda p: f'{PROTECTED}/{variant}/{"/".join(p.split("/")[-2:])}'),
-                (f'/kaggle/input/**/{os.path.basename(tested(variant))}',
+                (f'{INPUT}/**/{os.path.basename(tested(variant))}',
                  lambda p: tested(variant))]:
             for path in glob.glob(pattern, recursive=True):
                 target = target_of(path)
