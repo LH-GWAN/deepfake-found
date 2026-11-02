@@ -63,7 +63,8 @@ from deepshield.quality import psnr, ssim
 
 # The photographs each variant started from, whose watermark code the manifest holds.
 MARKED_FROM = {"shield_mist16": "shield512", "joint8": "wm512", "joint12": "wm512",
-               "joint16": "wm512", "shield4_mist4": "shield4_512", "shield4_512": "shield4_512"}
+               "joint16": "wm512", "shield4_mist4": "shield4_512", "shield4_512": "shield4_512",
+               "joint10": "wm512", "shield7_mist7": "shield7_512", "shield7_512": "shield7_512"}
 
 
 def main() -> int:

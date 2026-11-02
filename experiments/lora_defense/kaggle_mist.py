@@ -14,7 +14,10 @@ picks the variants (comma-separated, default ``mist16``):
   ``shield_mist16`` can move a pixel from the clean photograph (8/255 + 8/255);
 - ``shield4_mist4``: Mist at 4/255 on photographs shielded at 4/255
   (``shield4_512/<identity>/``, prepare_joint_inputs.py ``--shield-epsilon 4``): the
-  shield first, Mist after, within the 8/255 of ``joint8``.
+  shield first, Mist after, within the 8/255 of ``joint8``;
+- ``joint10`` and ``shield7_mist7`` (``shield7_512/<identity>/``): the same two methods at
+  the budgets whose photo quality matches the other's, ``joint10`` against
+  ``shield_mist16`` (about 30.7 dB) and ``shield7_mist7`` against ``joint8`` (31.5 dB).
 
 For the joint variants ``MIST_JOINT_TAU`` is the similarity at which the shield's step
 stops (default -0.4), ``MIST_JOINT_STEP`` its size (default Mist's own, 0.005) and
@@ -68,6 +71,8 @@ VARIANTS = {
     'joint12': ('wm512', 12, True),
     'joint16': ('wm512', 16, True),
     'shield4_mist4': ('shield4_512', 4, False),
+    'joint10': ('wm512', 10, True),
+    'shield7_mist7': ('shield7_512', 7, False),
 }
 CHOSEN = os.environ.get('MIST_VARIANTS', 'mist16').split(',')
 PEOPLE = [p for p in os.environ.get('MIST_PEOPLE', '').split(',') if p]
