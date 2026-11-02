@@ -22,19 +22,8 @@ mkdir -p "$DS_WORK" "$DS_TEMP"
 log() { echo "$(date +%H:%M:%S) $*" | tee -a "$DS_WORK/log.txt"; }
 nvidia-smi --query-gpu=name,memory.total --format=csv
 
-# 0. Models: the buffalo_l pack (SCRFD and the w600k_r50 ArcFace the shield attacks) and
-#    inswapper, each checked against the digest the local runs used.
-BUFFALO=models/insightface/models/buffalo_l
-if [ ! -f $BUFFALO/w600k_r50.onnx ]; then
-    mkdir -p models/insightface/models
-    wget -q -O models/insightface/models/buffalo_l.zip \
-        https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip
-    unzip -q -o models/insightface/models/buffalo_l.zip -d $BUFFALO
-fi
-echo "4c06341c33c2ca1f86781dab0e829f88ad5b64be9fba56e56bc9ebdefc619e43  $BUFFALO/w600k_r50.onnx" \
-    | sha256sum -c -
-export ARCFACE_ONNX=$PWD/$BUFFALO/w600k_r50.onnx
-[ -f models/inswapper/inswapper_128.onnx ] || python scripts/fetch_inswapper.py
+# 0. Models.
+source "$HERE/colab_models.sh"
 
 # 1. The 4/255 shield on the watermarked photographs (the shipped shield, smaller budget).
 python "$HERE/prepare_joint_inputs.py" --clean "$V3/clean" --work "$V3" \
@@ -58,19 +47,6 @@ python "$HERE/generate_local.py" --loras "$DS_WORK/lora" --output "$DS_WORK/gene
     --variants $ARMS --device cuda
 log "generation done"
 
-# 5. Scoring. Swaps (and watermark, shield frame, PSNR/SSIM) for the new arms and, as a
-#    check that this runtime reproduces the earlier numbers, for shield_mist16 and joint8.
-mkdir -p "$DS_WORK/results"
-python "$HERE/evaluate_joint_pilot.py" --work "$V3" --clean "$V3/clean" --gallery "$V3/gallery" \
-    --people "$PEOPLE" --variants joint16,shield4_mist4,shield4_512,shield_mist16,joint8 \
-    --output "$DS_WORK/results" --report budget_photos.json
-# The LoRA half, scored as evaluate_lora_defense.py scores every earlier run.
-BUNDLE=$DS_TEMP/score
-rm -rf "$BUNDLE" && mkdir -p "$BUNDLE/generated" "$BUNDLE/protected" "$BUNDLE/faces/clean"
-cp -r "$DS_WORK/generated/." "$BUNDLE/generated/"
-for arm in ${ARMS//,/ }; do cp -r "$DS_WORK/protected/$arm" "$BUNDLE/protected/"; done
-for person in ${PEOPLE//,/ }; do cp -r "$V3/clean/$person" "$BUNDLE/faces/clean/"; done
-(cd "$BUNDLE" && zip -qr results.zip generated protected && cd faces && zip -qr ../faces.zip clean)
-python scripts/evaluate_lora_defense.py --results "$BUNDLE/results.zip" --faces "$BUNDLE/faces.zip" \
-    --gallery "$V3/gallery" --output "$DS_WORK/results/lora"
-log "ALL DONE"
+# 5. Scoring runs on the CPU only and is left to colab_score_budget.sh on a CPU runtime: on
+#    this one the idle T4 gets reclaimed before it finishes.
+log "GPU steps done: switch to a CPU runtime and run colab_score_budget.sh"

@@ -16,6 +16,8 @@ rm -f "$OUT/code.zip" "$OUT/inputs.zip"
 cd "$ROOT"
 { git ls-files | grep -v '^models/learned_watermark'
   echo experiments/lora_defense/colab_run_budget.sh
+  echo experiments/lora_defense/colab_score_budget.sh
+  echo experiments/lora_defense/colab_models.sh
   echo models/face_detection_yunet_2023mar.onnx
   echo models/face_recognition_sface_2021dec.onnx
 } | sort -u | zip -q "$OUT/code.zip" -@
